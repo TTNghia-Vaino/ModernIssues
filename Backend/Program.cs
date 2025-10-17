@@ -1,10 +1,12 @@
+using Microsoft.EntityFrameworkCore;
 using ModernIssues.Models.Configurations;
 using ModernIssues.Services;
-
+using ModernIssues.Models.Entities;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
+builder.Services.AddDbContext<WebDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
 
