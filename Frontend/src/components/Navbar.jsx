@@ -1,10 +1,90 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './Navbar.css';
+import ProductMenu from './ProductMenu';
+import { useNavigate } from 'react-router-dom';
+import { products } from '../data/products';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
+  const navigate = useNavigate();
+  const inputRef = useRef(null);
+  const containerRef = useRef(null);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+
+  useEffect(() => {
+    const onClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+        setHighlightIndex(-1);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  // Compute suggestions based on the current query
+  const suggestions = useMemo(() => {
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) return [];
+    return products
+      .filter(p =>
+        p.name.toLowerCase().includes(trimmed) ||
+        p.brand.toLowerCase().includes(trimmed) ||
+        p.category.toLowerCase().includes(trimmed)
+      )
+      .slice(0, 8);
+  }, [query]);
+
+  // Reset highlight when query changes
+  useEffect(() => {
+    setHighlightIndex(-1);
+  }, [query]);
+
+  const onChange = (e) => {
+    const v = e.target.value;
+    setQuery(v);
+    setShowSuggestions(Boolean(v.trim()));
+  };
+
+  const goToSearch = (value) => {
+    const q = (value ?? query).trim();
+    if (!q) return;
+    navigate(`/products?q=${encodeURIComponent(q)}`);
+    setShowSuggestions(false);
+    setHighlightIndex(-1);
+    if (inputRef.current) inputRef.current.blur();
+  };
+
+  const onKeyDown = (e) => {
+    const hasList = showSuggestions && suggestions.length > 0;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (hasList && highlightIndex >= 0) {
+        const item = suggestions[highlightIndex];
+        navigate(`/products/${item.id}`);
+      } else {
+        goToSearch();
+      }
+      setShowSuggestions(false);
+      setHighlightIndex(-1);
+      return;
+    }
+    if (!hasList) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightIndex(i => (i + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightIndex(i => (i - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setHighlightIndex(-1);
+    }
+  };
 
   return (
     <nav className="navbar">
@@ -22,17 +102,44 @@ const Navbar = () => {
           </div>
 
           {/* Search Bar */}
-          <div className="navbar-search">
-            <div className="search-container">
+          <div className="navbar-search" ref={containerRef}>
+            <form className="search-container" onSubmit={(e)=>{e.preventDefault(); goToSearch();}} role="search" aria-label="Tìm kiếm sản phẩm">
               <input 
+                ref={inputRef}
                 type="text" 
                 placeholder="Bạn cần tìm gì?" 
                 className="search-input"
+                value={query}
+                onChange={onChange}
+                onKeyDown={onKeyDown}
+                aria-autocomplete="list"
+                aria-expanded={showSuggestions}
+                aria-controls="search-suggestions-list"
               />
-              <button type="button" className="search-btn" aria-label="Tìm kiếm">
+              <button type="submit" className="search-btn" aria-label="Tìm kiếm">
                 <i className="fas fa-search" aria-hidden="true"></i>
               </button>
-            </div>
+            </form>
+            {showSuggestions && suggestions.length > 0 && (
+              <ul id="search-suggestions-list" className="search-suggestions" role="listbox">
+                {suggestions.map((p, idx) => (
+                  <li
+                    key={p.id}
+                    role="option"
+                    aria-selected={idx === highlightIndex}
+                    className={`suggestion-item ${idx === highlightIndex ? 'active' : ''}`}
+                    onMouseDown={(e)=>{ e.preventDefault(); }}
+                    onClick={()=>{ navigate(`/products/${p.id}`); setShowSuggestions(false);} }
+                  >
+                    <span className="suggestion-name">{p.name}</span>
+                    <span className="suggestion-meta">{p.brand} · {p.category}</span>
+                  </li>
+                ))}
+                <li className="suggestion-footer" onMouseDown={(e)=>e.preventDefault()} onClick={()=>goToSearch()}>
+                  Tìm "{query}" trong tất cả sản phẩm
+                </li>
+              </ul>
+            )}
           </div>
 
           {/* User Actions */}
@@ -55,7 +162,10 @@ const Navbar = () => {
 
       {/* Bottom Bar */}
       <div className="navbar-bottom">
-        <div className="navbar-container">
+        <div className="navbar-container bottom-bar">
+          <div className="bottom-left">
+            <ProductMenu />
+          </div>
           <nav className="bottom-nav-links" role="navigation" aria-label="Secondary navigation">
             <a href="/payment" className="bottom-link">THANH TOÁN</a>
             <a href="/installment" className="bottom-link">TRẢ GÓP</a>
