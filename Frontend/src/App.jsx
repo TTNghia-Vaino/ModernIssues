@@ -11,6 +11,9 @@ import RegisterForm from './components/RegisterForm';
 import ForgotPasswordForm from './components/ForgotPasswordForm';
 import ProductsList from './components/ProductsList';
 import ProductDetail from './components/ProductDetail';
+import CartPage from './pages/CartPage';
+import { CartProvider } from './context/CartContext';
+import { AuthProvider } from './context/AuthContext';
 import './App.css';
 
 function HomePage() {
@@ -27,18 +30,23 @@ function HomePage() {
 function App() {
   return (
     <Router>
-      <div className="App">
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/products" element={<ProductsList />} />
-          <Route path="/products/:id" element={<ProductDetail />} />
-          <Route path="/login" element={<LoginForm />} />
-          <Route path="/register" element={<RegisterForm />} />
-          <Route path="/forgot-password" element={<ForgotPasswordForm />} />
-        </Routes>
-        <Footer />
-      </div>
+      <AuthProvider>
+        <CartProvider>
+          <div className="App">
+            <Navbar />
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/products" element={<ProductsList />} />
+              <Route path="/products/:id" element={<ProductDetail />} />
+              <Route path="/cart" element={<CartPage />} />
+              <Route path="/login" element={<LoginForm />} />
+              <Route path="/register" element={<RegisterForm />} />
+              <Route path="/forgot-password" element={<ForgotPasswordForm />} />
+            </Routes>
+            <Footer />
+          </div>
+        </CartProvider>
+      </AuthProvider>
     </Router>
   );
 }

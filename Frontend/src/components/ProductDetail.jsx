@@ -1,12 +1,14 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { productById } from '../data/products';
+import { useCart } from '../context/CartContext';
 
 const formatPrice = v => v.toLocaleString('vi-VN') + '₫';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const product = productById(id);
+  const { addItem } = useCart();
 
   if (!product) {
     return (
@@ -31,7 +33,7 @@ const ProductDetail = () => {
               {product.specs.map((s, i)=>(<li key={i}>{s}</li>))}
             </ul>
           </div>
-          <button style={{background:'#0a804a', color:'#fff', border:'none', padding:'10px 16px', borderRadius:6, cursor:'pointer'}}>Thêm vào giỏ</button>
+          <button onClick={()=>addItem(product, 1)} style={{background:'#0a804a', color:'#fff', border:'none', padding:'10px 16px', borderRadius:6, cursor:'pointer'}}>Thêm vào giỏ</button>
         </div>
       </div>
     </div>

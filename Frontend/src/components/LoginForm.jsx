@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import './LoginForm.css';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const LoginForm = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -14,7 +19,11 @@ const LoginForm = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+    // Fake auth success; in real app, call API
+    const user = { email: formData.email };
+    login(user);
+    const redirectTo = (location.state && location.state.from) || '/';
+    navigate(redirectTo);
   };
 
   return (

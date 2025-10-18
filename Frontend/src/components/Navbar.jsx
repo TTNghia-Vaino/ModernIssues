@@ -3,6 +3,7 @@ import './Navbar.css';
 import ProductMenu from './ProductMenu';
 import { useNavigate } from 'react-router-dom';
 import { products } from '../data/products';
+import { useCart } from '../context/CartContext';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -12,6 +13,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const inputRef = useRef(null);
   const containerRef = useRef(null);
+  const { totalCount } = useCart();
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -154,7 +156,7 @@ const Navbar = () => {
             <a href="/cart" className="action-btn cart-btn" aria-label="Giỏ hàng">
               <i className="fas fa-shopping-cart" aria-hidden="true"></i>
               <span className="cart-text">Giỏ hàng</span>
-              <span className="cart-count">0</span>
+              <span className="cart-count">{totalCount}</span>
             </a>
           </div>
         </div>
