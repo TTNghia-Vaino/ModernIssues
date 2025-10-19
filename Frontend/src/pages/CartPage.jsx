@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import './CartPage.css';
 
@@ -7,6 +7,7 @@ const formatPrice = v => v.toLocaleString('vi-VN') + '₫';
 
 const CartPage = () => {
   const { items, updateQuantity, removeItem, clearCart, totalCount, totalPrice } = useCart();
+  const navigate = useNavigate();
 
   if (items.length === 0) {
     return (
@@ -59,7 +60,7 @@ const CartPage = () => {
                 <span>Tạm tính</span>
                 <strong className="summary-total">{formatPrice(totalPrice)}</strong>
               </div>
-              <button className="pay-btn">Thanh toán</button>
+              <button className="pay-btn" onClick={() => navigate('/checkout')}>Thanh toán</button>
               <button onClick={clearCart} className="clear-btn">Xóa giỏ hàng</button>
             </div>
           </aside>
