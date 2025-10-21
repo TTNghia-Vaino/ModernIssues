@@ -8,13 +8,16 @@
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
-  <ItemGroup>
+  <!-- <ItemGroup>
     <Compile Include="Repositories\ProductRepository.cs" />
     <Compile Include="Repositories\ProductService.cs" />
-  </ItemGroup>
+    <Compile Include="Repositories\UserRepository.cs" />
+    <Compile Include="Repositories\UserService.cs" />
+  </ItemGroup> -->
 
 
   <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Dapper" Version="2.1.66" />
     <PackageReference Include="MailKit" Version="4.14.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.10">
