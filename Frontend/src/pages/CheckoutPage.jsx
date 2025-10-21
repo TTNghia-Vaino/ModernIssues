@@ -1,12 +1,26 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import './CheckoutPage.css';
 
-const formatPrice = v => v.toLocaleString('vi-VN') + '₫';
+// ========================================
+// UTILITY FUNCTIONS
+// ========================================
+
+const formatPrice = (price) => price.toLocaleString('vi-VN') + '₫';
+
+// ========================================
+// MAIN COMPONENT
+// ========================================
 
 const CheckoutPage = () => {
+  const navigate = useNavigate();
   const { items, totalCount, totalPrice } = useCart();
+  
+  // ========================================
+  // STATE MANAGEMENT
+  // ========================================
+  
   const [formData, setFormData] = useState({
     email: '',
     fullName: '',
@@ -19,6 +33,10 @@ const CheckoutPage = () => {
   });
   const [paymentMethod, setPaymentMethod] = useState('vietqr');
 
+  // ========================================
+  // EVENT HANDLERS
+  // ========================================
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -26,9 +44,34 @@ const CheckoutPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Handle order submission
-    console.log('Order submitted:', { formData, paymentMethod, items });
+    
+    // Validate form
+    if (!formData.email || !formData.fullName || !formData.phone || 
+        !formData.province || !formData.district || !formData.ward || !formData.address) {
+      alert('Vui lòng điền đầy đủ thông tin bắt buộc');
+      return;
+    }
+
+    // Create order data
+    const orderData = {
+      orderId: Math.floor(100000 + Math.random() * 900000).toString(),
+      ...formData,
+      paymentMethod,
+      items,
+      totalPrice,
+      orderDate: new Date().toISOString()
+    };
+
+    // Save order data to localStorage (temporary storage)
+    localStorage.setItem('lastOrder', JSON.stringify(orderData));
+
+    // Navigate to confirmation page
+    navigate('/order-confirmation');
   };
+
+  // ========================================
+  // RENDER HELPERS
+  // ========================================
 
   if (items.length === 0) {
     return (
@@ -63,7 +106,7 @@ const CheckoutPage = () => {
               <Link to="/login" className="login-link">Đăng nhập</Link>
             </div>
             
-            <form onSubmit={handleSubmit} className="shipping-form">
+            <form id="shipping-form" onSubmit={handleSubmit} className="shipping-form">
               <div className="form-group">
                 <label htmlFor="email">Email *</label>
                 <input

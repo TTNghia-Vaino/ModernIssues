@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 
 const CartContext = createContext(null);
 
+// Storage key for cart persistence
 const STORAGE_KEY = 'modernissues_cart_v1';
 
 export const CartProvider = ({ children }) => {

@@ -1,4 +1,8 @@
-/* Checkout Page Styles */
+/* ========================================
+   CHECKOUT PAGE STYLES
+   ======================================== */
+
+/* Layout & Container */
 .checkout-container {
   min-height: 100vh;
   background: #f8f9fa;
@@ -12,7 +16,7 @@
 
 .checkout-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
   margin-top: 20px;
 }
@@ -21,9 +25,10 @@
   background: white;
   border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Section Header */
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -43,13 +48,17 @@
   color: #0a804a;
   text-decoration: none;
   font-size: 14px;
+  transition: text-decoration 0.2s ease;
 }
 
 .login-link:hover {
   text-decoration: underline;
 }
 
-/* Form Styles */
+/* ========================================
+   FORM STYLES
+   ======================================== */
+
 .shipping-form {
   display: flex;
   flex-direction: column;
@@ -74,7 +83,7 @@
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 14px;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s ease;
 }
 
 .form-group input:focus,
@@ -99,7 +108,10 @@
   flex-shrink: 0;
 }
 
-/* Shipping Section */
+/* ========================================
+   SHIPPING SECTION
+   ======================================== */
+
 .shipping-section {
   margin-bottom: 30px;
 }
@@ -120,7 +132,10 @@
   border: 1px solid #e0f2fe;
 }
 
-/* Payment Section */
+/* ========================================
+   PAYMENT SECTION
+   ======================================== */
+
 .payment-section {
   background: #ffffff;
   padding: 10px 0;
@@ -145,7 +160,7 @@
   gap: 16px;
   padding: 16px 20px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -192,6 +207,7 @@
   height: 40px;
 }
 
+/* Payment Method Logos */
 .vietqr-logo {
   background: #dc2626;
   color: white;
@@ -242,7 +258,10 @@
   margin-top: 4px;
 }
 
-/* Order Summary */
+/* ========================================
+   ORDER SUMMARY
+   ======================================== */
+
 .order-summary {
   position: sticky;
   top: 20px;
@@ -284,6 +303,7 @@
   font-size: 14px;
 }
 
+/* Discount Section */
 .discount-section {
   display: flex;
   gap: 8px;
@@ -306,13 +326,14 @@
   border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s ease;
 }
 
 .apply-btn:hover {
   background: #4b5563;
 }
 
+/* Price Summary */
 .price-summary {
   margin-bottom: 20px;
 }
@@ -333,6 +354,7 @@
   margin-top: 8px;
 }
 
+/* Checkout Actions */
 .checkout-actions {
   display: flex;
   flex-direction: column;
@@ -345,6 +367,7 @@
   font-size: 14px;
   text-align: center;
   padding: 8px;
+  transition: text-decoration 0.2s ease;
 }
 
 .back-link:hover {
@@ -352,7 +375,7 @@
 }
 
 .place-order-btn {
-  background: #0a804a;
+  background: #dc2626;
   color: white;
   border: none;
   padding: 15px;
@@ -360,12 +383,16 @@
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s ease;
 }
 
 .place-order-btn:hover {
-  background: #065f3a;
+  background: #b91c1c;
 }
+
+/* ========================================
+   EMPTY STATE
+   ======================================== */
 
 .checkout-empty {
   text-align: center;
@@ -382,24 +409,60 @@
   color: #0a804a;
   text-decoration: none;
   font-weight: 500;
+  transition: text-decoration 0.2s ease;
 }
 
 .checkout-empty a:hover {
   text-decoration: underline;
 }
 
-/* Responsive */
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+/* Large Desktop */
+@media (min-width: 1400px) {
+  .checkout-main {
+    max-width: 1400px;
+  }
+  
+  .checkout-grid {
+    gap: 30px;
+  }
+  
+  .checkout-section {
+    padding: 30px;
+  }
+}
+
+/* Desktop */
+@media (max-width: 1200px) {
+  .checkout-main {
+    max-width: 1000px;
+  }
+  
+  .checkout-grid {
+    gap: 20px;
+  }
+}
+
+/* Tablet */
 @media (max-width: 1024px) {
   .checkout-grid {
     grid-template-columns: 1fr;
-    gap: 15px;
+    gap: 20px;
   }
   
   .order-summary {
     position: static;
   }
+  
+  .checkout-section {
+    padding: 20px;
+  }
 }
 
+/* Mobile Large */
 @media (max-width: 768px) {
   .checkout-main {
     padding: 15px;
@@ -415,5 +478,165 @@
   
   .country-code {
     width: 100%;
+  }
+  
+  .payment-option {
+    padding: 12px 16px;
+  }
+  
+  .payment-title {
+    font-size: 13px;
+  }
+  
+  .payment-subtitle {
+    font-size: 11px;
+  }
+}
+
+/* Mobile Medium */
+@media (max-width: 576px) {
+  .checkout-main {
+    padding: 10px;
+  }
+  
+  .checkout-section {
+    padding: 12px;
+    border-radius: 6px;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .section-header h2 {
+    font-size: 16px;
+  }
+  
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+  
+  .payment-option {
+    padding: 10px 12px;
+    gap: 12px;
+  }
+  
+  .payment-title {
+    font-size: 12px;
+  }
+  
+  .payment-subtitle {
+    font-size: 10px;
+  }
+  
+  .place-order-btn {
+    padding: 12px;
+    font-size: 14px;
+  }
+}
+
+/* Mobile Small */
+@media (max-width: 480px) {
+  .checkout-container {
+    padding: 0;
+  }
+  
+  .checkout-main {
+    padding: 8px;
+  }
+  
+  .checkout-section {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .section-header h2 {
+    font-size: 15px;
+  }
+  
+  .form-group label {
+    font-size: 13px;
+  }
+  
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  
+  .payment-option {
+    padding: 8px 10px;
+    gap: 10px;
+  }
+  
+  .payment-title {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  
+  .payment-subtitle {
+    font-size: 9px;
+  }
+  
+  .summary-item {
+    padding: 8px 0;
+  }
+  
+  .item-image {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .item-name {
+    font-size: 13px;
+  }
+  
+  .item-price {
+    font-size: 13px;
+  }
+  
+  .place-order-btn {
+    padding: 10px;
+    font-size: 13px;
+  }
+}
+
+/* Extra Small Mobile */
+@media (max-width: 360px) {
+  .checkout-main {
+    padding: 5px;
+  }
+  
+  .checkout-section {
+    padding: 8px;
+  }
+  
+  .section-header h2 {
+    font-size: 14px;
+  }
+  
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 5px 6px;
+    font-size: 12px;
+  }
+  
+  .payment-option {
+    padding: 6px 8px;
+  }
+  
+  .payment-title {
+    font-size: 10px;
+  }
+  
+  .payment-subtitle {
+    font-size: 8px;
   }
 }

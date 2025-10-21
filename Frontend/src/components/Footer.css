@@ -1,7 +1,7 @@
 /* ===== FOOTER ===== */
 .footer {
-  background: #1a1a1a;
-  color: white;
+  background: #fcfbfb;
+  color: rgb(0, 0, 0);
   padding: 60px 0 0;
   width: 100%;
   overflow-x: hidden;
@@ -140,7 +140,7 @@
   flex: 1;
   padding: 12px 15px;
   border: none;
-  background: #333;
+  background: #383333;
   color: white;
   font-size: 0.9rem;
   outline: none;
@@ -151,7 +151,7 @@
 }
 
 .newsletter-btn {
-  background: #e74c3c;
+  background: #009af3;
   color: white;
   border: none;
   padding: 12px 15px;
