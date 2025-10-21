@@ -2,8 +2,19 @@ using Microsoft.EntityFrameworkCore;
 using ModernIssues.Models.Configurations;
 using ModernIssues.Services;
 using ModernIssues.Models.Entities;
+using ModernIssues.Repositories; // Cần cho IProductRepository và ProductRepository
+using ModernIssues.Repositories.Interface;
+using ModernIssues.Repositories.Service;
+using System.Reflection;
+using System.IO;
+using Microsoft.OpenApi.Models;
+
+
+
 var builder = WebApplication.CreateBuilder(args);
 
+
+builder.Services.AddHttpContextAccessor();
 // Add services to the container.
 
 builder.Services.AddHttpContextAccessor();
@@ -26,6 +37,37 @@ builder.Services.AddSession(options =>
 });
 
 
+// 1. Đăng ký Repository (Tầng Data Access)
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+
+// 2. Đăng ký Service (Tầng Business Logic)
+builder.Services.AddScoped<IProductService, ProductService>();
+
+builder.Services.AddSwaggerGen(options =>
+{
+    // Cấu hình OpenApiInfo (đã đúng, giữ nguyên)
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Modern Issues E-commerce API",
+        Version = "v1",
+        Description = "Hệ thống API Backend cho quản lý sản phẩm, đơn hàng, và người dùng."
+    });
+    
+    // === FIX CUỐI CÙNG: Đường dẫn tuyệt đối an toàn hơn ===
+    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    
+    // Sử dụng AppDomain.CurrentDomain.BaseDirectory để đảm bảo độ chính xác cao
+    var xmlPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, xmlFilename); 
+    
+    if (File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+    }
+    // =======================================================
+});
+
+
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -34,6 +76,7 @@ var app = builder.Build();
 //    app.UseSwagger();
 //    app.UseSwaggerUI();
 //}
+
 
 
 app.UseSwagger();

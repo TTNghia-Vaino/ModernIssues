@@ -8,11 +8,13 @@ namespace ModernIssues.Models.Entities;
 
 public partial class WebDbContext : DbContext
 {
+    private readonly IConfiguration _configuration;
 
-    public WebDbContext(DbContextOptions<WebDbContext> options)
-        : base(options)
-    {
-    }
+    public WebDbContext(DbContextOptions<WebDbContext> options, IConfiguration configuration)
+            : base(options)
+        {
+            _configuration = configuration;
+        }
 
     public virtual DbSet<category> categories { get; set; }
 
@@ -32,8 +34,14 @@ public partial class WebDbContext : DbContext
 
     public virtual DbSet<warranty> warranties { get; set; }
 
-    //protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    //    => optionsBuilder.UseNpgsql(_configuration.GetConnectionString("DefaultConnection"));
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            if (!optionsBuilder.IsConfigured)
+            {
+                var connectionString = _configuration.GetConnectionString("DefaultConnection");
+                optionsBuilder.UseNpgsql(connectionString);
+            }
+        }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
