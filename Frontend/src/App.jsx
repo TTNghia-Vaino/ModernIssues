@@ -14,6 +14,12 @@ import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import OrderConfirmationPage from './pages/OrderConfirmationPage';
 import SideBanners from './components/SideBanners';
+import AdminLayout from './components/AdminLayout';
+import AdminRoute from './components/AdminRoute';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminCategories from './pages/AdminCategories';
+import AdminUsers from './pages/AdminUsers';
+import AdminOrders from './pages/AdminOrders';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import './App.css';
@@ -46,6 +52,12 @@ function App() {
               <Route path="/login" element={<div className="main-content"><LoginForm /></div>} />
               <Route path="/register" element={<div className="main-content"><RegisterForm /></div>} />
               <Route path="/forgot-password" element={<div className="main-content"><ForgotPasswordForm /></div>} />
+              
+              {/* Admin Routes */}
+              <Route path="/admin/dashboard" element={<AdminRoute><AdminLayout><AdminDashboard /></AdminLayout></AdminRoute>} />
+              <Route path="/admin/categories" element={<AdminRoute><AdminLayout><AdminCategories /></AdminLayout></AdminRoute>} />
+              <Route path="/admin/users" element={<AdminRoute><AdminLayout><AdminUsers /></AdminLayout></AdminRoute>} />
+              <Route path="/admin/orders" element={<AdminRoute><AdminLayout><AdminOrders /></AdminLayout></AdminRoute>} />
             </Routes>
             <Footer />
           </div>

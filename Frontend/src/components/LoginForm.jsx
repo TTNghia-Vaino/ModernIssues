@@ -19,8 +19,28 @@ const LoginForm = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Fake auth success; in real app, call API
-    const user = { email: formData.email };
+    
+    // Kiểm tra đăng nhập admin
+    if (formData.email === 'admin@modernissues.com' && formData.password === 'admin123') {
+      const adminUser = {
+        id: 'admin-001',
+        username: 'admin',
+        email: 'admin@modernissues.com',
+        role: 'admin',
+        name: 'Administrator',
+        loginTime: new Date().toISOString()
+      };
+      login(adminUser);
+      navigate('/admin/dashboard');
+      return;
+    }
+    
+    // Đăng nhập khách hàng thông thường
+    const user = { 
+      email: formData.email,
+      role: 'customer',
+      name: formData.email.split('@')[0]
+    };
     login(user);
     const redirectTo = (location.state && location.state.from) || '/';
     navigate(redirectTo);
@@ -45,6 +65,12 @@ const LoginForm = () => {
               <p className="register-link">
                 Bạn chưa có tài khoản ? <a href="/register">Đăng ký tại đây</a>
               </p>
+              
+              <div className="admin-info">
+                <p><strong>Tài khoản Admin:</strong></p>
+                <p>Email: <code>admin@modernissues.com</code></p>
+                <p>Mật khẩu: <code>admin123</code></p>
+              </div>
 
               <form className="login-form" onSubmit={handleSubmit}>
                 <div className="form-group">
