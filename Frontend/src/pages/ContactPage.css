@@ -1,0 +1,517 @@
+.contact-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding-bottom: 60px;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  background: white;
+  padding: 15px 0;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 30px;
+}
+
+.breadcrumb .container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.breadcrumb a {
+  color: #666;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.breadcrumb a:hover {
+  color: #2196F3;
+}
+
+.breadcrumb .separator {
+  color: #999;
+}
+
+.breadcrumb span:not(.separator) {
+  color: #2196F3;
+  font-weight: 500;
+}
+
+/* Page Title */
+.page-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+/* Section Titles */
+.section-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #00c853;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stores-title {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+/* Hotline Section */
+.hotline-section {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  margin-bottom: 40px;
+}
+
+.hotline-info {
+  margin-bottom: 30px;
+}
+
+.hotline-phone {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 15px;
+}
+
+.hotline-time,
+.zalo-time {
+  color: #e53935;
+  font-size: 18px;
+}
+
+.zalo-info {
+  font-size: 16px;
+  color: #333;
+}
+
+.zalo-info a {
+  color: #2196F3;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.zalo-info a:hover {
+  text-decoration: underline;
+}
+
+/* Zalo QR Card */
+.zalo-qr-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+}
+
+.zalo-qr-card {
+  background: #2979ff;
+  border-radius: 16px;
+  padding: 30px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 8px 24px rgba(41, 121, 255, 0.3);
+}
+
+.zalo-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.zalo-logo {
+  position: relative;
+}
+
+.logo-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00c853 0%, #00e676 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-text {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+}
+
+.verified-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 24px;
+  height: 24px;
+  background: #ff9800;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #2979ff;
+}
+
+.verified-badge i {
+  color: white;
+  font-size: 10px;
+}
+
+.zalo-info-text {
+  flex: 1;
+}
+
+.zalo-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 4px;
+}
+
+.zalo-type {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* QR Code */
+.qr-code-placeholder {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.qr-pattern {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-corner {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border: 4px solid #1a1a1a;
+}
+
+.qr-corner.top-left {
+  top: 10px;
+  left: 10px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.qr-corner.top-right {
+  top: 10px;
+  right: 10px;
+  border-left: none;
+  border-bottom: none;
+}
+
+.qr-corner.bottom-left {
+  bottom: 10px;
+  left: 10px;
+  border-right: none;
+  border-top: none;
+}
+
+.qr-dots {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  padding: 80px 60px;
+  width: 100%;
+}
+
+.qr-dot {
+  width: 100%;
+  aspect-ratio: 1;
+  background: #1a1a1a;
+  border-radius: 2px;
+}
+
+.qr-dot:nth-child(even) {
+  opacity: 0.7;
+}
+
+.qr-dot:nth-child(3n) {
+  opacity: 0.9;
+}
+
+.qr-center {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  background: #2979ff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.qr-center i {
+  font-size: 40px;
+  color: white;
+}
+
+.qr-instruction {
+  text-align: center;
+  color: white;
+  font-size: 14px;
+  margin: 0;
+}
+
+.qr-instruction i {
+  margin: 0 4px;
+}
+
+/* Stores Grid */
+.stores-section {
+  margin-bottom: 40px;
+}
+
+.stores-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: 30px;
+}
+
+.store-card {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.store-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+.store-location {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 3px solid #2196F3;
+}
+
+.store-info {
+  margin-bottom: 25px;
+}
+
+.info-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 15px;
+  align-items: flex-start;
+}
+
+.info-row i {
+  color: #2196F3;
+  font-size: 18px;
+  margin-top: 3px;
+  min-width: 20px;
+}
+
+.info-content {
+  flex: 1;
+  line-height: 1.6;
+  color: #555;
+}
+
+.info-content strong {
+  color: #1a1a1a;
+}
+
+.address-link {
+  color: #2196F3;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.address-link:hover {
+  color: #1976D2;
+  text-decoration: underline;
+}
+
+.info-content a[href^="tel"] {
+  color: #2196F3;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.info-content a[href^="tel"]:hover {
+  text-decoration: underline;
+}
+
+.direction-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #2196F3;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.direction-btn:hover {
+  background: #1976D2;
+  transform: translateX(4px);
+}
+
+.direction-btn i {
+  font-size: 18px;
+}
+
+/* Contact Form */
+.contact-form-section {
+  background: white;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.contact-form {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group.full-width {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.form-group .required {
+  color: #e53935;
+}
+
+.form-group input,
+.form-group textarea {
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #2196F3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #00c853 0%, #00e676 100%);
+  color: white;
+  padding: 14px 32px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(0, 200, 83, 0.3);
+}
+
+.submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 200, 83, 0.4);
+}
+
+.submit-btn:active {
+  transform: translateY(0);
+}
+
+.submit-btn i {
+  font-size: 18px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .stores-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .hotline-phone {
+    font-size: 20px;
+  }
+  
+  .zalo-qr-card {
+    padding: 20px;
+  }
+  
+  .contact-form-section {
+    padding: 25px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hotline-section {
+    padding: 20px;
+  }
+  
+  .store-card {
+    padding: 20px;
+  }
+  
+  .contact-form-section {
+    padding: 20px;
+  }
+}
+
+

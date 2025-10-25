@@ -14,6 +14,7 @@ function Footer() {
       { name: "Card đồ họa", link: "/gpu" }
     ],
     support: [
+      { name: "Chăm sóc khách hàng", link: "/customer-support" },
       { name: "Hướng dẫn mua hàng", link: "/guide" },
       { name: "Chính sách bảo hành", link: "/warranty" },
       { name: "Chính sách đổi trả", link: "/return" },
@@ -32,19 +33,11 @@ function Footer() {
   };
 
   const socialLinks = [
-    { name: "Facebook", icon: "fab fa-facebook-f", link: "https://facebook.com/memoryzone", color: "#1877f2" },
-    { name: "Instagram", icon: "fab fa-instagram", link: "https://instagram.com/memoryzone", color: "#e4405f" },
-    { name: "YouTube", icon: "fab fa-youtube", link: "https://youtube.com/memoryzone", color: "#ff0000" },
-    { name: "TikTok", icon: "fab fa-tiktok", link: "https://tiktok.com/@memoryzone", color: "#000000" },
-    { name: "Zalo", icon: "fab fa-facebook-messenger", link: "https://zalo.me/memoryzone", color: "#0068ff" }
-  ];
-
-  const paymentMethods = [
-    { name: "Visa", icon: "fab fa-cc-visa", color: "#1a1f71" },
-    { name: "Mastercard", icon: "fab fa-cc-mastercard", color: "#eb001b" },
-    { name: "PayPal", icon: "fab fa-cc-paypal", color: "#003087" },
-    { name: "Momo", icon: "fas fa-mobile-alt", color: "#d82d8b" },
-    { name: "ZaloPay", icon: "fas fa-wallet", color: "#0068ff" }
+    { name: "Facebook", icon: "fab fa-facebook-f", link: "https://facebook.com/techzone", color: "#1877f2" },
+    { name: "Instagram", icon: "fab fa-instagram", link: "https://instagram.com/techzone", color: "#e4405f" },
+    { name: "YouTube", icon: "fab fa-youtube", link: "https://youtube.com/techzone", color: "#ff0000" },
+    { name: "TikTok", icon: "fab fa-tiktok", link: "https://tiktok.com/@techzone", color: "#000000" },
+    { name: "Zalo", icon: "fab fa-facebook-messenger", link: "https://zalo.me/techzone", color: "#0068ff" }
   ];
 
   return (
@@ -114,13 +107,19 @@ function Footer() {
                 ))}
               </ul>
             </div>
+          </div>
+        </div>
 
-            {/* Newsletter & Social */}
-            <div className="footer-section newsletter-section">
-              <h3 className="footer-title">Đăng ký nhận tin</h3>
-              <p className="newsletter-description">
+        {/* Newsletter & Social */}
+        <div className="newsletter-social-section">
+          <div className="newsletter-content">
+            <div className="newsletter-left">
+              <h3 className="section-title">Đăng ký nhận tin</h3>
+              <p className="section-description">
                 Nhận thông tin về sản phẩm mới và khuyến mãi hấp dẫn
               </p>
+            </div>
+            <div className="newsletter-right">
               <div className="newsletter-form">
                 <input 
                   type="email" 
@@ -131,41 +130,24 @@ function Footer() {
                   <i className="fas fa-paper-plane"></i>
                 </button>
               </div>
-              
-              <div className="social-links">
-                <h4>Theo dõi chúng tôi</h4>
-                <div className="social-icons">
-                  {socialLinks.map((social, index) => (
-                    <a 
-                      key={index}
-                      href={social.link}
-                      className="social-icon"
-                      style={{ '--social-color': social.color }}
-                      title={social.name}
-                    >
-                      <i className={social.icon}></i>
-                    </a>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
-        </div>
-
-        {/* Payment Methods */}
-        <div className="payment-section">
-          <h4>Phương thức thanh toán</h4>
-          <div className="payment-methods">
-            {paymentMethods.map((method, index) => (
-              <div 
-                key={index}
-                className="payment-method"
-                style={{ '--method-color': method.color }}
-                title={method.name}
-              >
-                <i className={method.icon}></i>
-              </div>
-            ))}
+          
+          <div className="social-links-section">
+            <h4>Theo dõi chúng tôi</h4>
+            <div className="social-icons">
+              {socialLinks.map((social, index) => (
+                <a 
+                  key={index}
+                  href={social.link}
+                  className="social-icon"
+                  style={{ '--social-color': social.color }}
+                  title={social.name}
+                >
+                  <i className={social.icon}></i>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
 

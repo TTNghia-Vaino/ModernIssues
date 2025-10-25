@@ -169,12 +169,12 @@ const Navbar = () => {
             <ProductMenu />
           </div>
           <nav className="bottom-nav-links" role="navigation" aria-label="Secondary navigation">
-            <a href="/payment" className="bottom-link">THANH TOÁN</a>
+            <a href="/payment-methods" className="bottom-link">THANH TOÁN</a>
             <a href="/installment" className="bottom-link">TRẢ GÓP</a>
             <a href="/contact" className="bottom-link">LIÊN HỆ</a>
-            <a href="/customer-care" className="bottom-link">CHĂM SÓC KHÁCH HÀNG</a>
-            <a href="/library" className="bottom-link">THƯ VIỆN</a>
-            <a href="/recruitment" className="bottom-link">TUYỂN DỤNG</a>
+            <a href="/customer-support" className="bottom-link">CHĂM SÓC KHÁCH HÀNG</a>
+            <a href="/news" className="bottom-link">TIN TỨC</a>
+            <a href="/careers" className="bottom-link">TUYỂN DỤNG</a>
           </nav>
         </div>
       </div>

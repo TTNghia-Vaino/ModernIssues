@@ -286,10 +286,12 @@
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   min-height: 100vh;
+  width: calc(100% - 280px);
 }
 
-.admin-sidebar.closed + .admin-main {
+.admin-layout:has(.admin-sidebar.closed) .admin-main {
   margin-left: 70px;
+  width: calc(100% - 70px);
 }
 
 .admin-header {

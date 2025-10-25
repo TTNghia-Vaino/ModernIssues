@@ -36,7 +36,7 @@ const DEFAULT_CATEGORIES = [
 ];
 
 const ProductMenu = ({ title = 'DANH MỤC SẢN PHẨM', categories = DEFAULT_CATEGORIES }) => {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const navigate = useNavigate();
 

@@ -113,11 +113,19 @@ const LoginForm = () => {
               <div className="social-login">
                 <p>Hoặc đăng nhập bằng</p>
                 <div className="social-buttons">
-                  <button type="button" className="social-btn facebook-btn">
+                  <button 
+                    type="button" 
+                    className="social-btn facebook-btn"
+                    onClick={() => window.open('https://www.facebook.com', '_blank')}
+                  >
                     <i className="fab fa-facebook-f" aria-hidden="true"></i>
                     Facebook
                   </button>
-                  <button type="button" className="social-btn google-btn">
+                  <button 
+                    type="button" 
+                    className="social-btn google-btn"
+                    onClick={() => window.open('https://www.google.com', '_blank')}
+                  >
                     <i className="fab fa-google" aria-hidden="true"></i>
                     Google
                   </button>

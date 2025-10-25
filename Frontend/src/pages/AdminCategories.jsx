@@ -8,6 +8,8 @@ const AdminCategories = () => {
     { id: 3, name: 'Phụ kiện', description: 'Phụ kiện điện tử', status: 'active', productCount: 28 },
     { id: 4, name: 'Đồng hồ', description: 'Đồng hồ thông minh', status: 'inactive', productCount: 15 }
   ]);
+  
+  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
 
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
@@ -16,10 +18,12 @@ const AdminCategories = () => {
     description: '',
     status: 'active'
   });
+  const [errors, setErrors] = useState({});
 
   const handleAddNew = () => {
     setEditingCategory(null);
     setFormData({ name: '', description: '', status: 'active' });
+    setErrors({});
     setShowModal(true);
   };
 
@@ -30,17 +34,47 @@ const AdminCategories = () => {
       description: category.description,
       status: category.status
     });
+    setErrors({});
     setShowModal(true);
+  };
+
+  const showNotification = (message, type = 'success') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => {
+      setNotification({ show: false, message: '', type: '' });
+    }, 3000);
   };
 
   const handleDelete = (id) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa danh mục này?')) {
       setCategories(categories.filter(cat => cat.id !== id));
+      showNotification('Xóa danh mục thành công!');
     }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.name.trim()) {
+      newErrors.name = 'Vui lòng nhập tên danh mục';
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = 'Tên danh mục phải có ít nhất 2 ký tự';
+    }
+    
+    if (!formData.description.trim()) {
+      newErrors.description = 'Vui lòng nhập mô tả';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
     
     if (editingCategory) {
       // Cập nhật danh mục
@@ -49,6 +83,7 @@ const AdminCategories = () => {
           ? { ...cat, ...formData }
           : cat
       ));
+      showNotification('Cập nhật danh mục thành công!');
     } else {
       // Thêm danh mục mới
       const newCategory = {
@@ -57,10 +92,12 @@ const AdminCategories = () => {
         productCount: 0
       };
       setCategories([...categories, newCategory]);
+      showNotification('Thêm danh mục mới thành công!');
     }
     
     setShowModal(false);
     setFormData({ name: '', description: '', status: 'active' });
+    setErrors({});
   };
 
   const handleInputChange = (e) => {
@@ -80,6 +117,12 @@ const AdminCategories = () => {
 
   return (
     <div className="admin-categories">
+      {notification.show && (
+        <div className={`notification ${notification.type}`}>
+          {notification.message}
+        </div>
+      )}
+      
       <div className="page-header">
         <h2>Quản lý danh mục</h2>
         <button className="add-btn" onClick={handleAddNew}>
@@ -142,20 +185,21 @@ const AdminCategories = () => {
             
             <form onSubmit={handleSubmit} className="modal-form">
               <div className="form-group">
-                <label htmlFor="name">Tên danh mục:</label>
+                <label htmlFor="name">Tên danh mục: <span style={{ color: 'red' }}>*</span></label>
                 <input
                   type="text"
                   id="name"
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  required
                   placeholder="Nhập tên danh mục"
+                  className={errors.name ? 'error' : ''}
                 />
+                {errors.name && <span className="error-message">{errors.name}</span>}
               </div>
               
               <div className="form-group">
-                <label htmlFor="description">Mô tả:</label>
+                <label htmlFor="description">Mô tả: <span style={{ color: 'red' }}>*</span></label>
                 <textarea
                   id="description"
                   name="description"
@@ -163,7 +207,9 @@ const AdminCategories = () => {
                   onChange={handleInputChange}
                   rows="3"
                   placeholder="Nhập mô tả danh mục"
+                  className={errors.description ? 'error' : ''}
                 />
+                {errors.description && <span className="error-message">{errors.description}</span>}
               </div>
               
               <div className="form-group">
@@ -183,7 +229,10 @@ const AdminCategories = () => {
                 <button 
                   type="button" 
                   className="cancel-btn"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setErrors({});
+                  }}
                 >
                   Hủy
                 </button>

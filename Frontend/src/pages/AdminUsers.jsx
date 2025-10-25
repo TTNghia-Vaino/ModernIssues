@@ -58,6 +58,8 @@ const AdminUsers = () => {
     role: 'customer',
     status: 'active'
   });
+  const [errors, setErrors] = useState({});
+  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
@@ -66,6 +68,7 @@ const AdminUsers = () => {
   const handleAddNew = () => {
     setEditingUser(null);
     setFormData({ name: '', email: '', phone: '', role: 'customer', status: 'active' });
+    setErrors({});
     setShowModal(true);
   };
 
@@ -78,17 +81,55 @@ const AdminUsers = () => {
       role: user.role,
       status: user.status
     });
+    setErrors({});
     setShowModal(true);
+  };
+
+  const showNotification = (message, type = 'success') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => {
+      setNotification({ show: false, message: '', type: '' });
+    }, 3000);
   };
 
   const handleDelete = (id) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa người dùng này?')) {
       setUsers(users.filter(user => user.id !== id));
+      showNotification('Xóa người dùng thành công!');
     }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.name.trim()) {
+      newErrors.name = 'Vui lòng nhập họ và tên';
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = 'Họ và tên phải có ít nhất 2 ký tự';
+    }
+    
+    if (!formData.email.trim()) {
+      newErrors.email = 'Vui lòng nhập email';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Email không hợp lệ';
+    }
+    
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Vui lòng nhập số điện thoại';
+    } else if (!/^[0-9]{10,11}$/.test(formData.phone.replace(/\s/g, ''))) {
+      newErrors.phone = 'Số điện thoại phải có 10-11 chữ số';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
     
     if (editingUser) {
       // Cập nhật người dùng
@@ -97,6 +138,7 @@ const AdminUsers = () => {
           ? { ...user, ...formData }
           : user
       ));
+      showNotification('Cập nhật người dùng thành công!');
     } else {
       // Thêm người dùng mới
       const newUser = {
@@ -107,10 +149,12 @@ const AdminUsers = () => {
         totalSpent: 0
       };
       setUsers([...users, newUser]);
+      showNotification('Thêm người dùng mới thành công!');
     }
     
     setShowModal(false);
     setFormData({ name: '', email: '', phone: '', role: 'customer', status: 'active' });
+    setErrors({});
   };
 
   const handleInputChange = (e) => {
@@ -144,6 +188,12 @@ const AdminUsers = () => {
 
   return (
     <div className="admin-users">
+      {notification.show && (
+        <div className={`notification ${notification.type}`}>
+          {notification.message}
+        </div>
+      )}
+      
       <div className="page-header">
         <h2>Quản lý người dùng</h2>
         <button className="add-btn" onClick={handleAddNew}>
@@ -254,42 +304,45 @@ const AdminUsers = () => {
             
             <form onSubmit={handleSubmit} className="modal-form">
               <div className="form-group">
-                <label htmlFor="name">Họ và tên:</label>
+                <label htmlFor="name">Họ và tên: <span style={{ color: 'red' }}>*</span></label>
                 <input
                   type="text"
                   id="name"
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  required
                   placeholder="Nhập họ và tên"
+                  className={errors.name ? 'error' : ''}
                 />
+                {errors.name && <span className="error-message">{errors.name}</span>}
               </div>
               
               <div className="form-group">
-                <label htmlFor="email">Email:</label>
+                <label htmlFor="email">Email: <span style={{ color: 'red' }}>*</span></label>
                 <input
                   type="email"
                   id="email"
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  required
                   placeholder="Nhập email"
+                  className={errors.email ? 'error' : ''}
                 />
+                {errors.email && <span className="error-message">{errors.email}</span>}
               </div>
               
               <div className="form-group">
-                <label htmlFor="phone">Số điện thoại:</label>
+                <label htmlFor="phone">Số điện thoại: <span style={{ color: 'red' }}>*</span></label>
                 <input
                   type="tel"
                   id="phone"
                   name="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  required
-                  placeholder="Nhập số điện thoại"
+                  placeholder="Nhập số điện thoại (10-11 số)"
+                  className={errors.phone ? 'error' : ''}
                 />
+                {errors.phone && <span className="error-message">{errors.phone}</span>}
               </div>
               
               <div className="form-group">
@@ -322,7 +375,10 @@ const AdminUsers = () => {
                 <button 
                   type="button" 
                   className="cancel-btn"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setErrors({});
+                  }}
                 >
                   Hủy
                 </button>

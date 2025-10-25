@@ -28,6 +28,12 @@ const AdminLayout = ({ children }) => {
       description: 'Quản lý danh mục sản phẩm'
     },
     { 
+      path: '/admin/products', 
+      label: 'Sản phẩm', 
+      icon: '📦',
+      description: 'Quản lý sản phẩm'
+    },
+    { 
       path: '/admin/users', 
       label: 'Người dùng', 
       icon: '👥',
@@ -36,7 +42,7 @@ const AdminLayout = ({ children }) => {
     { 
       path: '/admin/orders', 
       label: 'Đơn hàng', 
-      icon: '📦',
+      icon: '🛒',
       description: 'Quản lý đơn hàng và giao dịch'
     },
   ];
