@@ -13,7 +13,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace ModernIssues.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("/v1/[controller]")]
     [ApiController]
     public class AuthController : ControllerBase
     {

@@ -6,7 +6,7 @@ using ModernIssues.Models.DTOs;
 namespace ModernIssues.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("/v1/[controller]")]
 
     public class EmailController : ControllerBase
     {

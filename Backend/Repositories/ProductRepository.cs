@@ -75,8 +75,16 @@ namespace ModernIssues.Repositories
         {
             var sql = @"
                 SELECT 
-                    p.product_id, p.product_name, p.price, p.stock, p.description, p.image_url, p.category_id, p.on_prices, p.warranty_period,
-                    c.category_name
+                    p.product_id AS ProductId,
+                    p.category_id AS CategoryId,
+                    p.product_name AS ProductName,
+                    p.description AS Description,
+                    p.price AS Price,
+                    p.stock AS Stock,
+                    p.warranty_period AS WarrantyPeriod,
+                    p.image_url AS ImageUrl,
+                    p.on_prices AS OnPrices,
+                    COALESCE(c.category_name, 'Chưa phân loại') AS CategoryName
                 FROM products p
                 LEFT JOIN categories c ON p.category_id = c.category_id
                 WHERE p.product_id = @ProductId AND p.is_disabled = FALSE;
@@ -186,7 +194,16 @@ namespace ModernIssues.Repositories
                     updated_at = CURRENT_TIMESTAMP,
                     updated_by = @AdminId
                 WHERE product_id = @ProductId
-                RETURNING *;
+                RETURNING 
+                    product_id AS ProductId,
+                    category_id AS CategoryId,
+                    product_name AS ProductName,
+                    description AS Description,
+                    price AS Price,
+                    stock AS Stock,
+                    warranty_period AS WarrantyPeriod,
+                    image_url AS ImageUrl,
+                    on_prices AS OnPrices;
             ";
 
             var parameters = new
@@ -204,7 +221,21 @@ namespace ModernIssues.Repositories
 
             using (var db = Connection)
             {
-                return await db.QueryFirstOrDefaultAsync<ProductDto>(sql, parameters);
+                var updatedProduct = await db.QueryFirstOrDefaultAsync<ProductDto>(sql, parameters);
+                
+                // Nếu có sản phẩm được cập nhật, lấy thêm thông tin category
+                if (updatedProduct != null)
+                {
+                    var categorySql = @"
+                        SELECT COALESCE(category_name, 'Chưa phân loại') AS CategoryName
+                        FROM categories 
+                        WHERE category_id = @CategoryId;
+                    ";
+                    var categoryName = await db.QueryFirstOrDefaultAsync<string>(categorySql, new { CategoryId = product.CategoryId });
+                    updatedProduct.CategoryName = categoryName ?? "Chưa phân loại";
+                }
+                
+                return updatedProduct;
             }
         }
 

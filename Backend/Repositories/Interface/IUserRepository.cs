@@ -1,5 +1,6 @@
 using ModernIssues.Models.DTOs;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace ModernIssues.Repositories.Service
 {
@@ -10,5 +11,6 @@ namespace ModernIssues.Repositories.Service
         Task<UserDto> UpdateProfileAsync(int userId, UserUpdateProfileDto profile);
         Task<bool> ExistsByUsernameOrEmailAsync(string username, string email);
         Task<bool> DeleteUserAsync(int userId, int adminId); // Vô hiệu hóa (Disable)
+        Task<List<UserDto>> GetAllUsersAsync();
     }
 }

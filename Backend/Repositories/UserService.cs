@@ -52,5 +52,17 @@ namespace ModernIssues.Services
             
             return await _userRepository.UpdateProfileAsync(userId, profile);
         }
+
+        // --- GET ALL USERS (Admin only) ---
+        public async Task<List<UserDto>> GetAllUsersAsync()
+        {
+            return await _userRepository.GetAllUsersAsync();
+        }
+
+        // --- DELETE USER (Admin only) ---
+        public async Task<bool> DeleteUserAsync(int userId)
+        {
+            return await _userRepository.DeleteUserAsync(userId, 1); // Giả lập adminId = 1
+        }
     }
 }

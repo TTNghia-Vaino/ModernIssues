@@ -8,6 +8,7 @@ using ModernIssues.Repositories.Service;
 using System.Reflection;
 using System.IO;
 using Microsoft.OpenApi.Models;
+using ModernIssues.Helpers;
 
 
 
@@ -24,7 +25,11 @@ builder.Services.AddDbContext<WebDbContext>(options =>
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.SuppressModelStateInvalidFilter = true;
+    });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -48,10 +53,13 @@ builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 
-builder.Services.AddSwaggerGen(options =>
+builder.Services.AddSwaggerGen(c =>
 {
-    // Cấu hình OpenApiInfo (đã đúng, giữ nguyên)
-    options.SwaggerDoc("v1", new OpenApiInfo
+    c.SupportNonNullableReferenceTypes();
+    c.OperationFilter<FileUploadOperation>();
+    
+    // Cấu hình OpenApiInfo
+    c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "Modern Issues E-commerce API",
         Version = "v1",
@@ -66,7 +74,7 @@ builder.Services.AddSwaggerGen(options =>
     
     if (File.Exists(xmlPath))
     {
-        options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+        c.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
     }
     // =======================================================
 });
@@ -89,7 +97,24 @@ app.UseSwaggerUI(c =>
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Modern Issues - API V1");
 });
 
+// Xử lý validation errors
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Unhandled exception: {ex.Message}");
+        throw;
+    }
+});
+
 app.UseHttpsRedirection();
+
+// Cấu hình static files để truy cập ảnh
+app.UseStaticFiles();
 
 app.UseAuthorization();
 

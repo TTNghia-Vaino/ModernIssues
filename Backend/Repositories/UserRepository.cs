@@ -139,5 +139,31 @@ namespace ModernIssues.Repositories
                 return rowsAffected > 0;
             }
         }
+
+        // --- GET ALL USERS (Admin only) ---
+        public async Task<List<UserDto>> GetAllUsersAsync()
+        {
+            var sql = @"
+                SELECT 
+                    user_id AS UserId,
+                    username,
+                    email,
+                    phone,
+                    address,
+                    role,
+                    is_disabled AS IsDisabled,
+                    email_confirmed AS EmailConfirmed,
+                    created_at AS CreatedAt
+                FROM users 
+                WHERE is_disabled = FALSE
+                ORDER BY created_at DESC;
+            ";
+
+            using (var db = Connection)
+            {
+                var users = await db.QueryAsync<UserDto>(sql);
+                return users.ToList();
+            }
+        }
     }
 }

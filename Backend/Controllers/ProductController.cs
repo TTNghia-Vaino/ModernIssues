@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using ModernIssues.Models.DTOs;
 using ModernIssues.Services;
 using ModernIssues.Helpers; 
@@ -9,42 +10,116 @@ using System.Linq;
 using ModernIssues.Models.Common;
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Repositories.Service;
+using Microsoft.AspNetCore.Hosting;
 
 // Loại bỏ các using không cần thiết ở Controller như Dapper, Npgsql, System.Data
 
 namespace ModernIssues.Controllers
 {
-    [Route("api/v1/[controller]")]
+    [Route("/v1/[controller]")]
     [ApiController]
     public class ProductController : ControllerBase
     {
         private readonly IProductService _productService;
+        private readonly IWebHostEnvironment _webHostEnvironment;
 
-        public ProductController(IProductService productService)
+        public ProductController(IProductService productService, IWebHostEnvironment webHostEnvironment)
         {
             _productService = productService;
+            _webHostEnvironment = webHostEnvironment;
         }
 
         private int GetAdminId() => 1; // Giả lập lấy ID Admin
 
+        /// <summary>
+        /// Lấy thông tin user hiện tại
+        /// </summary>
+        /// <returns>Thông tin user hoặc null nếu chưa đăng nhập</returns>
+        [HttpGet("CurrentUser")]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
+        public IActionResult GetCurrentUser()
+        {
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để xem thông tin này."));
+            }
+
+            var userInfo = AuthHelper.GetCurrentUser(HttpContext);
+            return Ok(ApiResponse<object>.SuccessResponse(userInfo, "Lấy thông tin user thành công."));
+        }
+
+
+
+
         // ============================================
-        // 1. CREATE: POST api/v1/Product
+        // 1. CREATE PRODUCT: POST api/v1/Product/CreateProduct
         // ============================================
         /// <summary>
-        /// Tạo mới một sản phẩm. Chỉ dành cho tài khoản Admin/Quản lý.
+        /// Tạo sản phẩm mới. Có thể upload ảnh hoặc sử dụng ảnh mặc định.
         /// </summary>
-        /// <param name="product">Thông tin sản phẩm cần tạo.</param>
-        /// <response code="201">Tạo sản phẩm thành công và trả về chi tiết sản phẩm.</response>
-        /// <response code="400">Dữ liệu gửi lên không hợp lệ (ví dụ: giá <= 0 hoặc thiếu trường).</response>
-        /// <response code="500">Lỗi hệ thống hoặc lỗi cơ sở dữ liệu.</response>
+        /// <param name="productData">Dữ liệu sản phẩm bao gồm thông tin và file ảnh (tùy chọn).</param>
+        /// <response code="201">Tạo sản phẩm thành công.</response>
+        /// <response code="400">Dữ liệu không hợp lệ.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
         [HttpPost("CreateProduct")]
+        [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(ApiResponse<ProductDto>), HttpStatusCodes.Created)]
         [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.BadRequest)]
-        public async Task<IActionResult> CreateProduct([FromBody] ProductCreateUpdateDto product)
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
+        public async Task<IActionResult> CreateProduct([FromForm] ProductWithImageDto productData)
         {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(HttpStatusCodes.Forbidden, 
+                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được tạo sản phẩm."));
+            }
+
             try
             {
                 var adminId = GetAdminId();
+                
+                // Tạo ProductCreateUpdateDto từ form data
+                var product = new ProductCreateUpdateDto
+                {
+                    ProductName = productData.ProductName,
+                    Description = productData.Description,
+                    Price = productData.Price,
+                    CategoryId = productData.CategoryId,
+                    Stock = productData.Stock,
+                    WarrantyPeriod = productData.WarrantyPeriod,
+                    ImageUrl = "default.jpg" // Ảnh mặc định
+                };
+                
+                // Xử lý upload ảnh nếu có
+                if (productData.ImageFile != null && productData.ImageFile.Length > 0)
+                {
+                    try
+                    {
+                        // Sử dụng đường dẫn tuyệt đối nếu WebRootPath null
+                        var uploadPath = _webHostEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                        var fileName = await ImageUploadHelper.UploadImageAsync(productData.ImageFile, uploadPath);
+                        if (!string.IsNullOrEmpty(fileName))
+                        {
+                            product.ImageUrl = fileName;
+                        }
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi upload ảnh: {ex.Message}"));
+                    }
+                }
+                // Nếu không có ảnh upload, sử dụng ảnh mặc định "default.jpg"
+                
                 var newProduct = await _productService.CreateProductAsync(product, adminId);
 
                 // TRẢ VỀ THÀNH CÔNG: 201 Created
@@ -53,17 +128,16 @@ namespace ModernIssues.Controllers
             }
             catch (ArgumentException ex)
             {
-                // XỬ LÝ LỖI NGHIỆP VỤ: 400 Bad Request
-                return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message, new List<string> { "Lỗi logic: Giá sản phẩm phải dương." }));
+                return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[CRITICAL DB ERROR] during CREATE: {ex.Message}");
-                // XỬ LÝ LỖI HỆ THỐNG: 500 Internal Server Error
                 return StatusCode(HttpStatusCodes.InternalServerError,
                     ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi tạo sản phẩm.", new List<string> { ex.Message }));
             }
         }
+
 
         // ============================================
         // 2. READ ALL: GET api/v1/Product
@@ -128,29 +202,78 @@ namespace ModernIssues.Controllers
             return Ok(ApiResponse<ProductDto>.SuccessResponse(product));
         }
 
+
         // ============================================
         // 4. UPDATE: PUT api/v1/Product/{id}
         // ============================================
         /// <summary>
-        /// Cập nhật toàn bộ thông tin của một sản phẩm đã tồn tại. Chỉ dành cho Admin.
+        /// Cập nhật sản phẩm với khả năng upload ảnh mới. Chỉ dành cho Admin.
         /// </summary>
-        /// <remarks>
-        /// Cần cung cấp toàn bộ dữ liệu ProductCreateUpdateDto. Giá trị onPrices được bỏ qua (chỉ cập nhật qua task/service khác).
-        /// </remarks>
         /// <param name="id">ID của sản phẩm cần cập nhật.</param>
-        /// <param name="product">Dữ liệu sản phẩm mới.</param>
+        /// <param name="productData">Dữ liệu sản phẩm bao gồm thông tin và file ảnh (tùy chọn).</param>
         /// <response code="200">Cập nhật thành công và trả về dữ liệu mới.</response>
         /// <response code="400">Dữ liệu không hợp lệ.</response>
         /// <response code="404">Không tìm thấy sản phẩm.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
         [HttpPut("{id}")]
+        [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(ApiResponse<ProductDto>), HttpStatusCodes.OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.NotFound)]
-        public async Task<IActionResult> UpdateProduct(int id, [FromBody] ProductCreateUpdateDto product)
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
+        public async Task<IActionResult> UpdateProduct(int id, [FromForm] ProductUpdateWithImageDto productData)
         {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(HttpStatusCodes.Forbidden, 
+                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được cập nhật sản phẩm."));
+            }
+
             try
             {
                 var adminId = GetAdminId();
+                
+                // Tạo ProductCreateUpdateDto từ form data
+                var product = new ProductCreateUpdateDto
+                {
+                    ProductName = productData.ProductName,
+                    Description = productData.Description,
+                    Price = productData.Price,
+                    CategoryId = productData.CategoryId,
+                    Stock = productData.Stock,
+                    WarrantyPeriod = productData.WarrantyPeriod,
+                    ImageUrl = productData.CurrentImageUrl ?? "default.jpg" // Giữ ảnh hiện tại hoặc dùng mặc định
+                };
+                
+                // Xử lý upload ảnh mới nếu có
+                if (productData.ImageFile != null && productData.ImageFile.Length > 0)
+                {
+                    try
+                    {
+                        // Sử dụng đường dẫn tuyệt đối nếu WebRootPath null
+                        var uploadPath = _webHostEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                        var fileName = await ImageUploadHelper.UploadImageAsync(productData.ImageFile, uploadPath);
+                        if (!string.IsNullOrEmpty(fileName))
+                        {
+                            product.ImageUrl = fileName;
+                        }
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi upload ảnh: {ex.Message}"));
+                    }
+                }
+                // Nếu không có ảnh mới, giữ nguyên ảnh hiện tại
+                
                 var updatedProduct = await _productService.UpdateProductAsync(id, product, adminId);
 
                 if (updatedProduct == null)
@@ -190,8 +313,23 @@ namespace ModernIssues.Controllers
         [HttpDelete("{id}")]
         [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.NotFound)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
         public async Task<IActionResult> SoftDeleteProduct(int id)
         {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(HttpStatusCodes.Forbidden, 
+                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xóa sản phẩm."));
+            }
+
             try
             {
                 var adminId = GetAdminId();
