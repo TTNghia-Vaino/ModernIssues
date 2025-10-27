@@ -97,6 +97,11 @@ namespace ModernIssues.Controllers
                     .Where(o => o.order_id == order_id && o.user_id == user.user_id)
                     .FirstOrDefaultAsync();
 
+                // test code
+                //var order = await _context.orders
+                //    .Where(o => o.order_id == order_id)
+                //    .FirstOrDefaultAsync();
+
                 if (order == null)
                 {
                     return NotFound(new { message = "Không tìm thấy đơn hàng" });
@@ -120,10 +125,21 @@ namespace ModernIssues.Controllers
                     )
                     .ToListAsync();
 
+                // tạo ra 1 biến return_order = order(order_id, order_date, status, total_amount, created_at, updated_at)
+                var return_order = new
+                {
+                    order_id = order.order_id,
+                    order_date = order.order_date,
+                    status = order.status,
+                    total_amount = order.total_amount,
+                    created_at = order.created_at,
+                    updated_at = order.updated_at
+                };
                 // Trả về kết quả
                 var result = new
                 {
-                    order_id = order_id,
+                    // trả về return_order
+                    order = return_order,
                     order_details = orderDetails
                 };
 
