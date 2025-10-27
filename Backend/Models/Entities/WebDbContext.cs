@@ -126,6 +126,11 @@ public partial class WebDbContext : DbContext
             entity.Property(e => e.total_amount)
                 .HasPrecision(15, 2)
                 .HasDefaultValueSql("0");
+            entity.Property(e => e.types)
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasDefaultValueSql("'COD'::payment_type")
+                .HasComment("Loại thanh toán: COD, Transfer, ATM");
             entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             entity.HasOne(d => d.created_byNavigation).WithMany(p => p.ordercreated_byNavigations)
