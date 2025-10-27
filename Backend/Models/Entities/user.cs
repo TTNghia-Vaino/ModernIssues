@@ -21,6 +21,11 @@ public partial class user
     public string? address { get; set; }
 
     /// <summary>
+    /// Đường dẫn ảnh đại diện của người dùng
+    /// </summary>
+    public string? avatar_url { get; set; }
+
+    /// <summary>
     /// Phân quyền người dùng: customer hoặc admin
     /// </summary>
     public string? role { get; set; }

@@ -9,8 +9,12 @@ namespace ModernIssues.Repositories.Service
         Task<UserDto> RegisterCustomerAsync(UserRegisterDto user);
         Task<UserDto> GetCustomerProfileAsync(int userId);
         Task<UserDto> UpdateCustomerProfileAsync(int userId, UserUpdateProfileDto profile);
+        Task<UserDto> UpdateCustomerAvatarAsync(int userId, string avatarUrl);
         Task<List<UserDto>> GetAllUsersAsync();
         Task<bool> DeleteUserAsync(int userId);
+        Task<bool> ActivateUserAsync(int userId);
+        Task<UserDto> GetUserByIdAsync(int userId);
+        Task<UserDto> UpdateUserAvatarAsync(int userId, string avatarUrl);
         // Có thể thêm Validate Password, Login, v.v.
     }
 }

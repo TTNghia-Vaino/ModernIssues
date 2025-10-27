@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity;
 using ModernIssues.Models.Configurations;
 using ModernIssues.Models.DTOs;
 using ModernIssues.Models.Entities;
@@ -9,6 +8,7 @@ using System;
 using System.Threading.Tasks;
 using ModernIssues.Services;
 using Microsoft.Extensions.Caching.Memory;
+using BCrypt.Net;
 
 
 namespace ModernIssues.Controllers
@@ -18,13 +18,11 @@ namespace ModernIssues.Controllers
     public class AuthController : ControllerBase
     {
         private readonly WebDbContext _context;
-        private readonly PasswordHasher<user> _passwordHasher;
         private readonly IEmailService _emailService;
 
         public AuthController(WebDbContext context, IEmailService emailService)
         {
             _context = context;
-            _passwordHasher = new PasswordHasher<user>();
             _emailService = emailService;
         }
 
@@ -60,8 +58,8 @@ namespace ModernIssues.Controllers
                 email_confirmed = false
             };
 
-            // Hash password
-            newUser.password = _passwordHasher.HashPassword(newUser, request.Password);
+            // Hash password using BCrypt
+            newUser.password = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
             _context.users.Add(newUser);
             await _context.SaveChangesAsync();
@@ -93,15 +91,33 @@ namespace ModernIssues.Controllers
             }
 
             var user = await _context.users
-                .FirstOrDefaultAsync(u => u.username == request.Username && u.is_disabled != true);
+                .FirstOrDefaultAsync(u => u.username == request.Username);
 
             if (user == null)
             {
                 return BadRequest(new { message = "Invalid username or password." });
             }
 
-            var result = _passwordHasher.VerifyHashedPassword(user, user.password, request.Password);
-            if (result != PasswordVerificationResult.Success)
+            // Kiểm tra tài khoản có bị vô hiệu hóa không
+            if (user.is_disabled == true)
+            {
+                return BadRequest(new { message = "Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên." });
+            }
+
+            // Kiểm tra mật khẩu với BCrypt
+            bool isPasswordValid = false;
+            try
+            {
+                isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.password);
+            }
+            catch (BCrypt.Net.SaltParseException)
+            {
+                // Nếu không phải BCrypt format, có thể là mật khẩu cũ từ ASP.NET Identity
+                // Trong trường hợp này, cần reset mật khẩu hoặc migrate
+                return BadRequest(new { message = "Mật khẩu không hợp lệ. Vui lòng đặt lại mật khẩu." });
+            }
+
+            if (!isPasswordValid)
             {
                 return BadRequest(new { message = "Invalid username or password." });
             }
@@ -109,6 +125,7 @@ namespace ModernIssues.Controllers
             // Lưu session
             HttpContext.Session.SetString("username", user.username);
             HttpContext.Session.SetString("role", user.role ?? "customer");
+            HttpContext.Session.SetString("userId", user.user_id.ToString());
 
             return Ok(new { message = "Login successful!", username = user.username, role = user.role });
         }
@@ -182,7 +199,7 @@ namespace ModernIssues.Controllers
             if (user == null)
                 return BadRequest(new { message = "User not found." });
 
-            user.password = _passwordHasher.HashPassword(user, request.NewPassword);
+            user.password = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             _context.users.Update(user);
             await _context.SaveChangesAsync();
 

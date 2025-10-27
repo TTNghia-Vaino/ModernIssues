@@ -48,6 +48,21 @@ namespace ModernIssues.Helpers
         }
 
         /// <summary>
+        /// Lấy userId của user hiện tại
+        /// </summary>
+        /// <param name="httpContext">HttpContext hiện tại</param>
+        /// <returns>UserId hoặc null nếu chưa đăng nhập</returns>
+        public static int? GetCurrentUserId(HttpContext httpContext)
+        {
+            var userIdString = httpContext.Session.GetString("userId");
+            if (int.TryParse(userIdString, out int userId))
+            {
+                return userId;
+            }
+            return null;
+        }
+
+        /// <summary>
         /// Kiểm tra xem user có quyền thực hiện thao tác admin hay không
         /// </summary>
         /// <param name="httpContext">HttpContext hiện tại</param>
@@ -69,6 +84,7 @@ namespace ModernIssues.Helpers
 
             return new
             {
+                UserId = GetCurrentUserId(httpContext),
                 Username = GetCurrentUsername(httpContext),
                 Role = GetCurrentRole(httpContext),
                 IsAdmin = IsAdmin(httpContext)
