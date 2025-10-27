@@ -21,9 +21,6 @@ public partial class order_detail
 
     public int quantity { get; set; }
 
-    /// <summary>
-    /// Lưu ảnh sản phẩm tại thời điểm mua
-    /// </summary>
     public string? image_url { get; set; }
 
     public DateTime? created_at { get; set; }
