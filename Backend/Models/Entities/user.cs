@@ -46,6 +46,16 @@ public partial class user
 
     public virtual ICollection<user> Inverseupdated_byNavigation { get; set; } = new List<user>();
 
+    public virtual ICollection<cart> cartcreated_byNavigations { get; set; } = new List<cart>();
+
+    public virtual ICollection<cart_item> cart_itemcreated_byNavigations { get; set; } = new List<cart_item>();
+
+    public virtual ICollection<cart_item> cart_itemupdated_byNavigations { get; set; } = new List<cart_item>();
+
+    public virtual ICollection<cart> cartupdated_byNavigations { get; set; } = new List<cart>();
+
+    public virtual ICollection<cart> carts { get; set; } = new List<cart>();
+
     public virtual ICollection<category> categorycreated_byNavigations { get; set; } = new List<category>();
 
     public virtual ICollection<category> categoryupdated_byNavigations { get; set; } = new List<category>();

@@ -38,6 +38,8 @@ public partial class product
 
     public virtual category? category { get; set; }
 
+    public virtual ICollection<cart_item> cart_items { get; set; } = new List<cart_item>();
+
     public virtual user? created_byNavigation { get; set; }
 
     public virtual ICollection<log> logs { get; set; } = new List<log>();
