@@ -131,9 +131,8 @@ public partial class WebDbContext : DbContext
                 .HasPrecision(15, 2)
                 .HasDefaultValueSql("0");
             entity.Property(e => e.types)
-                .HasConversion<string>()
                 .HasMaxLength(20)
-                .HasDefaultValueSql("'COD'::payment_type")
+                .HasDefaultValueSql("'COD'")
                 .HasComment("Loại thanh toán: COD, Transfer, ATM");
             entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
 

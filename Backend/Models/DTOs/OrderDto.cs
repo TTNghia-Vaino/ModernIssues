@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using ModernIssues.Models.Entities;
 
 namespace ModernIssues.Models.DTOs
 {
@@ -16,7 +15,7 @@ namespace ModernIssues.Models.DTOs
         public DateTime? OrderDate { get; set; }
         public string? Status { get; set; } = string.Empty;
         public decimal? TotalAmount { get; set; } = 0;
-        public PaymentType? Types { get; set; } = PaymentType.COD;
+        public string? Types { get; set; } = "COD";
         public string? TypesDisplay { get; set; } = string.Empty;
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
@@ -34,7 +33,8 @@ namespace ModernIssues.Models.DTOs
         public int UserId { get; set; }
 
         [Required(ErrorMessage = "Loại thanh toán là bắt buộc")]
-        public PaymentType Types { get; set; } = PaymentType.COD;
+        [StringLength(20, ErrorMessage = "Loại thanh toán không được vượt quá 20 ký tự")]
+        public string Types { get; set; } = "COD";
 
         public string? Status { get; set; } = "pending";
         public decimal? TotalAmount { get; set; } = 0;
@@ -47,7 +47,8 @@ namespace ModernIssues.Models.DTOs
     public class OrderUpdateDto
     {
         public string? Status { get; set; }
-        public PaymentType? Types { get; set; }
+        [StringLength(20, ErrorMessage = "Loại thanh toán không được vượt quá 20 ký tự")]
+        public string? Types { get; set; }
         public decimal? TotalAmount { get; set; }
     }
 

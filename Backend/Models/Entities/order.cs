@@ -4,16 +4,6 @@ using System.Collections.Generic;
 namespace ModernIssues.Models.Entities;
 
 /// <summary>
-/// Enum cho loại thanh toán
-/// </summary>
-public enum PaymentType
-{
-    COD = 0,        // Cash on Delivery
-    Transfer = 1,   // Chuyển khoản
-    ATM = 2         // ATM
-}
-
-/// <summary>
 /// Thông tin đơn hàng của khách hàng
 /// </summary>
 public partial class order
@@ -31,7 +21,7 @@ public partial class order
     /// <summary>
     /// Loại thanh toán (COD, Transfer, ATM)
     /// </summary>
-    public PaymentType? types { get; set; } = PaymentType.COD;
+    public string? types { get; set; } = "COD";
 
     public DateTime? created_at { get; set; }
 
