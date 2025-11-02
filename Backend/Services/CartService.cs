@@ -8,14 +8,13 @@ namespace ModernIssues.Services
     public interface ICartService
     {
         Task<CartDto?> GetCartByUserIdAsync(int userId);
-        Task<CartDto> CreateCartAsync(int userId);
         Task<CartDto?> AddToCartAsync(int userId, AddToCartDto addToCartDto);
-        Task<CartDto?> UpdateCartItemAsync(int userId, int cartItemId, UpdateCartItemDto updateDto);
-        Task<bool> RemoveFromCartAsync(int userId, int cartItemId);
+        Task<CartDto?> UpdateCartItemAsync(int userId, int cartId, int productId, UpdateCartItemDto updateDto);
+        Task<bool> RemoveFromCartAsync(int userId, int cartId, int productId);
         Task<bool> ClearCartAsync(int userId);
         Task<CartSummaryDto?> GetCartSummaryAsync(int userId);
         Task<bool> CartExistsAsync(int userId);
-        Task<bool> CartItemExistsAsync(int userId, int cartItemId);
+        Task<bool> CartItemExistsAsync(int userId, int cartId, int productId);
     }
 
     public class CartService : ICartService
@@ -35,18 +34,6 @@ namespace ModernIssues.Services
             return await _cartRepository.GetCartByUserIdAsync(userId);
         }
 
-        public async Task<CartDto> CreateCartAsync(int userId)
-        {
-            if (userId <= 0)
-                throw new ArgumentException("User ID phải lớn hơn 0.");
-
-            // Kiểm tra giỏ hàng đã tồn tại chưa
-            var existingCart = await _cartRepository.GetCartByUserIdAsync(userId);
-            if (existingCart != null)
-                throw new InvalidOperationException("Giỏ hàng đã tồn tại cho user này.");
-
-            return await _cartRepository.CreateCartAsync(userId);
-        }
 
         public async Task<CartDto?> AddToCartAsync(int userId, AddToCartDto addToCartDto)
         {
@@ -65,13 +52,16 @@ namespace ModernIssues.Services
             return await _cartRepository.AddToCartAsync(userId, addToCartDto);
         }
 
-        public async Task<CartDto?> UpdateCartItemAsync(int userId, int cartItemId, UpdateCartItemDto updateDto)
+        public async Task<CartDto?> UpdateCartItemAsync(int userId, int cartId, int productId, UpdateCartItemDto updateDto)
         {
             if (userId <= 0)
                 throw new ArgumentException("User ID phải lớn hơn 0.");
 
-            if (cartItemId <= 0)
-                throw new ArgumentException("Cart Item ID phải lớn hơn 0.");
+            if (cartId <= 0)
+                throw new ArgumentException("Cart ID phải lớn hơn 0.");
+
+            if (productId <= 0)
+                throw new ArgumentException("Product ID phải lớn hơn 0.");
 
             if (updateDto == null)
                 throw new ArgumentNullException(nameof(updateDto), "Dữ liệu cập nhật không được để trống.");
@@ -80,25 +70,28 @@ namespace ModernIssues.Services
                 throw new ArgumentException("Số lượng phải lớn hơn 0.");
 
             // Kiểm tra cart item có thuộc về user này không
-            if (!await _cartRepository.CartItemExistsAsync(userId, cartItemId))
+            if (!await _cartRepository.CartItemExistsAsync(userId, cartId, productId))
                 throw new ArgumentException("Cart item không tồn tại hoặc không thuộc về user này.");
 
-            return await _cartRepository.UpdateCartItemAsync(userId, cartItemId, updateDto);
+            return await _cartRepository.UpdateCartItemAsync(userId, cartId, productId, updateDto);
         }
 
-        public async Task<bool> RemoveFromCartAsync(int userId, int cartItemId)
+        public async Task<bool> RemoveFromCartAsync(int userId, int cartId, int productId)
         {
             if (userId <= 0)
                 throw new ArgumentException("User ID phải lớn hơn 0.");
 
-            if (cartItemId <= 0)
-                throw new ArgumentException("Cart Item ID phải lớn hơn 0.");
+            if (cartId <= 0)
+                throw new ArgumentException("Cart ID phải lớn hơn 0.");
+
+            if (productId <= 0)
+                throw new ArgumentException("Product ID phải lớn hơn 0.");
 
             // Kiểm tra cart item có thuộc về user này không
-            if (!await _cartRepository.CartItemExistsAsync(userId, cartItemId))
+            if (!await _cartRepository.CartItemExistsAsync(userId, cartId, productId))
                 throw new ArgumentException("Cart item không tồn tại hoặc không thuộc về user này.");
 
-            return await _cartRepository.RemoveFromCartAsync(userId, cartItemId);
+            return await _cartRepository.RemoveFromCartAsync(userId, cartId, productId);
         }
 
         public async Task<bool> ClearCartAsync(int userId)
@@ -125,15 +118,19 @@ namespace ModernIssues.Services
             return await _cartRepository.CartExistsAsync(userId);
         }
 
-        public async Task<bool> CartItemExistsAsync(int userId, int cartItemId)
+        public async Task<bool> CartItemExistsAsync(int userId, int cartId, int productId)
         {
             if (userId <= 0)
                 throw new ArgumentException("User ID phải lớn hơn 0.");
 
-            if (cartItemId <= 0)
-                throw new ArgumentException("Cart Item ID phải lớn hơn 0.");
+            if (cartId <= 0)
+                throw new ArgumentException("Cart ID phải lớn hơn 0.");
 
-            return await _cartRepository.CartItemExistsAsync(userId, cartItemId);
+            if (productId <= 0)
+                throw new ArgumentException("Product ID phải lớn hơn 0.");
+
+            return await _cartRepository.CartItemExistsAsync(userId, cartId, productId);
         }
     }
 }
+

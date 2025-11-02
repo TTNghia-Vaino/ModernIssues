@@ -2,23 +2,21 @@ using ModernIssues.Models.DTOs;
 using ModernIssues.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace ModernIssues.Repositories
 {
     public interface ICartRepository
     {
         Task<CartDto?> GetCartByUserIdAsync(int userId);
-        Task<CartDto> CreateCartAsync(int userId);
         Task<CartDto?> AddToCartAsync(int userId, AddToCartDto addToCartDto);
-        Task<CartDto?> UpdateCartItemAsync(int userId, int cartItemId, UpdateCartItemDto updateDto);
-        Task<bool> RemoveFromCartAsync(int userId, int cartItemId);
+        Task<CartDto?> UpdateCartItemAsync(int userId, int cartId, int productId, UpdateCartItemDto updateDto);
+        Task<bool> RemoveFromCartAsync(int userId, int cartId, int productId);
         Task<bool> ClearCartAsync(int userId);
         Task<CartSummaryDto?> GetCartSummaryAsync(int userId);
         Task<bool> CartExistsAsync(int userId);
-        Task<bool> CartItemExistsAsync(int userId, int cartItemId);
+        Task<bool> CartItemExistsAsync(int userId, int cartId, int productId);
     }
 
     public class CartRepository : ICartRepository
@@ -32,35 +30,16 @@ namespace ModernIssues.Repositories
 
         public async Task<CartDto?> GetCartByUserIdAsync(int userId)
         {
-            var cart = await _context.carts
+            var carts = await _context.carts
                 .Include(c => c.user)
-                .Include(c => c.cart_items)
-                    .ThenInclude(ci => ci.product)
+                .Include(c => c.product)
                 .Where(c => c.user_id == userId)
-                .FirstOrDefaultAsync();
+                .ToListAsync();
 
-            if (cart == null)
+            if (!carts.Any())
                 return null;
 
-            return MapToCartDto(cart);
-        }
-
-        public async Task<CartDto> CreateCartAsync(int userId)
-        {
-            var newCart = new cart
-            {
-                user_id = userId,
-                created_at = DateTime.UtcNow,
-                updated_at = DateTime.UtcNow,
-                created_by = userId,
-                updated_by = userId
-            };
-
-            _context.carts.Add(newCart);
-            await _context.SaveChangesAsync();
-
-            // Reload with includes
-            return await GetCartByUserIdAsync(userId) ?? new CartDto();
+            return MapToCartDto(userId, carts);
         }
 
         public async Task<CartDto?> AddToCartAsync(int userId, AddToCartDto addToCartDto)
@@ -76,104 +55,76 @@ namespace ModernIssues.Repositories
             if (product.stock < addToCartDto.Quantity)
                 throw new ArgumentException($"Số lượng sản phẩm không đủ. Chỉ còn {product.stock} sản phẩm.");
 
-            // Lấy hoặc tạo giỏ hàng
-            var cart = await _context.carts
-                .Include(c => c.cart_items)
-                .Where(c => c.user_id == userId)
+            // Kiểm tra sản phẩm đã có trong giỏ hàng chưa (tìm entry đầu tiên của product này)
+            // Nếu có thì cập nhật số lượng, nếu không thì tạo mới
+            var existingCart = await _context.carts
+                .Include(c => c.user)
+                .Include(c => c.product)
+                .Where(c => c.user_id == userId && c.product_id == addToCartDto.ProductId)
                 .FirstOrDefaultAsync();
 
-            if (cart == null)
+            if (existingCart != null)
             {
-                cart = new cart
-                {
-                    user_id = userId,
-                    created_at = DateTime.UtcNow,
-                    updated_at = DateTime.UtcNow,
-                    created_by = userId,
-                    updated_by = userId
-                };
-                _context.carts.Add(cart);
-                await _context.SaveChangesAsync();
-            }
-
-            // Kiểm tra sản phẩm đã có trong giỏ hàng chưa
-            var existingItem = cart.cart_items
-                .FirstOrDefault(ci => ci.product_id == addToCartDto.ProductId);
-
-            if (existingItem != null)
-            {
-                // Cập nhật số lượng
-                existingItem.quantity += addToCartDto.Quantity;
-                existingItem.updated_at = DateTime.UtcNow;
-                existingItem.updated_by = userId;
+                // Cập nhật số lượng của entry đầu tiên tìm được
+                existingCart.quantity += addToCartDto.Quantity;
+                existingCart.updated_at = DateTime.UtcNow;
             }
             else
             {
-                // Thêm mới vào giỏ hàng
-                var newCartItem = new cart_item
+                // Thêm mới vào giỏ hàng - cart_id sẽ được tự động generate bởi database (SERIAL)
+                var newCart = new cart
                 {
-                    cart_id = cart.cart_id,
+                    user_id = userId,
                     product_id = addToCartDto.ProductId,
                     quantity = addToCartDto.Quantity,
                     price_at_add = product.price,
                     created_at = DateTime.UtcNow,
-                    updated_at = DateTime.UtcNow,
-                    created_by = userId,
-                    updated_by = userId
+                    updated_at = DateTime.UtcNow
                 };
-                _context.cart_items.Add(newCartItem);
+                _context.carts.Add(newCart);
             }
-
-            cart.updated_at = DateTime.UtcNow;
-            cart.updated_by = userId;
 
             await _context.SaveChangesAsync();
 
             return await GetCartByUserIdAsync(userId);
         }
 
-        public async Task<CartDto?> UpdateCartItemAsync(int userId, int cartItemId, UpdateCartItemDto updateDto)
+        public async Task<CartDto?> UpdateCartItemAsync(int userId, int cartId, int productId, UpdateCartItemDto updateDto)
         {
-            var cartItem = await _context.cart_items
-                .Include(ci => ci.cart)
-                .Include(ci => ci.product)
-                .Where(ci => ci.cart_item_id == cartItemId && ci.cart.user_id == userId)
+            var cart = await _context.carts
+                .Include(c => c.user)
+                .Include(c => c.product)
+                .Where(c => c.user_id == userId && c.cart_id == cartId && c.product_id == productId)
                 .FirstOrDefaultAsync();
 
-            if (cartItem == null)
+            if (cart == null)
                 return null;
 
             // Kiểm tra số lượng tồn kho
-            if (cartItem.product.stock < updateDto.Quantity)
-                throw new ArgumentException($"Số lượng sản phẩm không đủ. Chỉ còn {cartItem.product.stock} sản phẩm.");
+            if (cart.product == null)
+                throw new ArgumentException("Sản phẩm không tồn tại.");
+            
+            if (cart.product.stock < updateDto.Quantity)
+                throw new ArgumentException($"Số lượng sản phẩm không đủ. Chỉ còn {cart.product.stock} sản phẩm.");
 
-            cartItem.quantity = updateDto.Quantity;
-            cartItem.updated_at = DateTime.UtcNow;
-            cartItem.updated_by = userId;
-
-            cartItem.cart.updated_at = DateTime.UtcNow;
-            cartItem.cart.updated_by = userId;
+            cart.quantity = updateDto.Quantity;
+            cart.updated_at = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
             return await GetCartByUserIdAsync(userId);
         }
 
-        public async Task<bool> RemoveFromCartAsync(int userId, int cartItemId)
+        public async Task<bool> RemoveFromCartAsync(int userId, int cartId, int productId)
         {
-            var cartItem = await _context.cart_items
-                .Include(ci => ci.cart)
-                .Where(ci => ci.cart_item_id == cartItemId && ci.cart.user_id == userId)
+            var cart = await _context.carts
+                .Where(c => c.user_id == userId && c.cart_id == cartId && c.product_id == productId)
                 .FirstOrDefaultAsync();
 
-            if (cartItem == null)
+            if (cart == null)
                 return false;
 
-            _context.cart_items.Remove(cartItem);
-
-            cartItem.cart.updated_at = DateTime.UtcNow;
-            cartItem.cart.updated_by = userId;
-
+            _context.carts.Remove(cart);
             await _context.SaveChangesAsync();
 
             return true;
@@ -181,19 +132,14 @@ namespace ModernIssues.Repositories
 
         public async Task<bool> ClearCartAsync(int userId)
         {
-            var cart = await _context.carts
-                .Include(c => c.cart_items)
+            var carts = await _context.carts
                 .Where(c => c.user_id == userId)
-                .FirstOrDefaultAsync();
+                .ToListAsync();
 
-            if (cart == null)
+            if (!carts.Any())
                 return false;
 
-            _context.cart_items.RemoveRange(cart.cart_items);
-
-            cart.updated_at = DateTime.UtcNow;
-            cart.updated_by = userId;
-
+            _context.carts.RemoveRange(carts);
             await _context.SaveChangesAsync();
 
             return true;
@@ -201,26 +147,24 @@ namespace ModernIssues.Repositories
 
         public async Task<CartSummaryDto?> GetCartSummaryAsync(int userId)
         {
-            var cart = await _context.carts
+            var carts = await _context.carts
                 .Include(c => c.user)
-                .Include(c => c.cart_items)
                 .Where(c => c.user_id == userId)
-                .FirstOrDefaultAsync();
+                .ToListAsync();
 
-            if (cart == null)
+            if (!carts.Any())
                 return null;
 
-            var totalAmount = cart.cart_items.Sum(ci => ci.quantity * ci.price_at_add);
-            var totalItems = cart.cart_items.Sum(ci => ci.quantity);
+            var totalAmount = carts.Sum(c => c.quantity * c.price_at_add);
+            var totalItems = carts.Sum(c => c.quantity);
 
             return new CartSummaryDto
             {
-                CartId = cart.cart_id,
-                UserId = cart.user_id,
-                Username = cart.user?.username,
+                UserId = userId,
+                Username = carts.First().user?.username,
                 TotalAmount = totalAmount,
                 TotalItems = totalItems,
-                UpdatedAt = cart.updated_at
+                UpdatedAt = carts.Max(c => c.updated_at)
             };
         }
 
@@ -230,30 +174,26 @@ namespace ModernIssues.Repositories
                 .AnyAsync(c => c.user_id == userId);
         }
 
-        public async Task<bool> CartItemExistsAsync(int userId, int cartItemId)
+        public async Task<bool> CartItemExistsAsync(int userId, int cartId, int productId)
         {
-            return await _context.cart_items
-                .Include(ci => ci.cart)
-                .AnyAsync(ci => ci.cart_item_id == cartItemId && ci.cart.user_id == userId);
+            return await _context.carts
+                .AnyAsync(c => c.user_id == userId && c.cart_id == cartId && c.product_id == productId);
         }
 
-        private CartDto MapToCartDto(cart cart)
+        private CartDto MapToCartDto(int userId, List<cart> carts)
         {
-            var cartItems = cart.cart_items.Select(ci => new CartItemDto
+            var cartItems = carts.Select(c => new CartItemDto
             {
-                CartItemId = ci.cart_item_id,
-                CartId = ci.cart_id,
-                ProductId = ci.product_id,
-                ProductName = ci.product?.product_name ?? "",
-                ProductImage = ci.product?.image_url,
-                Quantity = ci.quantity,
-                PriceAtAdd = ci.price_at_add,
-                CurrentPrice = ci.product?.price ?? 0,
-                SubTotal = ci.quantity * ci.price_at_add,
-                CreatedAt = ci.created_at,
-                UpdatedAt = ci.updated_at,
-                CreatedBy = ci.created_by,
-                UpdatedBy = ci.updated_by
+                CartId = c.cart_id,
+                ProductId = c.product_id,
+                ProductName = c.product?.product_name ?? "",
+                ProductImage = c.product?.image_url,
+                Quantity = c.quantity,
+                PriceAtAdd = c.price_at_add,
+                CurrentPrice = c.product?.price ?? 0,
+                SubTotal = c.quantity * c.price_at_add,
+                CreatedAt = c.created_at,
+                UpdatedAt = c.updated_at
             }).ToList();
 
             var totalAmount = cartItems.Sum(ci => ci.SubTotal);
@@ -261,16 +201,13 @@ namespace ModernIssues.Repositories
 
             return new CartDto
             {
-                CartId = cart.cart_id,
-                UserId = cart.user_id,
-                Username = cart.user?.username,
-                CreatedAt = cart.created_at,
-                UpdatedAt = cart.updated_at,
-                CreatedBy = cart.created_by,
-                UpdatedBy = cart.updated_by,
+                UserId = userId,
+                Username = carts.First().user?.username,
                 CartItems = cartItems,
                 TotalAmount = totalAmount,
-                TotalItems = totalItems
+                TotalItems = totalItems,
+                CreatedAt = carts.Min(c => c.created_at),
+                UpdatedAt = carts.Max(c => c.updated_at)
             };
         }
     }
