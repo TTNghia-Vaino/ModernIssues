@@ -1,0 +1,192 @@
+using ModernIssues.Models.DTOs;
+using ModernIssues.Models.Entities;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace ModernIssues.Repositories
+{
+    public interface ICheckoutRepository
+    {
+        Task<OrderDto> CheckoutAsync(int userId, string paymentType);
+    }
+
+    public class CheckoutRepository : ICheckoutRepository
+    {
+        private readonly WebDbContext _context;
+
+        public CheckoutRepository(WebDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<OrderDto> CheckoutAsync(int userId, string paymentType)
+        {
+            // 1. Lấy tất cả cart items của user
+            var cartItems = await _context.carts
+                .Include(c => c.user)
+                .Include(c => c.product)
+                .Where(c => c.user_id == userId)
+                .ToListAsync();
+
+            if (!cartItems.Any())
+            {
+                throw new ArgumentException("Giỏ hàng trống, không thể checkout.");
+            }
+
+            // 2. Tính tổng tiền
+            decimal totalAmount = cartItems.Sum(c => c.quantity * c.price_at_add);
+
+            // 3. Kiểm tra tồn kho cho từng sản phẩm
+            foreach (var cartItem in cartItems)
+            {
+                if (cartItem.product == null)
+                {
+                    throw new ArgumentException($"Sản phẩm với ID {cartItem.product_id} không tồn tại.");
+                }
+
+                if (cartItem.product.is_disabled == true)
+                {
+                    throw new ArgumentException($"Sản phẩm {cartItem.product.product_name} đã bị vô hiệu hóa.");
+                }
+
+                if (cartItem.product.stock < cartItem.quantity)
+                {
+                    throw new ArgumentException($"Sản phẩm {cartItem.product.product_name} không đủ số lượng. Chỉ còn {cartItem.product.stock} sản phẩm.");
+                }
+            }
+
+            // 4. Tạo order (order_id tự động sinh)
+            var newOrder = new order
+            {
+                user_id = userId,
+                total_amount = totalAmount,
+                status = "pending",
+                types = paymentType,
+                order_date = DateTime.UtcNow,
+                created_at = DateTime.UtcNow,
+                updated_at = DateTime.UtcNow,
+                created_by = userId,
+                updated_by = userId
+            };
+
+            _context.orders.Add(newOrder);
+            await _context.SaveChangesAsync(); // Lưu để có order_id
+
+            // 5. Tạo order_details từ cart items
+            var orderDetails = cartItems.Select(cartItem => new order_detail
+            {
+                order_id = newOrder.order_id,
+                product_id = cartItem.product_id,
+                product_name = cartItem.product?.product_name ?? "",
+                quantity = cartItem.quantity,
+                price_at_purchase = cartItem.price_at_add,
+                image_url = cartItem.product?.image_url,
+                created_at = DateTime.UtcNow,
+                updated_at = DateTime.UtcNow,
+                created_by = userId,
+                updated_by = userId
+            }).ToList();
+
+            _context.order_details.AddRange(orderDetails);
+            await _context.SaveChangesAsync();
+
+            // 6. Trừ số lượng tồn kho
+            foreach (var cartItem in cartItems)
+            {
+                if (cartItem.product != null)
+                {
+                    cartItem.product.stock -= cartItem.quantity;
+                    cartItem.product.updated_at = DateTime.UtcNow;
+                }
+            }
+
+            // 7. Tạo warranty cho từng sản phẩm (nếu có warranty_period)
+            var warranties = cartItems
+                .Where(c => c.product != null && c.product.warranty_period.HasValue && c.product.warranty_period > 0)
+                .SelectMany(cartItem =>
+                {
+                    if (cartItem.product == null) return Enumerable.Empty<warranty>();
+                    var warrantyPeriod = cartItem.product.warranty_period ?? 0;
+                    var startDate = DateTime.UtcNow;
+                    var endDate = startDate.AddMonths(warrantyPeriod);
+
+                    // Tạo warranty cho mỗi quantity (mỗi sản phẩm cần 1 warranty riêng)
+                    return Enumerable.Range(0, cartItem.quantity).Select(index => new warranty
+                    {
+                        product_id = cartItem.product_id,
+                        user_id = userId,
+                        order_id = newOrder.order_id,
+                        start_date = startDate,
+                        end_date = endDate,
+                        status = "active",
+                        serial_number = null, // Serial number sẽ được cập nhật sau bởi admin
+                        created_at = DateTime.UtcNow,
+                        updated_at = DateTime.UtcNow,
+                        created_by = userId,
+                        updated_by = userId,
+                        is_disabled = false
+                    });
+                })
+                .ToList();
+
+            if (warranties.Any())
+            {
+                _context.warranties.AddRange(warranties);
+            }
+
+            await _context.SaveChangesAsync();
+
+            // 8. Xóa tất cả cart items
+            _context.carts.RemoveRange(cartItems);
+            await _context.SaveChangesAsync();
+
+            // 9. Load lại order với đầy đủ thông tin để trả về
+            var order = await _context.orders
+                .Include(o => o.user)
+                .Include(o => o.order_details)
+                    .ThenInclude(od => od.product)
+                .Where(o => o.order_id == newOrder.order_id)
+                .FirstOrDefaultAsync();
+
+            if (order == null)
+            {
+                throw new Exception("Lỗi khi tạo đơn hàng.");
+            }
+
+            // Map sang OrderDto
+            return new OrderDto
+            {
+                OrderId = order.order_id,
+                UserId = order.user_id,
+                Username = order.user?.username,
+                OrderDate = order.order_date,
+                Status = order.status,
+                TotalAmount = order.total_amount,
+                Types = order.types,
+                TypesDisplay = order.types == "COD" ? "Thanh toán khi nhận hàng" :
+                              order.types == "Transfer" ? "Chuyển khoản" :
+                              order.types == "ATM" ? "Thẻ ATM" : order.types,
+                CreatedAt = order.created_at,
+                UpdatedAt = order.updated_at,
+                CreatedBy = order.created_by,
+                UpdatedBy = order.updated_by,
+                OrderDetails = order.order_details.Select(od => new OrderDetailDto
+                {
+                    OrderId = od.order_id,
+                    ProductId = od.product_id,
+                    ProductName = od.product_name,
+                    Quantity = od.quantity,
+                    PriceAtPurchase = od.price_at_purchase,
+                    ImageUrl = od.image_url,
+                    CreatedAt = od.created_at,
+                    UpdatedAt = od.updated_at,
+                    CreatedBy = od.created_by,
+                    UpdatedBy = od.updated_by
+                }).ToList()
+            };
+        }
+    }
+}
+

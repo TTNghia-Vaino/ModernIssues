@@ -9,13 +9,10 @@ namespace ModernIssues.Models.DTOs
     /// </summary>
     public class CartDto
     {
-        public int CartId { get; set; } = 0;
         public int UserId { get; set; } = 0;
         public string? Username { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
-        public int? CreatedBy { get; set; }
-        public int? UpdatedBy { get; set; }
         public List<CartItemDto> CartItems { get; set; } = new List<CartItemDto>();
         public decimal TotalAmount { get; set; } = 0;
         public int TotalItems { get; set; } = 0;
@@ -26,8 +23,7 @@ namespace ModernIssues.Models.DTOs
     /// </summary>
     public class CartItemDto
     {
-        public int CartItemId { get; set; } = 0;
-        public int CartId { get; set; } = 0;
+        public int CartId { get; set; } = 0; // ID của dòng cart (mỗi dòng = 1 sản phẩm)
         public int ProductId { get; set; } = 0;
         public string ProductName { get; set; } = string.Empty;
         public string? ProductImage { get; set; }
@@ -65,29 +61,10 @@ namespace ModernIssues.Models.DTOs
     }
 
     /// <summary>
-    /// DTO cho xóa sản phẩm khỏi giỏ hàng
-    /// </summary>
-    public class RemoveFromCartDto
-    {
-        [Required(ErrorMessage = "Cart Item ID là bắt buộc")]
-        public int CartItemId { get; set; }
-    }
-
-    /// <summary>
-    /// DTO cho tạo giỏ hàng mới
-    /// </summary>
-    public class CreateCartDto
-    {
-        [Required(ErrorMessage = "User ID là bắt buộc")]
-        public int UserId { get; set; }
-    }
-
-    /// <summary>
     /// DTO cho tóm tắt giỏ hàng (không có chi tiết)
     /// </summary>
     public class CartSummaryDto
     {
-        public int CartId { get; set; } = 0;
         public int UserId { get; set; } = 0;
         public string? Username { get; set; }
         public decimal TotalAmount { get; set; } = 0;
@@ -95,3 +72,4 @@ namespace ModernIssues.Models.DTOs
         public DateTime? UpdatedAt { get; set; }
     }
 }
+

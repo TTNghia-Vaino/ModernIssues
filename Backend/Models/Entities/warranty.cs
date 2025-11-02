@@ -20,6 +20,11 @@ public partial class warranty
 
     public DateTime end_date { get; set; }
 
+    /// <summary>
+    /// Số serial của sản phẩm
+    /// </summary>
+    public string? serial_number { get; set; }
+
     public string? status { get; set; }
 
     public DateTime? created_at { get; set; }

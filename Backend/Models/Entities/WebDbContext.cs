@@ -18,8 +18,6 @@ public partial class WebDbContext : DbContext
 
     public virtual DbSet<cart> carts { get; set; }
 
-    public virtual DbSet<cart_item> cart_items { get; set; }
-
     public virtual DbSet<category> categories { get; set; }
 
     public virtual DbSet<faq> faqs { get; set; }
@@ -298,6 +296,7 @@ public partial class WebDbContext : DbContext
             entity.Property(e => e.warranty_id).ValueGeneratedOnAdd();
             entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.is_disabled).HasDefaultValue(false);
+            entity.Property(e => e.serial_number).HasMaxLength(100);
             entity.Property(e => e.status)
                 .HasMaxLength(50)
                 .HasDefaultValueSql("'active'::character varying");
@@ -328,59 +327,26 @@ public partial class WebDbContext : DbContext
 
         modelBuilder.Entity<cart>(entity =>
         {
-            entity.HasKey(e => e.cart_id).HasName("carts_pkey");
+            // PRIMARY KEY: (user_id, cart_id, product_id) - cho phép user có nhiều entries cho cùng product
+            entity.HasKey(e => new { e.user_id, e.cart_id, e.product_id }).HasName("carts_pkey");
 
-            entity.ToTable(tb => tb.HasComment("Giỏ hàng của khách hàng"));
+            entity.ToTable(tb => tb.HasComment("Giỏ hàng của khách hàng - mỗi dòng là 1 sản phẩm trong giỏ hàng"));
 
-            entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-            entity.HasOne(d => d.created_byNavigation).WithMany(p => p.cartcreated_byNavigations)
-                .HasForeignKey(d => d.created_by)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("carts_created_by_fkey");
-
-            entity.HasOne(d => d.updated_byNavigation).WithMany(p => p.cartupdated_byNavigations)
-                .HasForeignKey(d => d.updated_by)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("carts_updated_by_fkey");
-
-            entity.HasOne(d => d.user).WithMany(p => p.carts)
-                .HasForeignKey(d => d.user_id)
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("carts_user_id_fkey");
-        });
-
-        modelBuilder.Entity<cart_item>(entity =>
-        {
-            entity.HasKey(e => e.cart_item_id).HasName("cart_items_pkey");
-
-            entity.ToTable(tb => tb.HasComment("Chi tiết sản phẩm trong giỏ hàng"));
-
+            entity.Property(e => e.cart_id).ValueGeneratedOnAdd();
             entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.price_at_add).HasPrecision(15, 2);
             entity.Property(e => e.quantity).HasDefaultValue(1);
             entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-            entity.HasOne(d => d.cart).WithMany(p => p.cart_items)
-                .HasForeignKey(d => d.cart_id)
+            entity.HasOne(d => d.user).WithMany(p => p.carts)
+                .HasForeignKey(d => d.user_id)
                 .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("cart_items_cart_id_fkey");
+                .HasConstraintName("carts_user_id_fkey");
 
-            entity.HasOne(d => d.created_byNavigation).WithMany(p => p.cart_itemcreated_byNavigations)
-                .HasForeignKey(d => d.created_by)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("cart_items_created_by_fkey");
-
-            entity.HasOne(d => d.product).WithMany(p => p.cart_items)
+            entity.HasOne(d => d.product).WithMany(p => p.carts)
                 .HasForeignKey(d => d.product_id)
                 .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("cart_items_product_id_fkey");
-
-            entity.HasOne(d => d.updated_byNavigation).WithMany(p => p.cart_itemupdated_byNavigations)
-                .HasForeignKey(d => d.updated_by)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("cart_items_updated_by_fkey");
+                .HasConstraintName("carts_product_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);
