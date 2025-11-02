@@ -1,263 +1,207 @@
-using Dapper;
-using Npgsql;
 using ModernIssues.Models.DTOs;
+using ModernIssues.Models.Entities;
 using ModernIssues.Repositories.Service;
-using ModernIssues.Repositories.Interface;
+using Microsoft.EntityFrameworkCore;
 using System;
-using System.Data;
-using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
-
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace ModernIssues.Repositories
 {
     public class UserRepository : IUserRepository
     {
-        private readonly string _connectionString;
+        private readonly WebDbContext _context;
 
-        public UserRepository(IConfiguration configuration)
+        public UserRepository(WebDbContext context)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection") 
-                                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+            _context = context;
         }
-
-        private IDbConnection Connection => new NpgsqlConnection(_connectionString);
 
         // --- Kiểm tra tồn tại ---
         public async Task<bool> ExistsByUsernameOrEmailAsync(string username, string email)
         {
-            var sql = "SELECT COUNT(*) FROM users WHERE username = @Username OR email = @Email;";
-            using (var db = Connection)
-            {
-                int count = await db.ExecuteScalarAsync<int>(sql, new { Username = username, Email = email });
-                return count > 0;
-            }
+            return await _context.users
+                .AnyAsync(u => u.username == username || u.email == email);
         }
 
         // --- Kiểm tra tồn tại username ---
         public async Task<bool> ExistsByUsernameAsync(string username)
         {
-            var sql = "SELECT COUNT(*) FROM users WHERE username = @Username;";
-            using (var db = Connection)
-            {
-                int count = await db.ExecuteScalarAsync<int>(sql, new { Username = username });
-                return count > 0;
-            }
+            return await _context.users
+                .AnyAsync(u => u.username == username);
         }
         
         // --- CREATE (Register) ---
         public async Task<UserDto> RegisterAsync(UserRegisterDto user, string hashedPassword)
         {
-            var sql = @"
-                INSERT INTO users (
-                    username, password, email, phone, address, avatar_url, role, created_by, updated_by
-                ) VALUES (
-                    @Username, @HashedPassword, @Email, @Phone, @Address, @AvatarUrl, 'customer', @SystemAdminId, @SystemAdminId
-                ) RETURNING user_id AS UserId, username, email, phone, address, avatar_url AS AvatarUrl, role, is_disabled AS IsDisabled, email_confirmed AS EmailConfirmed, created_at;
-            ";
-            
-            // NOTE: Giả sử SystemAdminId = 1, đây là tài khoản đầu tiên hoặc system user
-            var parameters = new
+            var newUser = new user
             {
-                user.Username, HashedPassword = hashedPassword, user.Email, user.Phone, 
-                user.Address, AvatarUrl = user.AvatarUrl ?? "default-avatar.jpg", SystemAdminId = 1 
+                username = user.Username,
+                password = hashedPassword,
+                email = user.Email,
+                phone = user.Phone,
+                address = user.Address,
+                avatar_url = user.AvatarUrl ?? "default-avatar.jpg",
+                role = "customer",
+                is_disabled = false,
+                email_confirmed = false,
+                created_at = DateTime.UtcNow,
+                updated_at = DateTime.UtcNow,
+                created_by = 1, // System admin ID = 1
+                updated_by = 1
             };
 
-            using (var db = Connection)
+            _context.users.Add(newUser);
+            await _context.SaveChangesAsync();
+
+            // Update created_by to self after getting user_id
+            if (newUser.created_by == 1)
             {
-                return await db.QueryFirstOrDefaultAsync<UserDto>(sql, parameters) ?? new UserDto();
+                newUser.created_by = newUser.user_id;
+                newUser.updated_by = newUser.user_id;
+                await _context.SaveChangesAsync();
             }
+
+            return MapToUserDto(newUser);
         }
 
         // --- READ ONE (By Id) ---
         public async Task<UserDto> GetByIdAsync(int userId)
         {
-            var sql = @"
-                SELECT user_id AS UserId, username, email, phone, address, avatar_url AS AvatarUrl, role, is_disabled AS IsDisabled, 
-                       email_confirmed AS EmailConfirmed, created_at AS CreatedAt
-                FROM users 
-                WHERE user_id = @UserId AND (is_disabled IS NULL OR is_disabled = FALSE);
-            ";
-            // NOTE: Sử dụng is_disabled thay vì is_deleted vì entity không có trường is_deleted
-            using (var db = Connection)
-            {
-                return await db.QueryFirstOrDefaultAsync<UserDto>(sql, new { UserId = userId }) ?? new UserDto();
-            }
+            var user = await _context.users
+                .Where(u => u.user_id == userId && (u.is_disabled == null || u.is_disabled == false))
+                .FirstOrDefaultAsync();
+
+            if (user == null)
+                return null;
+
+            return MapToUserDto(user);
         }
 
         // --- UPDATE Profile ---
         public async Task<UserDto> UpdateProfileAsync(int userId, UserUpdateProfileDto profile)
         {
-            // Xây dựng SQL động để chỉ cập nhật các trường không null
-            var updateFields = new List<string>();
-            var parameters = new Dictionary<string, object> { { "UserId", userId } };
+            var user = await _context.users
+                .Where(u => u.user_id == userId)
+                .FirstOrDefaultAsync();
 
+            if (user == null)
+                return null;
+
+            // Update only non-null fields
             if (!string.IsNullOrEmpty(profile.Username))
             {
-                updateFields.Add("username = @Username");
-                parameters["Username"] = profile.Username;
+                user.username = profile.Username;
             }
 
             if (!string.IsNullOrEmpty(profile.Phone))
             {
-                updateFields.Add("phone = @Phone");
-                parameters["Phone"] = profile.Phone;
+                user.phone = profile.Phone;
             }
 
             if (!string.IsNullOrEmpty(profile.Address))
             {
-                updateFields.Add("address = @Address");
-                parameters["Address"] = profile.Address;
+                user.address = profile.Address;
             }
 
             if (!string.IsNullOrEmpty(profile.Email))
             {
-                updateFields.Add("email = @Email");
-                parameters["Email"] = profile.Email;
+                user.email = profile.Email;
             }
 
             if (!string.IsNullOrEmpty(profile.AvatarUrl))
             {
-                updateFields.Add("avatar_url = @AvatarUrl");
-                parameters["AvatarUrl"] = profile.AvatarUrl;
+                user.avatar_url = profile.AvatarUrl;
             }
 
-            // Luôn cập nhật updated_at
-            updateFields.Add("updated_at = CURRENT_TIMESTAMP");
+            user.updated_at = DateTime.UtcNow;
 
-            if (updateFields.Count <= 1) // Chỉ có updated_at
-            {
-                throw new ArgumentException("Không có trường nào để cập nhật.");
-            }
+            await _context.SaveChangesAsync();
 
-            var sql = $@"
-                UPDATE users
-                SET {string.Join(", ", updateFields)}
-                WHERE user_id = @UserId
-                RETURNING user_id AS UserId, username, email, phone, address, avatar_url AS AvatarUrl, role, is_disabled AS IsDisabled, 
-                          email_confirmed AS EmailConfirmed, created_at AS CreatedAt;
-            ";
-
-            using (var db = Connection)
-            {
-                return await db.QueryFirstOrDefaultAsync<UserDto>(sql, parameters) ?? new UserDto();
-            }
+            return MapToUserDto(user);
         }
-
-        // --- Get By Username (Ví dụ cho Login) ---
-        public async Task<UserDto> GetByUsernameAsync(string username)
-        {
-            var sql = @"
-                SELECT user_id AS UserId, username, password, email, role, is_disabled AS IsDisabled
-                FROM users 
-                WHERE username = @Username AND (is_disabled IS NULL OR is_disabled = FALSE);
-            ";
-            using (var db = Connection)
-            {
-                // NOTE: Cần tạo một DTO khác nếu bạn muốn lấy cả mật khẩu (cho Login)
-                return await db.QueryFirstOrDefaultAsync<UserDto>(sql, new { Username = username }) ?? new UserDto();
-            }
-        }
-        
-        // File: Repositories/UserRepository.cs (Thêm vào cuối lớp)
 
         // --- DELETE (Vô hiệu hóa tài khoản) ---
         public async Task<bool> DeleteUserAsync(int userId, int adminId)
         {
-            // Cập nhật is_disabled thành TRUE và ghi lại người thực hiện/thời gian
-            var sql = @"
-                UPDATE users
-                SET
-                    is_disabled = TRUE,
-                    updated_by = @AdminId,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE user_id = @UserId AND role = 'customer' AND is_disabled = FALSE;
-            ";
-            
-            var parameters = new { AdminId = adminId, UserId = userId };
+            var user = await _context.users
+                .Where(u => u.user_id == userId && u.role == "customer" && (u.is_disabled == null || u.is_disabled == false))
+                .FirstOrDefaultAsync();
 
-            using (var db = Connection)
-            {
-                // Execute trả về số dòng bị ảnh hưởng
-                var rowsAffected = await db.ExecuteAsync(sql, parameters);
-                // Trả về true nếu có ít nhất 1 khách hàng bị vô hiệu hóa
-                return rowsAffected > 0;
-            }
+            if (user == null)
+                return false;
+
+            user.is_disabled = true;
+            user.updated_by = adminId;
+            user.updated_at = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         // --- ACTIVATE (Kích hoạt lại tài khoản) ---
         public async Task<bool> ActivateUserAsync(int userId, int adminId)
         {
-            // Cập nhật is_disabled thành FALSE và ghi lại người thực hiện/thời gian
-            var sql = @"
-                UPDATE users
-                SET
-                    is_disabled = FALSE,
-                    updated_by = @AdminId,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE user_id = @UserId AND role = 'customer' AND is_disabled = TRUE;
-            ";
-            
-            var parameters = new { AdminId = adminId, UserId = userId };
+            var user = await _context.users
+                .Where(u => u.user_id == userId && u.role == "customer" && u.is_disabled == true)
+                .FirstOrDefaultAsync();
 
-            using (var db = Connection)
-            {
-                // Execute trả về số dòng bị ảnh hưởng
-                var rowsAffected = await db.ExecuteAsync(sql, parameters);
-                // Trả về true nếu có ít nhất 1 khách hàng được kích hoạt
-                return rowsAffected > 0;
-            }
+            if (user == null)
+                return false;
+
+            user.is_disabled = false;
+            user.updated_by = adminId;
+            user.updated_at = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         // --- UPDATE AVATAR ONLY ---
         public async Task<UserDto> UpdateAvatarAsync(int userId, string avatarUrl)
         {
-            var sql = @"
-                UPDATE users
-                SET
-                    avatar_url = @AvatarUrl,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE user_id = @UserId
-                RETURNING user_id AS UserId, username, email, phone, address, avatar_url AS AvatarUrl, role, is_disabled AS IsDisabled, 
-                          email_confirmed AS EmailConfirmed, created_at AS CreatedAt;
-            ";
-            
-            var parameters = new
-            {
-                AvatarUrl = avatarUrl, UserId = userId
-            };
+            var user = await _context.users
+                .Where(u => u.user_id == userId)
+                .FirstOrDefaultAsync();
 
-            using (var db = Connection)
-            {
-                return await db.QueryFirstOrDefaultAsync<UserDto>(sql, parameters) ?? new UserDto();
-            }
+            if (user == null)
+                return null;
+
+            user.avatar_url = avatarUrl;
+            user.updated_at = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return MapToUserDto(user);
         }
 
         // --- GET ALL USERS (Admin only) ---
         public async Task<List<UserDto>> GetAllUsersAsync()
         {
-            var sql = @"
-                SELECT 
-                    user_id AS UserId,
-                    username,
-                    email,
-                    phone,
-                    address,
-                    avatar_url AS AvatarUrl,
-                    role,
-                    is_disabled AS IsDisabled,
-                    email_confirmed AS EmailConfirmed,
-                    created_at AS CreatedAt
-                FROM users 
-                WHERE is_disabled = FALSE
-                ORDER BY created_at DESC;
-            ";
+            var users = await _context.users
+                .Where(u => u.is_disabled == false)
+                .OrderByDescending(u => u.created_at)
+                .ToListAsync();
 
-            using (var db = Connection)
+            return users.Select(MapToUserDto).ToList();
+        }
+
+        // Helper method to map user entity to UserDto
+        private UserDto MapToUserDto(user u)
+        {
+            return new UserDto
             {
-                var users = await db.QueryAsync<UserDto>(sql);
-                return users.ToList();
-            }
+                UserId = u.user_id,
+                Username = u.username,
+                Email = u.email,
+                Phone = u.phone ?? "",
+                Address = u.address ?? "",
+                AvatarUrl = u.avatar_url,
+                Role = u.role ?? "customer",
+                IsDisabled = u.is_disabled ?? false,
+                EmailConfirmed = u.email_confirmed ?? false
+            };
         }
     }
 }

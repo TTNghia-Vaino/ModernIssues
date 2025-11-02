@@ -1,13 +1,10 @@
-using Dapper;
-using Npgsql;
 using ModernIssues.Models.DTOs;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Repositories.Service;
-using ModernIssues.Models.Entities;
-using System.Data;
 
 namespace ModernIssues.Repositories
 {

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ModernIssues.Models.DTOs;
-using ModernIssues.Services;
+using ModernIssues.Repositories;
 using ModernIssues.Helpers;
 using ModernIssues.Models.Common;
 using System;
@@ -12,11 +12,11 @@ namespace ModernIssues.Controllers
     [ApiController]
     public class CartController : ControllerBase
     {
-        private readonly ICartService _cartService;
+        private readonly ICartRepository _cartRepository;
 
-        public CartController(ICartService cartService)
+        public CartController(ICartRepository cartRepository)
         {
-            _cartService = cartService;
+            _cartRepository = cartRepository;
         }
 
         // ============================================
@@ -36,26 +36,30 @@ namespace ModernIssues.Controllers
         {
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để xem giỏ hàng."));
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập."));
+            }
+
+            var userId = AuthHelper.GetCurrentUserId(HttpContext);
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Không thể xác định người dùng."));
             }
 
             try
             {
-                var userId = AuthHelper.GetCurrentUserId(HttpContext) ?? 0;
-                var cart = await _cartService.GetCartByUserIdAsync(userId);
-                
+                var cart = await _cartRepository.GetCartByUserIdAsync(userId.Value);
                 if (cart == null)
                 {
-                    return NotFound(ApiResponse<object>.ErrorResponse("Không tìm thấy giỏ hàng."));
+                    return NotFound(ApiResponse<object>.ErrorResponse("Giỏ hàng trống."));
                 }
 
-                return Ok(ApiResponse<CartDto>.SuccessResponse(cart, "Lấy thông tin giỏ hàng thành công."));
+                return Ok(ApiResponse<CartDto>.SuccessResponse(cart, "Lấy giỏ hàng thành công."));
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[ERROR] GetCart: {ex.Message}");
                 return StatusCode(HttpStatusCodes.InternalServerError,
-                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy thông tin giỏ hàng."));
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống."));
             }
         }
 
@@ -73,17 +77,21 @@ namespace ModernIssues.Controllers
         {
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để xem giỏ hàng."));
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập."));
+            }
+
+            var userId = AuthHelper.GetCurrentUserId(HttpContext);
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Không thể xác định người dùng."));
             }
 
             try
             {
-                var userId = AuthHelper.GetCurrentUserId(HttpContext) ?? 0;
-                var summary = await _cartService.GetCartSummaryAsync(userId);
-                
+                var summary = await _cartRepository.GetCartSummaryAsync(userId.Value);
                 if (summary == null)
                 {
-                    return NotFound(ApiResponse<object>.ErrorResponse("Không tìm thấy giỏ hàng."));
+                    return NotFound(ApiResponse<object>.ErrorResponse("Giỏ hàng trống."));
                 }
 
                 return Ok(ApiResponse<CartSummaryDto>.SuccessResponse(summary, "Lấy tóm tắt giỏ hàng thành công."));
@@ -92,7 +100,7 @@ namespace ModernIssues.Controllers
             {
                 Console.WriteLine($"[ERROR] GetCartSummary: {ex.Message}");
                 return StatusCode(HttpStatusCodes.InternalServerError,
-                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy tóm tắt giỏ hàng."));
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống."));
             }
         }
 
@@ -110,25 +118,29 @@ namespace ModernIssues.Controllers
         {
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thêm sản phẩm vào giỏ hàng."));
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập."));
+            }
+
+            if (addToCartDto == null)
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
+            }
+
+            var userId = AuthHelper.GetCurrentUserId(HttpContext);
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Không thể xác định người dùng."));
             }
 
             try
             {
-                if (addToCartDto == null)
-                {
-                    return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu sản phẩm không được để trống."));
-                }
-
-                var userId = AuthHelper.GetCurrentUserId(HttpContext) ?? 0;
-                var cart = await _cartService.AddToCartAsync(userId, addToCartDto);
-                
+                var cart = await _cartRepository.AddToCartAsync(userId.Value, addToCartDto);
                 if (cart == null)
                 {
                     return BadRequest(ApiResponse<object>.ErrorResponse("Không thể thêm sản phẩm vào giỏ hàng."));
                 }
                 
-                return Ok(ApiResponse<CartDto>.SuccessResponse(cart, "Thêm sản phẩm vào giỏ hàng thành công."));
+                return Ok(ApiResponse<CartDto>.SuccessResponse(cart, "Thêm sản phẩm thành công."));
             }
             catch (ArgumentException ex)
             {
@@ -138,7 +150,7 @@ namespace ModernIssues.Controllers
             {
                 Console.WriteLine($"[ERROR] AddToCart: {ex.Message}");
                 return StatusCode(HttpStatusCodes.InternalServerError,
-                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi thêm sản phẩm vào giỏ hàng."));
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống."));
             }
         }
 
@@ -156,25 +168,29 @@ namespace ModernIssues.Controllers
         {
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để cập nhật giỏ hàng."));
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập."));
+            }
+
+            if (updateDto == null)
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
+            }
+
+            var userId = AuthHelper.GetCurrentUserId(HttpContext);
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Không thể xác định người dùng."));
             }
 
             try
             {
-                if (updateDto == null)
-                {
-                    return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu cập nhật không được để trống."));
-                }
-
-                var userId = AuthHelper.GetCurrentUserId(HttpContext) ?? 0;
-                var cart = await _cartService.UpdateCartItemAsync(userId, cartId, productId, updateDto);
-                
+                var cart = await _cartRepository.UpdateCartItemAsync(userId.Value, cartId, productId, updateDto);
                 if (cart == null)
                 {
-                    return BadRequest(ApiResponse<object>.ErrorResponse($"Không tìm thấy cart item với Cart ID: {cartId} và Product ID: {productId}."));
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Không tìm thấy sản phẩm trong giỏ hàng."));
                 }
 
-                return Ok(ApiResponse<CartDto>.SuccessResponse(cart, "Cập nhật giỏ hàng thành công."));
+                return Ok(ApiResponse<CartDto>.SuccessResponse(cart, "Cập nhật thành công."));
             }
             catch (ArgumentException ex)
             {
@@ -184,7 +200,7 @@ namespace ModernIssues.Controllers
             {
                 Console.WriteLine($"[ERROR] UpdateCartItem: {ex.Message}");
                 return StatusCode(HttpStatusCodes.InternalServerError,
-                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi cập nhật giỏ hàng."));
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống."));
             }
         }
 
@@ -202,20 +218,24 @@ namespace ModernIssues.Controllers
         {
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để xóa sản phẩm khỏi giỏ hàng."));
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập."));
+            }
+
+            var userId = AuthHelper.GetCurrentUserId(HttpContext);
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Không thể xác định người dùng."));
             }
 
             try
             {
-                var userId = AuthHelper.GetCurrentUserId(HttpContext) ?? 0;
-                var success = await _cartService.RemoveFromCartAsync(userId, cartId, productId);
-                
+                var success = await _cartRepository.RemoveFromCartAsync(userId.Value, cartId, productId);
                 if (!success)
                 {
-                    return BadRequest(ApiResponse<object>.ErrorResponse($"Không tìm thấy cart item với Cart ID: {cartId} và Product ID: {productId}."));
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Không tìm thấy sản phẩm trong giỏ hàng."));
                 }
 
-                return Ok(ApiResponse<object>.SuccessResponse(new { cartId, productId }, "Xóa sản phẩm khỏi giỏ hàng thành công."));
+                return Ok(ApiResponse<object>.SuccessResponse(new { }, "Xóa sản phẩm thành công."));
             }
             catch (ArgumentException ex)
             {
@@ -225,7 +245,7 @@ namespace ModernIssues.Controllers
             {
                 Console.WriteLine($"[ERROR] RemoveFromCart: {ex.Message}");
                 return StatusCode(HttpStatusCodes.InternalServerError,
-                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi xóa sản phẩm khỏi giỏ hàng."));
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống."));
             }
         }
 
@@ -243,30 +263,30 @@ namespace ModernIssues.Controllers
         {
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để xóa giỏ hàng."));
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập."));
+            }
+
+            var userId = AuthHelper.GetCurrentUserId(HttpContext);
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Không thể xác định người dùng."));
             }
 
             try
             {
-                var userId = AuthHelper.GetCurrentUserId(HttpContext) ?? 0;
-                var success = await _cartService.ClearCartAsync(userId);
-                
+                var success = await _cartRepository.ClearCartAsync(userId.Value);
                 if (!success)
                 {
-                    return NotFound(ApiResponse<object>.ErrorResponse("Không tìm thấy giỏ hàng để xóa."));
+                    return NotFound(ApiResponse<object>.ErrorResponse("Giỏ hàng trống."));
                 }
 
-                return Ok(ApiResponse<object>.SuccessResponse(new { userId }, "Xóa giỏ hàng thành công."));
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
+                return Ok(ApiResponse<object>.SuccessResponse(new { }, "Xóa giỏ hàng thành công."));
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[ERROR] ClearCart: {ex.Message}");
                 return StatusCode(HttpStatusCodes.InternalServerError,
-                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi xóa giỏ hàng."));
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống."));
             }
         }
     }
