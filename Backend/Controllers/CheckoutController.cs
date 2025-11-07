@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ModernIssues.Models.DTOs;
-using ModernIssues.Repositories;
+using ModernIssues.Repositories.Interface;
 using ModernIssues.Helpers;
 using ModernIssues.Models.Common;
 using System;
@@ -75,6 +75,82 @@ namespace ModernIssues.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"[ERROR] Checkout: {ex.Message}");
+                return StatusCode(HttpStatusCodes.InternalServerError,
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống."));
+            }
+        }
+
+        // ============================================
+        // POST TEST CHECKOUT: POST /v1/Checkout/Test
+        // ============================================
+        /// <summary>
+        /// Test Checkout - Tạo đơn hàng test trực tiếp từ productId và quantity (không cần cart).
+        /// Dùng để test payment flow với Transfer.
+        /// </summary>
+        /// <param name="testCheckoutDto">Thông tin test checkout (productId, quantity, paymentType).</param>
+        /// <response code="200">Checkout thành công, trả về thông tin đơn hàng (bao gồm gencode nếu là Transfer).</response>
+        /// <response code="400">Dữ liệu không hợp lệ hoặc sản phẩm không đủ số lượng.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        [HttpPost("Test")]
+        [ProducesResponseType(typeof(ApiResponse<OrderDto>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
+        public async Task<IActionResult> TestCheckout([FromBody] TestCheckoutDto testCheckoutDto)
+        {
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập."));
+            }
+
+            if (testCheckoutDto == null)
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse("Dữ liệu không hợp lệ."));
+            }
+
+            if (testCheckoutDto.ProductId <= 0)
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse("Product ID không hợp lệ."));
+            }
+
+            if (testCheckoutDto.Quantity <= 0)
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse("Số lượng phải lớn hơn 0."));
+            }
+
+            if (string.IsNullOrWhiteSpace(testCheckoutDto.PaymentType))
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse("Loại thanh toán không được để trống."));
+            }
+
+            var validPaymentTypes = new[] { "COD", "Transfer", "ATM" };
+            if (!validPaymentTypes.Contains(testCheckoutDto.PaymentType))
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse($"Loại thanh toán không hợp lệ. Chỉ chấp nhận: {string.Join(", ", validPaymentTypes)}"));
+            }
+
+            var userId = AuthHelper.GetCurrentUserId(HttpContext);
+            if (!userId.HasValue)
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Không thể xác định người dùng."));
+            }
+
+            try
+            {
+                var order = await _checkoutRepository.TestCheckoutAsync(
+                    userId.Value, 
+                    testCheckoutDto.ProductId, 
+                    testCheckoutDto.Quantity, 
+                    testCheckoutDto.PaymentType);
+                
+                return Ok(ApiResponse<OrderDto>.SuccessResponse(order, "Test checkout thành công. Đơn hàng đã được tạo."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Test Checkout: {ex.Message}");
                 return StatusCode(HttpStatusCodes.InternalServerError,
                     ApiResponse<object>.ErrorResponse("Lỗi hệ thống."));
             }

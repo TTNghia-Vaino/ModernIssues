@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ModernIssues.Models.DTOs;
-using ModernIssues.Repositories;
+using ModernIssues.Repositories.Interface;
 using ModernIssues.Helpers;
 using ModernIssues.Models.Common;
 using System;

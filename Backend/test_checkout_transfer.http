@@ -1,0 +1,53 @@
+### Test Checkout với Transfer Payment
+### Tạo đơn hàng test trực tiếp từ productId và quantity
+
+### 1. Đăng nhập trước
+POST http://localhost:5273/v1/Auth/Login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+### 2. Test Checkout với Transfer (tự động tạo gencode)
+POST http://localhost:5273/v1/Checkout/Test
+Content-Type: application/json
+
+{
+  "productId": 1,
+  "quantity": 2,
+  "paymentType": "Transfer"
+}
+
+### 3. Generate QR Code từ Order ID đã tạo
+POST http://localhost:5273/v1/Payment/GenerateQr
+Content-Type: application/json
+
+{
+  "orderId": 1,
+  "amount": 50000
+}
+
+### 4. Test Webhook (simulate payment gateway)
+POST http://localhost:5273/v1/Payment/Webhook
+Content-Type: application/json
+
+{
+  "gencode": "PAY_1_20251031142000_ABC123",
+  "status": "paid",
+  "amount": 50000,
+  "paidAt": "2025-10-31T14:20:00Z"
+}
+
+### 5. Lấy thông tin payment theo gencode
+GET http://localhost:5273/v1/Payment/Qr/PAY_1_20251031142000_ABC123
+
+### 6. Checkout bình thường từ cart
+POST http://localhost:5273/v1/Checkout
+Content-Type: application/json
+
+{
+  "paymentType": "Transfer"
+}
+

@@ -1,5 +1,5 @@
 using ModernIssues.Models.DTOs;
-using ModernIssues.Repositories;
+using ModernIssues.Repositories.Interface;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;

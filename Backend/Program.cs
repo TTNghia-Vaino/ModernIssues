@@ -5,6 +5,7 @@ using ModernIssues.Models.Entities;
 using ModernIssues.Repositories; // Cần cho IProductRepository và ProductRepository
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Repositories.Service;
+using ModernIssues.Hubs;
 using System.Reflection;
 using System.IO;
 using Microsoft.OpenApi.Models;
@@ -19,6 +20,7 @@ builder.Services.AddHttpContextAccessor();
 // Add services to the container.
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSignalR();
 builder.Services.Configure<SepayConfig>(builder.Configuration.GetSection("SepayConfig"));
 builder.Services.AddDbContext<WebDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -55,6 +57,9 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
+
+// Đăng ký PaymentService với HttpClient cho VietQR API
+builder.Services.AddHttpClient<IPaymentService, PaymentService>();
 
 builder.Services.AddSwaggerGen(c =>
 {
@@ -120,6 +125,9 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseAuthorization();
+
+// Map SignalR Hub
+app.MapHub<ModernIssues.Hubs.PaymentHub>("/hubs/payment");
 
 app.MapControllers();
 

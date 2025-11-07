@@ -16,6 +16,8 @@ public partial class WebDbContext : DbContext
             _configuration = configuration;
         }
 
+    public virtual DbSet<balance_change> balance_changes { get; set; }
+
     public virtual DbSet<cart> carts { get; set; }
 
     public virtual DbSet<category> categories { get; set; }
@@ -29,6 +31,8 @@ public partial class WebDbContext : DbContext
     public virtual DbSet<order_detail> order_details { get; set; }
 
     public virtual DbSet<product> products { get; set; }
+
+    public virtual DbSet<product_serial> product_serials { get; set; }
 
     public virtual DbSet<promotion> promotions { get; set; }
 
@@ -47,6 +51,37 @@ public partial class WebDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<balance_change>(entity =>
+        {
+            entity.HasKey(e => e.id).HasName("balance_changes_pkey");
+
+            entity.ToTable("balance_changes", tb => tb.HasComment("Bảng biến động số dư từ webhook ngân hàng"));
+
+            entity.HasIndex(e => e.transaction_id, "balance_changes_transaction_id_idx");
+            entity.HasIndex(e => e.gencode, "balance_changes_gencode_idx");
+
+            entity.Property(e => e.transaction_id).HasMaxLength(100);
+            entity.Property(e => e.amount).HasPrecision(15, 2);
+            entity.Property(e => e.description).HasMaxLength(500);
+            entity.Property(e => e.sender_account).HasMaxLength(50);
+            entity.Property(e => e.sender_name).HasMaxLength(255);
+            entity.Property(e => e.receiver_account).HasMaxLength(50);
+            entity.Property(e => e.receiver_name).HasMaxLength(255);
+            entity.Property(e => e.bank_code).HasMaxLength(20);
+            entity.Property(e => e.transaction_type).HasMaxLength(10);
+            entity.Property(e => e.gencode).HasMaxLength(20);
+            entity.Property(e => e.status)
+                .HasMaxLength(20)
+                .HasDefaultValueSql("'pending'");
+            entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(d => d.order).WithMany()
+                .HasForeignKey(d => d.order_id)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("balance_changes_order_id_fkey");
+        });
+
         modelBuilder.Entity<category>(entity =>
         {
             entity.HasKey(e => e.category_id).HasName("categories_pkey");
@@ -132,6 +167,9 @@ public partial class WebDbContext : DbContext
                 .HasMaxLength(20)
                 .HasDefaultValueSql("'COD'")
                 .HasComment("Loại thanh toán: COD, Transfer, ATM");
+            entity.Property(e => e.gencode)
+                .HasMaxLength(1024)
+                .HasComment("Mã thanh toán VietQR EMV hoặc nội dung QR code (tối đa 1024 ký tự)");
             entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             entity.HasOne(d => d.created_byNavigation).WithMany(p => p.ordercreated_byNavigations)
@@ -287,6 +325,40 @@ public partial class WebDbContext : DbContext
                 .HasConstraintName("users_updated_by_fkey");
         });
 
+        modelBuilder.Entity<product_serial>(entity =>
+        {
+            entity.HasKey(e => e.serial_id).HasName("product_serials_pkey");
+
+            entity.ToTable("product_serials", tb => tb.HasComment("Mỗi đơn vị hàng hóa trong kho có một serial riêng biệt"));
+
+            entity.HasIndex(e => e.serial_number, "product_serials_serial_number_key").IsUnique();
+
+            entity.Property(e => e.serial_id).ValueGeneratedOnAdd();
+            entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.import_date).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.is_disabled).HasDefaultValue(false);
+            entity.Property(e => e.is_sold).HasDefaultValue(false);
+            entity.Property(e => e.serial_number)
+                .HasMaxLength(100)
+                .HasComment("Mã serial duy nhất cho từng sản phẩm vật lý");
+            entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(d => d.product).WithMany(p => p.product_serials)
+                .HasForeignKey(d => d.product_id)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("product_serials_product_id_fkey");
+
+            entity.HasOne(d => d.created_byNavigation).WithMany()
+                .HasForeignKey(d => d.created_by)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("product_serials_created_by_fkey");
+
+            entity.HasOne(d => d.updated_byNavigation).WithMany()
+                .HasForeignKey(d => d.updated_by)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("product_serials_updated_by_fkey");
+        });
+
         modelBuilder.Entity<warranty>(entity =>
         {
             entity.HasKey(e => new { e.warranty_id, e.product_id, e.user_id, e.order_id }).HasName("warranty_pkey");
@@ -297,6 +369,7 @@ public partial class WebDbContext : DbContext
             entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.is_disabled).HasDefaultValue(false);
             entity.Property(e => e.serial_number).HasMaxLength(100);
+            entity.Property(e => e.serial_id).HasComment("Tham chiếu tới serial của sản phẩm");
             entity.Property(e => e.status)
                 .HasMaxLength(50)
                 .HasDefaultValueSql("'active'::character varying");
@@ -314,6 +387,11 @@ public partial class WebDbContext : DbContext
             entity.HasOne(d => d.product).WithMany(p => p.warranties)
                 .HasForeignKey(d => d.product_id)
                 .HasConstraintName("warranty_product_id_fkey");
+
+            entity.HasOne(d => d.product_serial).WithMany(p => p.warranties)
+                .HasForeignKey(d => d.serial_id)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("warranty_serial_id_fkey");
 
             entity.HasOne(d => d.updated_byNavigation).WithMany(p => p.warrantyupdated_byNavigations)
                 .HasForeignKey(d => d.updated_by)

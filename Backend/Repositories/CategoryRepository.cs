@@ -1,5 +1,6 @@
 using ModernIssues.Models.DTOs;
 using ModernIssues.Models.Entities;
+using ModernIssues.Repositories.Interface;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -8,17 +9,6 @@ using System.Linq;
 
 namespace ModernIssues.Repositories
 {
-    public interface ICategoryRepository
-    {
-        Task<List<CategoryDto>> GetAllCategoriesAsync();
-        Task<CategoryDto?> GetCategoryByIdAsync(int categoryId);
-        Task<CategoryDto> CreateCategoryAsync(CategoryCreateDto category, int adminId);
-        Task<CategoryDto?> UpdateCategoryAsync(int categoryId, CategoryUpdateDto category, int adminId);
-        Task<bool> DeleteCategoryAsync(int categoryId, int adminId);
-        Task<bool> HasChildrenAsync(int categoryId);
-        Task<bool> HasProductsAsync(int categoryId);
-    }
-
     public class CategoryRepository : ICategoryRepository
     {
         private readonly WebDbContext _context;

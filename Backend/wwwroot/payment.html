@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thanh Toán - Modern Issues</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.0/signalr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .qr-container {
+            margin-top: 30px;
+            text-align: center;
+            display: none;
+        }
+
+        .qr-code {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            display: inline-block;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #qrcode {
+            margin: 0 auto;
+        }
+
+        .payment-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .payment-info h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .payment-info p {
+            color: #666;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .payment-info strong {
+            color: #333;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 1000;
+        }
+
+        .connection-status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .connection-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .connection-status.connecting {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-status disconnected" id="connectionStatus">
+        Disconnected
+    </div>
+
+        <div class="container">
+            <h1>💳 Thanh Toán</h1>
+            <p class="subtitle">Hệ thống thanh toán chuyển khoản</p>
+            
+            <div style="text-align: center; margin-bottom: 20px;">
+                <a href="login.html" style="color: #667eea; text-decoration: none; font-weight: 600;">← Đăng nhập</a>
+            </div>
+
+        <div class="user-info" id="userInfo" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none;">
+            <p style="margin: 5px 0; color: #666; font-size: 14px;"><strong>Đã đăng nhập:</strong> <span id="loggedInUser"></span></p>
+            <button onclick="logout()" style="margin-top: 10px; padding: 8px 15px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">Đăng xuất</button>
+        </div>
+
+        <!-- Test Checkout Section -->
+        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107;">
+            <h3 style="margin-bottom: 10px; color: #856404; font-size: 16px;">🧪 Test Đặt Hàng</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                <div>
+                    <label style="display: block; margin-bottom: 5px; color: #666; font-size: 12px;">Product ID:</label>
+                    <input type="number" id="testProductId" placeholder="Product ID" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px; color: #666; font-size: 12px;">Số lượng:</label>
+                    <input type="number" id="testQuantity" placeholder="Quantity" value="1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
+                </div>
+            </div>
+            <button onclick="testCheckout()" class="btn" style="background: #ffc107; color: #000; font-size: 14px; padding: 10px;">
+                Đặt Hàng Test (Transfer)
+            </button>
+        </div>
+
+        <form id="paymentForm">
+            <div class="form-group">
+                <label for="userId">User ID:</label>
+                <input type="number" id="userId" name="userId" placeholder="Nhập User ID" required>
+                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">Hoặc <a href="login.html" style="color: #667eea;">đăng nhập</a> để tự động điền</small>
+            </div>
+
+            <div class="form-group">
+                <label for="orderId">Order ID:</label>
+                <input type="number" id="orderId" name="orderId" placeholder="Nhập Order ID" required>
+            </div>
+
+            <div class="form-group">
+                <label for="amount">Số tiền (VND):</label>
+                <input type="number" id="amount" name="amount" placeholder="Nhập số tiền" required step="1000">
+            </div>
+
+            <button type="submit" class="btn" id="generateBtn">Tạo QR Code</button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #666;">Đang tạo QR code...</p>
+        </div>
+
+        <div class="status" id="status"></div>
+
+        <div class="qr-container" id="qrContainer">
+            <h3 style="margin-bottom: 15px; color: #333;">Mã QR Thanh Toán</h3>
+            <div class="qr-code">
+                <div id="qrcode"></div>
+            </div>
+            <div class="payment-info" id="paymentInfo"></div>
+        </div>
+    </div>
+
+    <script>
+        // Lấy base URL từ window location (tự động detect port)
+        const baseUrl = window.location.origin;
+        const apiBaseUrl = `${baseUrl}/v1`;
+        const hubUrl = `${baseUrl}/hubs/payment`;
+        
+        console.log('API Base URL:', apiBaseUrl);
+        console.log('SignalR Hub URL:', hubUrl);
+
+        // SignalR Connection
+        let connection = null;
+        let currentUserId = null;
+
+        // Initialize SignalR
+        function initSignalR(userId) {
+            if (connection) {
+                connection.stop();
+            }
+
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl(hubUrl)
+                .build();
+
+            // Connection status handlers
+            connection.onclose(() => {
+                updateConnectionStatus('disconnected');
+            });
+
+            connection.onreconnecting(() => {
+                updateConnectionStatus('connecting');
+            });
+
+            connection.onreconnected(() => {
+                updateConnectionStatus('connected');
+            });
+
+            // Listen for QR code generated
+            connection.on("QrCodeGenerated", (data) => {
+                console.log("✅ SignalR: QR Code Generated:", data);
+                console.log("- Gencode (EMV):", data.gencode?.substring(0, 50) + '...');
+                console.log("- QR Image:", data.qrImage ? 'Available (base64)' : 'Not available');
+                console.log("- Amount:", data.amount);
+                console.log("- OrderId:", data.orderId);
+                
+                showStatus('QR code đã được tạo thành công! Vui lòng quét mã để thanh toán.', 'success');
+                
+                // Hiển thị QR code (ưu tiên qrImage, fallback qrUrl)
+                displayQRCode(data.qrUrl || data.gencode, data);
+            });
+
+            // Listen for payment confirmed
+            connection.on("PaymentConfirmed", (data) => {
+                console.log("Payment Confirmed:", data);
+                showStatus('Thanh toán đã được xác nhận thành công!', 'success');
+                // Optionally reload or redirect
+                setTimeout(() => {
+                    alert('Thanh toán thành công! Đơn hàng của bạn đã được xác nhận.');
+                }, 1000);
+            });
+
+            // Start connection
+            connection.start()
+                .then(() => {
+                    updateConnectionStatus('connected');
+                    if (userId) {
+                        connection.invoke("JoinPaymentGroup", userId.toString())
+                            .then(() => {
+                                console.log("Joined payment group for user:", userId);
+                            })
+                            .catch(err => {
+                                console.error("Error joining group:", err);
+                            });
+                    }
+                })
+                .catch(err => {
+                    console.error("SignalR Connection Error:", err);
+                    updateConnectionStatus('disconnected');
+                });
+        }
+
+        function updateConnectionStatus(status) {
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.className = `connection-status ${status}`;
+            statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+
+        // Form submission
+        document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const userId = parseInt(document.getElementById('userId').value);
+            const orderId = parseInt(document.getElementById('orderId').value);
+            const amount = parseFloat(document.getElementById('amount').value);
+
+            if (!userId || !orderId || !amount) {
+                showStatus('Vui lòng điền đầy đủ thông tin!', 'error');
+                return;
+            }
+
+            // Initialize SignalR with user ID
+            if (currentUserId !== userId) {
+                currentUserId = userId;
+                initSignalR(userId);
+            }
+
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('qrContainer').style.display = 'none';
+            document.getElementById('generateBtn').disabled = true;
+
+            try {
+                const response = await fetch(`${apiBaseUrl}/Payment/GenerateQr`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        orderId: orderId,
+                        amount: amount
+                    })
+                });
+
+                const result = await response.json();
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('generateBtn').disabled = false;
+
+                if (response.ok && result.success) {
+                    const data = result.data;
+                    showStatus('QR code đã được tạo thành công!', 'success');
+                    displayQRCode(data.qrUrl, data);
+                } else {
+                    showStatus(result.message || 'Có lỗi xảy ra khi tạo QR code!', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('generateBtn').disabled = false;
+                showStatus('Lỗi kết nối đến server!', 'error');
+            }
+        });
+
+        function displayQRCode(qrUrl, data) {
+            console.log('displayQRCode called with:', { qrUrl, data });
+            
+            const qrContainer = document.getElementById('qrContainer');
+            const qrCodeDiv = document.getElementById('qrcode');
+            const paymentInfoDiv = document.getElementById('paymentInfo');
+
+            if (!qrContainer || !qrCodeDiv) {
+                console.error('QR container elements not found!');
+                showStatus('Lỗi: Không tìm thấy phần tử hiển thị QR code!', 'error');
+                return;
+            }
+
+            // Clear previous QR code
+            qrCodeDiv.innerHTML = '';
+
+            // Validate qrUrl
+            if (!qrUrl || qrUrl.trim() === '') {
+                console.error('QR URL is empty!');
+                qrCodeDiv.innerHTML = '<p style="color: red;">Lỗi: URL QR code trống!</p>';
+                qrContainer.style.display = 'block';
+                return;
+            }
+
+            console.log('Displaying QR code...');
+            console.log('QR URL:', qrUrl);
+            console.log('QR Image (from VietQR):', data?.qrImage ? 'Available' : 'Not available');
+
+            const img = document.createElement('img');
+            img.alt = 'QR Code Thanh toán';
+            img.style.width = '256px';
+            img.style.height = '256px';
+            img.style.border = '1px solid #ddd';
+            img.style.borderRadius = '8px';
+            img.style.padding = '10px';
+            img.style.backgroundColor = '#fff';
+
+            // Ưu tiên hiển thị QR image từ VietQR API (base64)
+            if (data && data.qrImage && data.qrImage.startsWith('data:image')) {
+                console.log('✅ Using QR image from VietQR API (base64)');
+                img.src = data.qrImage;
+                
+                img.onload = function() {
+                    console.log('✅ QR Code from VietQR loaded successfully!');
+                };
+                
+                img.onerror = function(error) {
+                    console.error('❌ Failed to load VietQR image, falling back to qrserver.com');
+                    // Fallback: Generate QR từ EMV string
+                    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(qrUrl)}`;
+                };
+            } 
+            // Fallback: Nếu không có qrImage, generate từ qrUrl (EMV string hoặc URL)
+            else {
+                console.log('⚠️ No VietQR image, using fallback (qrserver.com)');
+                img.src = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(qrUrl)}`;
+                
+                img.onload = function() {
+                    console.log('✅ QR Code from qrserver.com loaded successfully!');
+                };
+                
+                img.onerror = function(error) {
+                    console.error('❌ QR Code Error:', error);
+                    qrCodeDiv.innerHTML = '<p style="color: red;">Lỗi tạo QR code. Vui lòng thử lại!</p>';
+                };
+            }
+            
+            qrCodeDiv.appendChild(img);
+
+            // Display payment info
+            if (data && data.paymentData) {
+                const paymentData = data.paymentData;
+                paymentInfoDiv.innerHTML = `
+                    <h3>Thông tin thanh toán</h3>
+                    <p><strong>Mã giao dịch:</strong> ${data.gencode || 'N/A'}</p>
+                    <p><strong>Số tiền:</strong> ${formatCurrency(paymentData.total_amount || 0)} VND</p>
+                    <p><strong>Trạng thái:</strong> ${paymentData.status || 'N/A'}</p>
+                    <p><strong>Ngày tạo:</strong> ${paymentData.created_at ? new Date(paymentData.created_at).toLocaleString('vi-VN') : 'N/A'}</p>
+                `;
+                paymentInfoDiv.style.display = 'block';
+            } else {
+                // Still show basic info if paymentData is not available
+                if (data) {
+                    paymentInfoDiv.innerHTML = `
+                        <h3>Thông tin thanh toán</h3>
+                        <p><strong>Mã giao dịch:</strong> ${data.gencode || 'N/A'}</p>
+                        <p><strong>Số tiền:</strong> ${formatCurrency(data.amount || 0)} VND</p>
+                        <p><strong>Order ID:</strong> ${data.orderId || 'N/A'}</p>
+                    `;
+                    paymentInfoDiv.style.display = 'block';
+                }
+            }
+
+            // Show the container
+            qrContainer.style.display = 'block';
+            console.log('QR container displayed');
+        }
+
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            statusEl.style.display = 'block';
+
+            if (type === 'success' || type === 'error') {
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('vi-VN').format(amount);
+        }
+
+        // Check login status and auto-fill userId
+        async function checkLoginAndFillUserId() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            const username = localStorage.getItem('username');
+
+            if (isLoggedIn === 'true' && username) {
+                const userInfoDiv = document.getElementById('userInfo');
+                document.getElementById('loggedInUser').textContent = username;
+                userInfoDiv.style.display = 'block';
+                
+                // Fetch user info from server to get userId
+                await fetchUserInfo();
+            } else {
+                // Try to fetch from server (in case session still exists)
+                await fetchUserInfo();
+            }
+        }
+
+        // Logout function
+        window.logout = async function() {
+            try {
+                const response = await fetch(`${apiBaseUrl}/Auth/Logout`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                localStorage.clear();
+                window.location.href = 'login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                localStorage.clear();
+                window.location.href = 'login.html';
+            }
+        };
+
+        // Fetch user info from server
+        async function fetchUserInfo() {
+            try {
+                const response = await fetch(`${apiBaseUrl}/Auth/Me`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    const userInfo = await response.json();
+                    if (userInfo.userId) {
+                        localStorage.setItem('userId', userInfo.userId.toString());
+                        localStorage.setItem('username', userInfo.username);
+                        localStorage.setItem('role', userInfo.role || 'customer');
+                        localStorage.setItem('isLoggedIn', 'true');
+                        
+                        // Auto-fill userId in form
+                        const userIdInput = document.getElementById('userId');
+                        if (userIdInput && !userIdInput.value) {
+                            userIdInput.value = userInfo.userId;
+                            userIdInput.disabled = true;
+                        }
+                        
+                        // Show user info
+                        const userInfoDiv = document.getElementById('userInfo');
+                        document.getElementById('loggedInUser').textContent = userInfo.username;
+                        userInfoDiv.style.display = 'block';
+                    }
+                } else {
+                    // Nếu chưa đăng nhập, clear localStorage
+                    localStorage.removeItem('isLoggedIn');
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('role');
+                }
+            } catch (error) {
+                console.error('Error fetching user info:', error);
+            }
+        }
+
+        // Test Checkout function
+        async function testCheckout() {
+            const productId = parseInt(document.getElementById('testProductId').value);
+            const quantity = parseInt(document.getElementById('testQuantity').value) || 1;
+
+            if (!productId || productId <= 0) {
+                showStatus('Vui lòng nhập Product ID!', 'error');
+                return;
+            }
+
+            const userId = parseInt(document.getElementById('userId').value);
+            if (!userId) {
+                showStatus('Vui lòng nhập User ID hoặc đăng nhập!', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Đang tạo đơn hàng test...', 'info');
+                
+                const response = await fetch(`${apiBaseUrl}/Checkout/Test`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        productId: productId,
+                        quantity: quantity,
+                        paymentType: "Transfer"
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    const order = result.data;
+                    showStatus('Đặt hàng thành công! Đơn hàng #' + order.orderId + ' đã được tạo.', 'success');
+                    
+                    // Auto-fill Order ID và Amount
+                    document.getElementById('orderId').value = order.orderId;
+                    document.getElementById('amount').value = order.totalAmount || 0;
+                    
+                    // Show gencode if available
+                    if (order.gencode) {
+                        showStatus(`Đơn hàng đã có gencode: ${order.gencode}`, 'success');
+                    }
+                    
+                    // Auto generate QR if Transfer
+                    if (order.types === 'Transfer' && order.totalAmount) {
+                        setTimeout(() => {
+                            generateQRForOrder(order.orderId, order.totalAmount);
+                        }, 1000);
+                    }
+                } else {
+                    showStatus(result.message || 'Đặt hàng thất bại!', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus('Lỗi kết nối đến server!', 'error');
+            }
+        }
+
+        // Generate QR for existing order
+        async function generateQRForOrder(orderId, amount) {
+            try {
+                const response = await fetch(`${apiBaseUrl}/Payment/GenerateQr`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        orderId: orderId,
+                        amount: amount
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    const data = result.data;
+                    showStatus('QR code đã được tạo thành công!', 'success');
+                    displayQRCode(data.qrUrl, data);
+                }
+            } catch (error) {
+                console.error('Error generating QR:', error);
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', async () => {
+            await checkLoginAndFillUserId();
+            updateConnectionStatus('disconnected');
+            showStatus('Nhập thông tin và nhấn "Tạo QR Code" để bắt đầu hoặc dùng "Đặt Hàng Test"', 'info');
+        });
+    </script>
+</body>
+</html>
+

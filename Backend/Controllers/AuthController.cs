@@ -127,7 +127,32 @@ namespace ModernIssues.Controllers
             HttpContext.Session.SetString("role", user.role ?? "customer");
             HttpContext.Session.SetString("userId", user.user_id.ToString());
 
-            return Ok(new { message = "Login successful!", username = user.username, role = user.role });
+            return Ok(new { 
+                message = "Login successful!", 
+                username = user.username, 
+                role = user.role,
+                userId = user.user_id 
+            });
+        }
+
+        // GET: api/Auth/Me - Lấy thông tin user hiện tại từ session
+        [HttpGet("Me")]
+        public IActionResult GetCurrentUser()
+        {
+            var username = HttpContext.Session.GetString("username");
+            var userId = HttpContext.Session.GetString("userId");
+            var role = HttpContext.Session.GetString("role");
+
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized(new { message = "Not logged in" });
+            }
+
+            return Ok(new { 
+                username = username,
+                userId = userId != null ? int.Parse(userId) : (int?)null,
+                role = role 
+            });
         }
 
         // POST: api/Auth/Logout

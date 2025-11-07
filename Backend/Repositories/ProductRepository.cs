@@ -38,7 +38,31 @@ namespace ModernIssues.Repositories
             };
 
             _context.products.Add(newProduct);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(); // Lưu để có product_id
+
+            // Tạo serial numbers nếu stock > 0
+            if (product.Stock > 0)
+            {
+                var serials = new List<product_serial>();
+                for (int i = 1; i <= product.Stock; i++)
+                {
+                    var serialNumber = $"PROD-{newProduct.product_id}-{i:D3}"; // Format: PROD-1-001, PROD-1-002, ...
+                    serials.Add(new product_serial
+                    {
+                        product_id = newProduct.product_id,
+                        serial_number = serialNumber,
+                        is_sold = false,
+                        is_disabled = false,
+                        import_date = DateTime.UtcNow,
+                        created_at = DateTime.UtcNow,
+                        updated_at = DateTime.UtcNow,
+                        created_by = adminId,
+                        updated_by = adminId
+                    });
+                }
+                _context.product_serials.AddRange(serials);
+                await _context.SaveChangesAsync();
+            }
 
             // Load category để lấy CategoryName
             await _context.Entry(newProduct)
@@ -124,16 +148,76 @@ namespace ModernIssues.Repositories
             if (existingProduct == null)
                 return null;
 
+            // Đếm số serials hiện có (bao gồm cả đã bán và chưa bán)
+            var currentSerialCount = await _context.product_serials
+                .Where(ps => ps.product_id == productId && ps.is_disabled != true)
+                .CountAsync();
+
             // Update fields
             existingProduct.category_id = product.CategoryId;
             existingProduct.product_name = product.ProductName;
             existingProduct.description = product.Description;
             existingProduct.price = product.Price;
-            existingProduct.stock = product.Stock;
             existingProduct.warranty_period = product.WarrantyPeriod;
             existingProduct.image_url = product.ImageUrl;
             existingProduct.updated_by = adminId;
             existingProduct.updated_at = DateTime.UtcNow;
+
+            // Nếu stock mới > số serials hiện có, tạo thêm serials
+            if (product.Stock > currentSerialCount)
+            {
+                var additionalSerials = new List<product_serial>();
+                
+                // Tìm số thứ tự tiếp theo (tìm số cao nhất trong các serial numbers hiện có)
+                var existingSerials = await _context.product_serials
+                    .Where(ps => ps.product_id == productId)
+                    .Select(ps => ps.serial_number)
+                    .ToListAsync();
+                
+                int maxIndex = 0;
+                foreach (var serialNum in existingSerials)
+                {
+                    // Extract số cuối từ serial number: PROD-{id}-{index}
+                    // Ví dụ: PROD-1-001 -> index = 1
+                    var parts = serialNum.Split('-');
+                    if (parts.Length >= 3 && int.TryParse(parts[2], out int index))
+                    {
+                        maxIndex = Math.Max(maxIndex, index);
+                    }
+                }
+                
+                // Tạo serials mới từ số tiếp theo
+                int startIndex = maxIndex + 1;
+                int quantityToAdd = product.Stock - currentSerialCount;
+                
+                for (int i = 0; i < quantityToAdd; i++)
+                {
+                    var serialNumber = $"PROD-{productId}-{(startIndex + i):D3}";
+                    additionalSerials.Add(new product_serial
+                    {
+                        product_id = productId,
+                        serial_number = serialNumber,
+                        is_sold = false,
+                        is_disabled = false,
+                        import_date = DateTime.UtcNow,
+                        created_at = DateTime.UtcNow,
+                        updated_at = DateTime.UtcNow,
+                        created_by = adminId,
+                        updated_by = adminId
+                    });
+                }
+                
+                _context.product_serials.AddRange(additionalSerials);
+            }
+
+            // Cập nhật stock dựa trên số serials còn hàng (is_sold = false)
+            var availableStock = await _context.product_serials
+                .Where(ps => ps.product_id == productId 
+                    && ps.is_sold == false 
+                    && ps.is_disabled != true)
+                .CountAsync();
+            
+            existingProduct.stock = availableStock;
 
             // Reload category if category_id changed
             if (existingProduct.category_id != product.CategoryId)

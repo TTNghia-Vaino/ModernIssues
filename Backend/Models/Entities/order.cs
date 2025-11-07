@@ -23,6 +23,11 @@ public partial class order
     /// </summary>
     public string? types { get; set; } = "COD";
 
+    /// <summary>
+    /// Mã QR code cho thanh toán Transfer (chỉ dùng cho Transfer)
+    /// </summary>
+    public string? gencode { get; set; }
+
     public DateTime? created_at { get; set; }
 
     public DateTime? updated_at { get; set; }

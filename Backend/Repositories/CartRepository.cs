@@ -1,5 +1,6 @@
 using ModernIssues.Models.DTOs;
 using ModernIssues.Models.Entities;
+using ModernIssues.Repositories.Interface;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
@@ -7,18 +8,6 @@ using System.Threading.Tasks;
 
 namespace ModernIssues.Repositories
 {
-    public interface ICartRepository
-    {
-        Task<CartDto?> GetCartByUserIdAsync(int userId);
-        Task<CartDto?> AddToCartAsync(int userId, AddToCartDto addToCartDto);
-        Task<CartDto?> UpdateCartItemAsync(int userId, int cartId, int productId, UpdateCartItemDto updateDto);
-        Task<bool> RemoveFromCartAsync(int userId, int cartId, int productId);
-        Task<bool> ClearCartAsync(int userId);
-        Task<CartSummaryDto?> GetCartSummaryAsync(int userId);
-        Task<bool> CartExistsAsync(int userId);
-        Task<bool> CartItemExistsAsync(int userId, int cartId, int productId);
-    }
-
     public class CartRepository : ICartRepository
     {
         private readonly WebDbContext _context;
@@ -52,8 +41,12 @@ namespace ModernIssues.Repositories
             if (product == null)
                 throw new ArgumentException($"Sản phẩm với ID {addToCartDto.ProductId} không tồn tại hoặc đã bị vô hiệu hóa.");
 
-            if (product.stock < addToCartDto.Quantity)
-                throw new ArgumentException($"Số lượng sản phẩm không đủ. Chỉ còn {product.stock} sản phẩm.");
+            // Kiểm tra số lượng serial còn hàng (is_sold = false và is_disabled = false)
+            var availableSerials = await _context.product_serials
+                .Where(ps => ps.product_id == addToCartDto.ProductId 
+                    && ps.is_sold == false 
+                    && ps.is_disabled != true)
+                .CountAsync();
 
             // Kiểm tra sản phẩm đã có trong giỏ hàng chưa (tìm entry đầu tiên của product này)
             // Nếu có thì cập nhật số lượng, nếu không thì tạo mới
@@ -62,6 +55,15 @@ namespace ModernIssues.Repositories
                 .Include(c => c.product)
                 .Where(c => c.user_id == userId && c.product_id == addToCartDto.ProductId)
                 .FirstOrDefaultAsync();
+
+            var requestedQuantity = addToCartDto.Quantity;
+            if (existingCart != null)
+            {
+                requestedQuantity += existingCart.quantity;
+            }
+
+            if (availableSerials < requestedQuantity)
+                throw new ArgumentException($"Số lượng sản phẩm không đủ. Chỉ còn {availableSerials} sản phẩm.");
 
             if (existingCart != null)
             {
@@ -100,12 +102,19 @@ namespace ModernIssues.Repositories
             if (cart == null)
                 return null;
 
-            // Kiểm tra số lượng tồn kho
+            // Kiểm tra số lượng tồn kho dựa trên serials
             if (cart.product == null)
                 throw new ArgumentException("Sản phẩm không tồn tại.");
+
+            // Kiểm tra số lượng serial còn hàng (is_sold = false và is_disabled = false)
+            var availableSerials = await _context.product_serials
+                .Where(ps => ps.product_id == cart.product_id 
+                    && ps.is_sold == false 
+                    && ps.is_disabled != true)
+                .CountAsync();
             
-            if (cart.product.stock < updateDto.Quantity)
-                throw new ArgumentException($"Số lượng sản phẩm không đủ. Chỉ còn {cart.product.stock} sản phẩm.");
+            if (availableSerials < updateDto.Quantity)
+                throw new ArgumentException($"Số lượng sản phẩm không đủ. Chỉ còn {availableSerials} sản phẩm.");
 
             cart.quantity = updateDto.Quantity;
             cart.updated_at = DateTime.UtcNow;

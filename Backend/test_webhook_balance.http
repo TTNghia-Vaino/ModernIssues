@@ -1,0 +1,152 @@
+### ================================================
+### TEST WEBHOOK BALANCE CHANGE (Biến động số dư)
+### ================================================
+
+@baseUrl = http://localhost:5000
+@apiUrl = {{baseUrl}}/v1/Payment
+
+### ================================================
+### 1. Test Webhook Balance - Successful Payment
+### Giả lập webhook từ ngân hàng với gencode hợp lệ
+### ================================================
+POST {{apiUrl}}/WebhookBalance
+Content-Type: application/json
+
+{
+  "TransactionId": "TXN123456789",
+  "Amount": 50000,
+  "Description": "Thanh toan don hang #123 - PAY_ABC123",
+  "SenderAccount": "0123456789",
+  "SenderName": "NGUYEN VAN A",
+  "ReceiverAccount": "9876543210",
+  "ReceiverName": "CONG TY MODERN ISSUES",
+  "BankCode": "VCB",
+  "TransactionDate": "2025-11-07T14:30:00Z",
+  "TransactionType": "IN"
+}
+
+### ================================================
+### 2. Test Webhook Balance - Gencode không có trong nội dung
+### ================================================
+POST {{apiUrl}}/WebhookBalance
+Content-Type: application/json
+
+{
+  "TransactionId": "TXN987654321",
+  "Amount": 100000,
+  "Description": "Chuyen tien khong co ma thanh toan",
+  "SenderAccount": "1111111111",
+  "SenderName": "TRAN THI B",
+  "ReceiverAccount": "9876543210",
+  "ReceiverName": "CONG TY MODERN ISSUES",
+  "BankCode": "TCB",
+  "TransactionDate": "2025-11-07T14:35:00Z",
+  "TransactionType": "IN"
+}
+
+### ================================================
+### 3. Test Webhook Balance - Gencode không tồn tại trong DB
+### ================================================
+POST {{apiUrl}}/WebhookBalance
+Content-Type: application/json
+
+{
+  "TransactionId": "TXN555555555",
+  "Amount": 75000,
+  "Description": "Don hang PAY_NOTEXIST khong ton tai",
+  "SenderAccount": "2222222222",
+  "SenderName": "LE VAN C",
+  "ReceiverAccount": "9876543210",
+  "ReceiverName": "CONG TY MODERN ISSUES",
+  "BankCode": "VIB",
+  "TransactionDate": "2025-11-07T14:40:00Z",
+  "TransactionType": "IN"
+}
+
+### ================================================
+### 4. Test Webhook Balance - Sepay Format
+### Format thực tế từ Sepay API
+### ================================================
+POST {{apiUrl}}/WebhookBalance
+Content-Type: application/json
+
+{
+  "TransactionId": "FT25307ABC123",
+  "Amount": 150000,
+  "Description": "PAY_XYZ789 Thanh toan don hang",
+  "SenderAccount": "3333333333",
+  "SenderName": "PHAM THI D",
+  "ReceiverAccount": "9876543210",
+  "ReceiverName": "MODERN ISSUES COMPANY",
+  "BankCode": "MB",
+  "TransactionDate": "2025-11-07T15:00:00Z",
+  "TransactionType": "IN"
+}
+
+### ================================================
+### 5. Test Webhook Balance - Multiple Gencodes in Description
+### Chỉ lấy gencode đầu tiên
+### ================================================
+POST {{apiUrl}}/WebhookBalance
+Content-Type: application/json
+
+{
+  "TransactionId": "TXN777777777",
+  "Amount": 200000,
+  "Description": "PAY_FIRST1 va PAY_SECOND khong duoc tinh",
+  "SenderAccount": "4444444444",
+  "SenderName": "NGUYEN VAN E",
+  "ReceiverAccount": "9876543210",
+  "ReceiverName": "MODERN ISSUES",
+  "BankCode": "ACB",
+  "TransactionDate": "2025-11-07T15:10:00Z",
+  "TransactionType": "IN"
+}
+
+### ================================================
+### 6. Test Webhook Balance - Case Insensitive
+### Gencode viết thường/hoa đều được
+### ================================================
+POST {{apiUrl}}/WebhookBalance
+Content-Type: application/json
+
+{
+  "TransactionId": "TXN888888888",
+  "Amount": 89000,
+  "Description": "Thanh toan pay_def456 viet thuong",
+  "SenderAccount": "5555555555",
+  "SenderName": "VO THI F",
+  "ReceiverAccount": "9876543210",
+  "ReceiverName": "MODERN ISSUES",
+  "BankCode": "VPB",
+  "TransactionDate": "2025-11-07T15:15:00Z",
+  "TransactionType": "IN"
+}
+
+### ================================================
+### NOTES:
+### ================================================
+### 
+### Flow hoạt động:
+### 1. User tạo order với payment type = "Transfer"
+### 2. Call API GenerateQr để gen gencode (PAY_ABC123)
+### 3. Gencode được lưu vào:
+###    - orders.gencode (DB)
+###    - IMemoryCache với key = gencode (30 phút)
+### 4. User chuyển khoản với nội dung chứa gencode
+### 5. Ngân hàng/Sepay gọi webhook /WebhookBalance
+### 6. System:
+###    - Parse gencode từ Description
+###    - Lưu biến động số dư vào balance_changes
+###    - Tìm order trong cache hoặc DB
+###    - Cập nhật order.status = "paid"
+###    - Gửi SignalR notification lên FE
+###
+### Để test:
+### 1. Run migration SQL trước
+### 2. Tạo order với types="Transfer"
+### 3. Call GenerateQr để lấy gencode
+### 4. Dùng gencode đó trong webhook test
+###
+### ================================================
+

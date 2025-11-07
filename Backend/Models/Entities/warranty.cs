@@ -21,9 +21,14 @@ public partial class warranty
     public DateTime end_date { get; set; }
 
     /// <summary>
-    /// Số serial của sản phẩm
+    /// Số serial của sản phẩm (deprecated - sử dụng serial_id thay thế)
     /// </summary>
     public string? serial_number { get; set; }
+
+    /// <summary>
+    /// Tham chiếu tới serial của sản phẩm
+    /// </summary>
+    public int? serial_id { get; set; }
 
     public string? status { get; set; }
 
@@ -46,4 +51,6 @@ public partial class warranty
     public virtual user? updated_byNavigation { get; set; }
 
     public virtual user user { get; set; } = null!;
+
+    public virtual product_serial? product_serial { get; set; }
 }
