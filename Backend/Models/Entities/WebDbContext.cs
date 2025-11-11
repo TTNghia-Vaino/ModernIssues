@@ -40,6 +40,10 @@ public partial class WebDbContext : DbContext
 
     public virtual DbSet<warranty> warranties { get; set; }
 
+    public virtual DbSet<support_ticket> support_tickets { get; set; }
+
+    public virtual DbSet<chat_message> chat_messages { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (!optionsBuilder.IsConfigured)
@@ -425,6 +429,52 @@ public partial class WebDbContext : DbContext
                 .HasForeignKey(d => d.product_id)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("carts_product_id_fkey");
+        });
+
+        modelBuilder.Entity<support_ticket>(entity =>
+        {
+            entity.HasKey(e => e.ticket_id).HasName("support_tickets_pkey");
+
+            entity.ToTable("support_tickets", tb => tb.HasComment("Bảng lưu tickets hỗ trợ khách hàng"));
+
+            entity.Property(e => e.subject).HasMaxLength(255);
+            entity.Property(e => e.ticket_type).HasMaxLength(50);
+            entity.Property(e => e.status).HasMaxLength(20).HasDefaultValue("open");
+            entity.Property(e => e.email).HasMaxLength(255);
+            entity.Property(e => e.phone).HasMaxLength(50);
+            entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(d => d.user).WithMany()
+                .HasForeignKey(d => d.user_id)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("support_tickets_user_id_fkey");
+
+            entity.HasOne(d => d.assigned_toNavigation).WithMany()
+                .HasForeignKey(d => d.assigned_to)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("support_tickets_assigned_to_fkey");
+        });
+
+        modelBuilder.Entity<chat_message>(entity =>
+        {
+            entity.HasKey(e => e.message_id).HasName("chat_messages_pkey");
+
+            entity.ToTable("chat_messages", tb => tb.HasComment("Bảng lưu tin nhắn chat hỗ trợ"));
+
+            entity.Property(e => e.sender_type).HasMaxLength(20).HasDefaultValue("user");
+            entity.Property(e => e.is_read).HasDefaultValue(false);
+            entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(d => d.user).WithMany()
+                .HasForeignKey(d => d.user_id)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("chat_messages_user_id_fkey");
+
+            entity.HasOne(d => d.admin).WithMany()
+                .HasForeignKey(d => d.admin_id)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("chat_messages_admin_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

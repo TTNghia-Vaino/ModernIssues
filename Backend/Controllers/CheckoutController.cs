@@ -3,6 +3,8 @@ using ModernIssues.Models.DTOs;
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Helpers;
 using ModernIssues.Models.Common;
+using ModernIssues.Models.Entities;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,10 +16,45 @@ namespace ModernIssues.Controllers
     public class CheckoutController : ControllerBase
     {
         private readonly ICheckoutRepository _checkoutRepository;
+        private readonly WebDbContext _context;
 
-        public CheckoutController(ICheckoutRepository checkoutRepository)
+        public CheckoutController(ICheckoutRepository checkoutRepository, WebDbContext context)
         {
             _checkoutRepository = checkoutRepository;
+            _context = context;
+        }
+
+        /// <summary>
+        /// Helper method để ghi log hành động user
+        /// </summary>
+        private async Task LogActionAsync(string actionType, int? productId = null)
+        {
+            try
+            {
+                var userId = AuthHelper.GetCurrentUserId(HttpContext);
+                Console.WriteLine($"[LOG] Attempting to log: action={actionType}, userId={userId}, productId={productId}");
+                
+                var log = new log
+                {
+                    user_id = userId,
+                    product_id = productId,
+                    action_type = actionType,
+                    created_at = DateTime.UtcNow
+                };
+                _context.logs.Add(log);
+                var result = await _context.SaveChangesAsync();
+                Console.WriteLine($"[LOG] Saved successfully: {result} changes, log_id should be generated");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] LogActionAsync failed: {ex.Message}");
+                Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[ERROR] InnerException: {ex.InnerException.Message}");
+                }
+                // Không throw exception để không ảnh hưởng business logic
+            }
         }
 
         // ============================================
@@ -66,6 +103,10 @@ namespace ModernIssues.Controllers
             try
             {
                 var order = await _checkoutRepository.CheckoutAsync(userId.Value, checkoutDto.PaymentType);
+                
+                // Log checkout
+                await LogActionAsync("checkout");
+                
                 return Ok(ApiResponse<OrderDto>.SuccessResponse(order, "Checkout thành công."));
             }
             catch (ArgumentException ex)

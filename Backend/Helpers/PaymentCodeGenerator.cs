@@ -6,13 +6,13 @@ namespace ModernIssues.Helpers
     public static class PaymentCodeGenerator
     {
         /// <summary>
-        /// Tạo mã thanh toán ngắn gọn: PAY1234 (7-10 ký tự)
-        /// Format: PAY{4-6 ký tự random}
+        /// Tạo mã thanh toán ngắn gọn: PAY_ABC123 (6-10 ký tự)
+        /// Format: PAY_{6 ký tự random}
         /// </summary>
         public static string GeneratePaymentCode()
         {
-            var randomCode = GenerateRandomString(4); // 4 ký tự ngẫu nhiên
-            return $"PAY{randomCode}"; // Tổng 7 ký tự (PAY + 4 chars)
+            var randomCode = GenerateRandomString(6); // 6 ký tự ngẫu nhiên
+            return $"PAY_{randomCode}"; // Tổng 10 ký tự (PAY_ + 6 chars)
         }
 
         /// <summary>
@@ -34,8 +34,8 @@ namespace ModernIssues.Helpers
             if (string.IsNullOrWhiteSpace(gencode))
                 return false;
                 
-            // Format: PAYXXXX (7-10 chars)
-            return gencode.StartsWith("PAY") && gencode.Length >= 7 && gencode.Length <= 10;
+            // Format: PAY_XXXXXX (10 chars) hoặc PAY_XXXXXXXXXX (14 chars max)
+            return gencode.StartsWith("PAY_") && gencode.Length >= 10 && gencode.Length <= 14;
         }
     }
 }

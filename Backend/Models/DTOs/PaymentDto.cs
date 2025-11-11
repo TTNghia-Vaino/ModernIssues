@@ -16,7 +16,7 @@ namespace ModernIssues.Models.DTOs
     {
         public string Gencode { get; set; } = string.Empty;        // Gencode ngắn (PAY_ABC123)
         public string QrUrl { get; set; } = string.Empty;          // Gencode ngắn (không phải EMV)
-        public string QrImage { get; set; } = string.Empty;        // Base64 QR image
+        public string? QrImage { get; set; }                       // Base64 QR image
         public decimal Amount { get; set; }
         public int OrderId { get; set; }
         public object? PaymentData { get; set; }                    // Chỉ data cần thiết

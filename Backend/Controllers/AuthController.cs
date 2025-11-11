@@ -127,6 +127,31 @@ namespace ModernIssues.Controllers
             HttpContext.Session.SetString("role", user.role ?? "customer");
             HttpContext.Session.SetString("userId", user.user_id.ToString());
 
+            // Log login
+            try
+            {
+                Console.WriteLine($"[LOG] Attempting to log login: userId={user.user_id}");
+                var logEntry = new log
+                {
+                    user_id = user.user_id,
+                    action_type = "login",
+                    created_at = DateTime.UtcNow
+                };
+                _context.logs.Add(logEntry);
+                var result = await _context.SaveChangesAsync();
+                Console.WriteLine($"[LOG] Login logged successfully: {result} changes saved");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Log login failed: {ex.Message}");
+                Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[ERROR] InnerException: {ex.InnerException.Message}");
+                }
+                // Không throw exception để không ảnh hưởng login
+            }
+
             return Ok(new { 
                 message = "Login successful!", 
                 username = user.username, 
@@ -157,8 +182,37 @@ namespace ModernIssues.Controllers
 
         // POST: api/Auth/Logout
         [HttpPost("Logout")]
-        public IActionResult Logout()
+        public async Task<IActionResult> Logout()
         {
+            // Log logout trước khi clear session
+            var userIdStr = HttpContext.Session.GetString("userId");
+            if (!string.IsNullOrEmpty(userIdStr) && int.TryParse(userIdStr, out int userId))
+            {
+                try
+                {
+                    Console.WriteLine($"[LOG] Attempting to log logout: userId={userId}");
+                    var logEntry = new log
+                    {
+                        user_id = userId,
+                        action_type = "logout",
+                        created_at = DateTime.UtcNow
+                    };
+                    _context.logs.Add(logEntry);
+                    var result = await _context.SaveChangesAsync();
+                    Console.WriteLine($"[LOG] Logout logged successfully: {result} changes saved");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ERROR] Log logout failed: {ex.Message}");
+                    Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
+                    if (ex.InnerException != null)
+                    {
+                        Console.WriteLine($"[ERROR] InnerException: {ex.InnerException.Message}");
+                    }
+                    // Không throw exception để không ảnh hưởng logout
+                }
+            }
+
             HttpContext.Session.Clear();
             return Ok(new { message = "You have been logged out." });
         }

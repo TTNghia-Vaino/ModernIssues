@@ -126,8 +126,9 @@ app.UseStaticFiles();
 
 app.UseAuthorization();
 
-// Map SignalR Hub
+// Map SignalR Hubs
 app.MapHub<ModernIssues.Hubs.PaymentHub>("/hubs/payment");
+app.MapHub<ModernIssues.Hubs.ChatHub>("/hubs/chat");
 
 app.MapControllers();
 

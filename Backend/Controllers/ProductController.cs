@@ -11,6 +11,8 @@ using ModernIssues.Models.Common;
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Repositories.Service;
 using Microsoft.AspNetCore.Hosting;
+using ModernIssues.Models.Entities;
+using Microsoft.EntityFrameworkCore;
 
 // Loại bỏ các using không cần thiết ở Controller như Dapper, Npgsql, System.Data
 
@@ -22,14 +24,49 @@ namespace ModernIssues.Controllers
     {
         private readonly IProductService _productService;
         private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly WebDbContext _context;
 
-        public ProductController(IProductService productService, IWebHostEnvironment webHostEnvironment)
+        public ProductController(IProductService productService, IWebHostEnvironment webHostEnvironment, WebDbContext context)
         {
             _productService = productService;
             _webHostEnvironment = webHostEnvironment;
+            _context = context;
         }
 
         private int GetAdminId() => 1; // Giả lập lấy ID Admin
+
+        /// <summary>
+        /// Helper method để ghi log hành động user
+        /// </summary>
+        private async Task LogActionAsync(string actionType, int? productId = null)
+        {
+            try
+            {
+                var userId = AuthHelper.GetCurrentUserId(HttpContext);
+                Console.WriteLine($"[LOG] Attempting to log: action={actionType}, userId={userId}, productId={productId}");
+                
+                var log = new log
+                {
+                    user_id = userId,
+                    product_id = productId,
+                    action_type = actionType,
+                    created_at = DateTime.UtcNow
+                };
+                _context.logs.Add(log);
+                var result = await _context.SaveChangesAsync();
+                Console.WriteLine($"[LOG] Saved successfully: {result} changes, log_id should be generated");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] LogActionAsync failed: {ex.Message}");
+                Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[ERROR] InnerException: {ex.InnerException.Message}");
+                }
+                // Không throw exception để không ảnh hưởng business logic
+            }
+        }
 
         /// <summary>
         /// Lấy thông tin user hiện tại
@@ -162,6 +199,12 @@ namespace ModernIssues.Controllers
             {
                 var response = await _productService.GetProductsAsync(page, limit, categoryId, search);
 
+                // Log search nếu có keyword
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    await LogActionAsync("search");
+                }
+
                 // TRẢ VỀ THÀNH CÔNG: 200 OK
                 return Ok(ApiResponse<ProductListResponse>.SuccessResponse(response));
             }
@@ -197,6 +240,9 @@ namespace ModernIssues.Controllers
                 // TRẢ VỀ LỖI: 404 Not Found
                 return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy sản phẩm với ID: {id}."));
             }
+
+            // Log product view
+            await LogActionAsync("view_product", id);
 
             // TRẢ VỀ THÀNH CÔNG: 200 OK
             return Ok(ApiResponse<ProductDto>.SuccessResponse(product));

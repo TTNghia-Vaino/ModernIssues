@@ -66,7 +66,7 @@ namespace ModernIssues.Services
                 throw new ArgumentException($"Chỉ có thể generate QR cho thanh toán Transfer. Loại hiện tại: {order.types}");
             }
 
-            // Tạo mã thanh toán ngắn gọn (PAY1234)
+            // Tạo mã thanh toán ngắn gọn (PAY_ABC123)
             var gencode = PaymentCodeGenerator.GeneratePaymentCode();
             Console.WriteLine($"[PaymentService] Generated gencode: {gencode}");
 
@@ -162,7 +162,7 @@ namespace ModernIssues.Services
             await _hubContext.Clients.Group($"user_{userId}").SendAsync("QrCodeGenerated", new
             {
                 success = true,
-                gencode = gencode,           // Short gencode (PAY1234)
+                gencode = gencode,           // Short gencode (PAY_ABC123)
                 qrImage = qrImageBase64,     // Base64 image từ VietQR
                 amount = amount,
                 orderId = orderId,
@@ -171,7 +171,7 @@ namespace ModernIssues.Services
 
             return new GenerateQrResponseDto
             {
-                Gencode = gencode,           // Short gencode (PAY1234)
+                Gencode = gencode,           // Short gencode (PAY_ABC123)
                 QrUrl = gencode,             // Trả gencode ngắn thay vì EMV string dài
                 QrImage = qrImageBase64,     // Base64 image
                 Amount = amount,
@@ -195,7 +195,7 @@ namespace ModernIssues.Services
                 accountName = _sepayConfig.AccountName,
                 acqId = _sepayConfig.BankBIN,
                 amount = (long)amount,  // Convert to long (VND không có phần thập phân)
-                addInfo = gencode,
+                addInfo = $"Thanh toan don hang #{order.order_id} - {gencode}",
                 format = "text",
                 template = "compact"
             };
@@ -418,15 +418,15 @@ namespace ModernIssues.Services
         }
 
         /// <summary>
-        /// Parse gencode từ description (PAYXXXX)
+        /// Parse gencode từ description (PAY_XXXXXX)
         /// </summary>
         private string? ParseGencodeFromDescription(string? description)
         {
             if (string.IsNullOrWhiteSpace(description))
                 return null;
 
-            // Pattern: PAYXXXX (4-6 ký tự sau PAY)
-            var match = Regex.Match(description, @"PAY[A-Z0-9]{4,6}", RegexOptions.IgnoreCase);
+            // Pattern: PAY_XXXXXX (6-10 ký tự sau PAY_)
+            var match = Regex.Match(description, @"PAY_[A-Z0-9]{6,10}", RegexOptions.IgnoreCase);
             
             if (match.Success)
             {

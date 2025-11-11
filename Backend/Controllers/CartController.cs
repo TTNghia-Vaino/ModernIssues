@@ -3,6 +3,8 @@ using ModernIssues.Models.DTOs;
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Helpers;
 using ModernIssues.Models.Common;
+using ModernIssues.Models.Entities;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Threading.Tasks;
 
@@ -13,10 +15,45 @@ namespace ModernIssues.Controllers
     public class CartController : ControllerBase
     {
         private readonly ICartRepository _cartRepository;
+        private readonly WebDbContext _context;
 
-        public CartController(ICartRepository cartRepository)
+        public CartController(ICartRepository cartRepository, WebDbContext context)
         {
             _cartRepository = cartRepository;
+            _context = context;
+        }
+
+        /// <summary>
+        /// Helper method để ghi log hành động user
+        /// </summary>
+        private async Task LogActionAsync(string actionType, int? productId = null)
+        {
+            try
+            {
+                var userId = AuthHelper.GetCurrentUserId(HttpContext);
+                Console.WriteLine($"[LOG] Attempting to log: action={actionType}, userId={userId}, productId={productId}");
+                
+                var log = new log
+                {
+                    user_id = userId,
+                    product_id = productId,
+                    action_type = actionType,
+                    created_at = DateTime.UtcNow
+                };
+                _context.logs.Add(log);
+                var result = await _context.SaveChangesAsync();
+                Console.WriteLine($"[LOG] Saved successfully: {result} changes, log_id should be generated");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] LogActionAsync failed: {ex.Message}");
+                Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[ERROR] InnerException: {ex.InnerException.Message}");
+                }
+                // Không throw exception để không ảnh hưởng business logic
+            }
         }
 
         // ============================================
@@ -139,6 +176,9 @@ namespace ModernIssues.Controllers
                 {
                     return BadRequest(ApiResponse<object>.ErrorResponse("Không thể thêm sản phẩm vào giỏ hàng."));
                 }
+                
+                // Log add to cart
+                await LogActionAsync("add_to_cart", addToCartDto.ProductId);
                 
                 return Ok(ApiResponse<CartDto>.SuccessResponse(cart, "Thêm sản phẩm thành công."));
             }
