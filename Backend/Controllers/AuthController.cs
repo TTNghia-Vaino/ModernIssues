@@ -85,17 +85,17 @@ namespace ModernIssues.Controllers
         [HttpPost("Login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
-                return BadRequest(new { message = "Username and password are required." });
+                return BadRequest(new { message = "Email và mật khẩu không được để trống." });
             }
 
             var user = await _context.users
-                .FirstOrDefaultAsync(u => u.username == request.Username);
+                .FirstOrDefaultAsync(u => u.email == request.Email);
 
             if (user == null)
             {
-                return BadRequest(new { message = "Invalid username or password." });
+                return BadRequest(new { message = "Sai email hoặc mật khẩu." });
             }
 
             // Kiểm tra tài khoản có bị vô hiệu hóa không
@@ -119,7 +119,7 @@ namespace ModernIssues.Controllers
 
             if (!isPasswordValid)
             {
-                return BadRequest(new { message = "Invalid username or password." });
+                return BadRequest(new { message = "Sai email hoặc mật khẩu." });
             }
 
             // Lưu session
