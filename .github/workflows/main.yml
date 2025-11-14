@@ -45,8 +45,8 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /var/www/modernissues/backend
+            cd /var/www/modernissues
 
-            pm2 restart modernissues || pm2 start "ModernIssues.dll" --name modernissues --interpreter dotnet
+            pm2 restart modernissues_be || pm2 start "ModernIssues.dll" --name modernissues_be --interpreter dotnet
             pm2 save
             pm2 status modernissues
