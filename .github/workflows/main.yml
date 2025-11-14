@@ -1,0 +1,52 @@
+name: Deploy 
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Setup .NET
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # 3️⃣ Restore & Publish Backend
+      - name: Publish Backend
+        run: |
+          cd Backend
+          dotnet restore
+          dotnet publish -c Release -o publish
+
+      # 4️⃣ Copy publish folder lên server
+      - name: Copy Backend to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: Backend/publish/*
+          target: /var/www/modernissues/backend/
+          overwrite: true
+
+      # 5️⃣ Restart service bằng PM2
+      - name: Restart Backend Service via PM2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /var/www/modernissues/backend
+
+            pm2 restart modernissues || pm2 start "ModernIssues.dll" --name modernissues --interpreter dotnet
+            pm2 save
+            pm2 status modernissues
