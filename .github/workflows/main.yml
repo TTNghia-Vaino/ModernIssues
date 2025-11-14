@@ -34,7 +34,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           source: Backend/publish/*
-          target: /var/www/modernissues/backend/
+          target: /var/www/modernissues/
           overwrite: true
 
       # 5️⃣ Restart service bằng PM2
@@ -45,7 +45,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /var/www/modernissues
+            cd /var/www/modernissues/Backend/publish
 
             pm2 restart modernissues_be || pm2 start "ModernIssues.dll" --name modernissues_be --interpreter dotnet
             pm2 save
