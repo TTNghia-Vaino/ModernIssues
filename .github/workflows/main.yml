@@ -47,6 +47,6 @@ jobs:
           script: |
             cd /var/www/modernissues/Backend/publish
 
-            pm2 restart modernissues_be || pm2 start "ModernIssues.dll" --name modernissues_be --interpreter dotnet
+            pm2 restart modernissues || pm2 start "ModernIssues.dll" --name modernissues --interpreter dotnet --env ASPNETCORE_URLS="http://0.0.0.0:5000"
             pm2 save
             pm2 status modernissues
