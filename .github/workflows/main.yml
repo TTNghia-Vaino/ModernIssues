@@ -49,4 +49,4 @@ jobs:
 
             pm2 restart modernissues_be || pm2 start "ModernIssues.dll" --name modernissues_be --interpreter dotnet --env ASPNETCORE_URLS="http://0.0.0.0:5000"
             pm2 save
-            pm2 status modernissues
+            pm2 status modernissues_be
