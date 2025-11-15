@@ -127,33 +127,7 @@
   border-radius: 12px;
   padding: 20px;
   margin-top: 20px;
-}
-
-.feature-item {
-  display: flex;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.feature-item:last-child {
-  border-bottom: none;
-}
-
-.feature-item .icon {
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.feature-item strong {
-  color: #333;
-  margin-right: 8px;
-}
-
-.feature-item div {
-  font-size: 14px;
-  color: #666;
-  line-height: 1.5;
+  display: none; /* Hidden - moved to description section */
 }
 
 /* Right Section - Product Info */
@@ -649,7 +623,96 @@
   font-size: 15px;
   line-height: 1.8;
   color: #555;
+  margin-bottom: 20px;
+}
+
+/* Product Quick Features List */
+.product-quick-features {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
   margin-bottom: 30px;
+}
+
+.product-quick-features .feature-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.product-quick-features .feature-item:last-child {
+  border-bottom: none;
+}
+
+.product-quick-features .icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  color: #4CAF50;
+}
+
+.product-quick-features .feature-item div {
+  font-size: 14px;
+  color: #333;
+  line-height: 1.6;
+}
+
+.product-quick-features strong {
+  color: #333;
+  margin-right: 8px;
+}
+
+/* Product Features Grid */
+.product-features-section {
+  margin-top: 30px;
+  margin-bottom: 30px;
+}
+
+.product-features-section h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 16px;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.feature-box {
+  background: linear-gradient(135deg, #f0f4ff 0%, #f8fbff 100%);
+  border: 1px solid #e0e8ff;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.feature-box:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  transform: translateY(-2px);
+}
+
+.feature-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.feature-label {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.feature-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #333;
 }
 
 /* Specifications Table */
@@ -759,6 +822,22 @@
   .product-meta {
     flex-direction: column;
     gap: 10px;
+  }
+
+  .features-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .feature-icon {
+    font-size: 24px;
+  }
+
+  .feature-label {
+    font-size: 12px;
+  }
+
+  .feature-value {
+    font-size: 13px;
   }
 }
 

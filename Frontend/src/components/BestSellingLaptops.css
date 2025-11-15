@@ -1,26 +1,31 @@
 /* ===== BEST SELLING LAPTOPS SECTION ===== */
 .best-selling-laptops {
-  padding: 60px 0;
-  background: #fff;
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-top: 30px;
 }
 
 .best-selling-laptops .container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 20px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* ===== SECTION HEADER ===== */
 .section-header {
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
-.section-title {
-  font-size: 28px;
-  font-weight: bold;
-  color: #00a651;
-  margin: 0 0 20px 0;
-  text-transform: uppercase;
+.best-selling-laptops .section-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 3px solid #00a651;
+  text-transform: none;
 }
 
 .brand-tabs {
@@ -72,44 +77,241 @@
 
 /* ===== LAPTOPS GRID ===== */
 .laptops-grid {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Carousel Container */
+.laptops-carousel-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.carousel-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.carousel-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.laptops-carousel-wrapper {
+  flex: 1;
+  overflow: hidden;
+  border-radius: 12px;
+  background: white;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.carousel-content {
+  flex: 1;
+  overflow: hidden;
+  border-radius: 12px;
+  background: white;
+}
+
+.laptops-carousel-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  width: 100%;
+  padding: 0;
+  animation: slideLeft 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Carousel Navigation Buttons */
+.carousel-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #00a651;
+  background: white;
+  color: #00a651;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.carousel-btn:hover {
+  background: #00a651;
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 166, 81, 0.3);
+}
+
+.carousel-btn:active {
+  transform: scale(0.95);
+}
+
+.carousel-btn-prev {
+  order: -1;
+}
+
+.carousel-btn-next {
+  order: 1;
+}
+
+/* Carousel Controls */
+.carousel-controls {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 12px 0;
+}
+
+.carousel-indicators-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Carousel Indicators (dots) */
+.carousel-indicators {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-height: 50px;
+  overflow-y: auto;
+}
+
+.indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #ddd;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.indicator:hover {
+  border-color: #00a651;
+  background: #f0f9f5;
+}
+
+.indicator.active {
+  background: #00a651;
+  border-color: #00a651;
+  transform: scale(1.2);
+}
+
+/* Animation for slide-push effect */
+@keyframes slideLeft {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Animation for item sliding in from right (Next button) */
+@keyframes itemSlideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(120%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Animation for item sliding in from left (Back button) */
+@keyframes itemSlideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-120%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Animation for item sliding out left (when navigating next) */
+@keyframes itemSlideOutLeft {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-120%);
+  }
+}
+
+.laptop-card {
+  animation: itemSlideInRight 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.laptop-card.slide-next {
+  animation: itemSlideInRight 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.laptop-card.slide-prev {
+  animation: itemSlideInLeft 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* ===== LAPTOP CARD ===== */
 .laptop-card {
-  position: relative;
   background: white;
   border: 1px solid #e0e0e0;
   border-radius: 12px;
-  padding: 15px;
+  overflow: hidden;
   transition: all 0.3s ease;
-  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
   display: flex;
   flex-direction: column;
+  cursor: pointer;
 }
 
 .laptop-card:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  transform: translateY(-5px);
   border-color: #00a651;
+  box-shadow: 0 8px 24px rgba(0, 166, 81, 0.15);
+  transform: translateY(-4px);
 }
 
 /* ===== BADGES ===== */
 .discount-badge {
   position: absolute;
-  top: 0;
-  left: 0;
-  background: linear-gradient(135deg, #e53935 0%, #d32f2f 100%);
+  top: 10px;
+  left: 10px;
+  background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
   color: white;
-  padding: 8px 12px;
-  border-radius: 0 0 12px 0;
-  font-size: 13px;
-  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
   z-index: 2;
-  box-shadow: 0 2px 8px rgba(229, 57, 53, 0.4);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0);
 }
 
 .new-badge {
@@ -132,19 +334,19 @@
 .laptop-image-wrapper {
   position: relative;
   width: 100%;
-  height: 200px;
+  aspect-ratio: 1;
+  background: #f8f9fa;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 15px;
-  overflow: hidden;
-  border-radius: 8px;
 }
 
 .laptop-image {
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  padding: 10px;
   transition: transform 0.3s ease;
 }
 
@@ -152,63 +354,36 @@
   transform: scale(1.05);
 }
 
-.combo-overlay {
-  position: absolute;
-  top: 0;
-  right: 0;
-  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-  color: white;
-  padding: 8px 12px;
-  font-size: 10px;
-  font-weight: bold;
-  text-align: center;
-  line-height: 1.2;
-  border-radius: 0 8px 0 8px;
-  max-width: 120px;
-  word-wrap: break-word;
-}
-
 /* ===== LAPTOP SPECS ===== */
 .laptop-specs {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .spec-item {
-  background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%);
-  padding: 6px 10px;
-  border-radius: 5px;
-  font-size: 10px;
-  font-weight: 700;
-  text-align: center;
-  line-height: 1.3;
+  background: #f0f4ff;
   color: #333;
-  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
   white-space: nowrap;
-  border: 1px solid #ddd;
-  flex: 0 0 auto;
-}
-
-.spec-item:nth-child(1),
-.spec-item:nth-child(2) {
-  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-  color: white;
-  border-color: #ff6b35;
-  font-weight: 800;
 }
 
 /* ===== LAPTOP BADGE ===== */
 .laptop-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
-  padding: 10px 12px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  box-shadow: 0 2px 6px rgba(0, 102, 204, 0.3);
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #4CAF50;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+  z-index: 2;
 }
 
 .badge-icon {
@@ -244,251 +419,159 @@
   font-weight: 600;
 }
 
-/* ===== LAPTOP NAME ===== */
-.laptop-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #1a1a1a;
-  margin: 0 0 12px 0;
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-height: 58px;
+/* Product Info */
+.laptop-info {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-grow: 1;
 }
 
-/* ===== LAPTOP PRICE ===== */
+.laptop-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 32px;
+}
+
+/* Brand Tag */
+.laptop-brand {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.brand-tag {
+  background: #f0f4ff;
+  color: #00a651;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Product Prices - Vertical Layout */
 .laptop-price-section {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   margin-top: auto;
 }
 
 .current-price {
-  font-size: 20px;
-  font-weight: 800;
-  color: #00a651;
-  letter-spacing: -0.5px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0a804a;
 }
 
 .original-price {
-  font-size: 16px;
-  color: #666;
+  font-size: 11px;
   text-decoration: line-through;
-  font-weight: 600;
-  text-decoration-thickness: 2px;
+  color: #999;
 }
 
-/* ===== RESPONSIVE DESIGN ===== */
-
-/* Large Desktop (1400-1599px) */
-@media (max-width: 1599px) {
-  .laptops-grid {
+/* Responsive */
+@media (max-width: 1400px) {
+  .laptops-carousel-grid {
     grid-template-columns: repeat(4, 1fr);
-    gap: 18px;
-  }
-  
-  .laptop-image-wrapper {
-    height: 180px;
   }
 }
 
-/* Desktop (1200-1399px) */
-@media (max-width: 1399px) {
-  .laptops-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 15px;
-  }
-  
-  .laptop-card {
-    padding: 12px;
-  }
-  
-  .laptop-image-wrapper {
-    height: 160px;
-  }
-  
-  .section-title {
-    font-size: 24px;
-  }
-}
-
-/* Small Desktop (1024-1199px) */
-@media (max-width: 1199px) {
-  .laptops-grid {
+@media (max-width: 1024px) {
+  .laptops-carousel-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-  }
-  
-  .laptop-image-wrapper {
-    height: 180px;
-  }
-}
-
-/* Tablet (768-1023px) */
-@media (max-width: 1023px) {
-  .best-selling-laptops {
-    padding: 50px 0;
-  }
-  
-  .laptops-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-  }
-  
-  .section-title {
-    font-size: 22px;
-  }
-  
-  .brand-tabs {
-    gap: 8px;
-  }
-  
-  .brand-tab {
-    padding: 8px 16px;
-    font-size: 13px;
-  }
-}
-
-/* Mobile Large (576-767px) */
-@media (max-width: 767px) {
-  .best-selling-laptops {
-    padding: 40px 0;
-  }
-  
-  .laptops-grid {
-    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
-  
-  .laptop-card {
+
+  .laptop-info {
     padding: 10px;
+    gap: 6px;
   }
-  
-  .laptop-image-wrapper {
-    height: 140px;
-  }
-  
-  .section-title {
-    font-size: 20px;
-    margin-bottom: 15px;
-  }
-  
-  .brand-tab {
-    padding: 6px 12px;
-    font-size: 12px;
-  }
-  
-  .laptop-name {
-    font-size: 13px;
-    min-height: 36px;
-  }
-  
-  .current-price {
-    font-size: 16px;
-  }
-  
-  .original-price {
-    font-size: 12px;
-  }
-  
-  .spec-item {
-    font-size: 9px;
-    padding: 5px 8px;
-  }
-  
+
   .laptop-name {
     font-size: 12px;
-    min-height: 54px;
   }
-  
+
   .current-price {
-    font-size: 18px;
-  }
-  
-  .original-price {
     font-size: 14px;
   }
 }
 
-/* Mobile Medium (480-575px) */
-@media (max-width: 575px) {
+@media (max-width: 768px) {
+  .best-selling-laptops {
+    padding: 20px;
+  }
+
+  .best-selling-laptops .section-title {
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+
+  .laptops-carousel-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .laptop-name {
+    font-size: 11px;
+    min-height: 30px;
+  }
+
+  .current-price {
+    font-size: 13px;
+  }
+
+  .original-price {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
   .laptops-grid {
+    gap: 8px;
+  }
+
+  .carousel-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .laptops-carousel-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
-  
-  .laptop-image-wrapper {
-    height: 120px;
-  }
-  
-  .laptop-specs {
-    gap: 5px;
-  }
-  
-  .spec-item {
-    font-size: 8px;
-    padding: 5px 7px;
-  }
-  
-  .badge-title {
-    font-size: 8px;
-  }
-  
-  .badge-date {
-    font-size: 7px;
-  }
-}
 
-/* Mobile Small (360-479px) */
-@media (max-width: 479px) {
-  .best-selling-laptops {
-    padding: 35px 0;
+  .laptop-info {
+    padding: 8px;
+    gap: 4px;
   }
-  
-  .laptops-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
+
+  .laptop-name {
+    font-size: 10px;
+    min-height: 28px;
   }
-  
-  .laptop-image-wrapper {
-    height: 180px;
+
+  .current-price {
+    font-size: 12px;
   }
-  
-  .laptop-specs {
-    gap: 6px;
-  }
-  
-  .spec-item {
+
+  .original-price {
     font-size: 9px;
-    padding: 6px 8px;
   }
-  
-  .section-title {
-    font-size: 18px;
-  }
-}
 
-/* Extra Small Mobile (<360px) */
-@media (max-width: 359px) {
-  .laptops-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .laptop-image-wrapper {
-    height: 160px;
-  }
-  
-  .brand-tabs {
-    gap: 6px;
-  }
-  
-  .brand-tab {
-    padding: 5px 10px;
-    font-size: 11px;
+  .brand-tag {
+    font-size: 9px;
+    padding: 2px 6px;
   }
 }
 

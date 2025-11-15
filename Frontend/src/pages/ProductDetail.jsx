@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useNotification } from '../context/NotificationContext';
 import * as productService from '../services/productService';
 import { transformProduct } from '../utils/productUtils';
+import RelatedProducts from '../components/RelatedProducts';
 import './ProductDetail.css';
 
 function ProductDetail() {
@@ -322,46 +323,6 @@ function ProductDetail() {
                 ))}
               </div>
             )}
-
-            {/* Product Features */}
-            <div className="product-features">
-              <div className="feature-item">
-                <span className="icon">✅</span>
-                <div>
-                  <strong>Dung lượng ổ cứng:</strong> {product.specs?.storage || 'N/A'}
-                </div>
-              </div>
-              <div className="feature-item">
-                <span className="icon">✅</span>
-                <div>
-                  <strong>Form Factor:</strong> {product.specs?.formFactor || 'M.2 2280'}
-                </div>
-              </div>
-              <div className="feature-item">
-                <span className="icon">✅</span>
-                <div>
-                  <strong>Chuẩn kết nối:</strong> {product.specs?.interface || 'PCIe Gen 4.0 x4 NVMe'}
-                </div>
-              </div>
-              <div className="feature-item">
-                <span className="icon">✅</span>
-                <div>
-                  <strong>Tốc độ đọc:</strong> {product.specs?.readSpeed || '5000 MB/s'}
-                </div>
-              </div>
-              <div className="feature-item">
-                <span className="icon">✅</span>
-                <div>
-                  <strong>Tốc độ ghi:</strong> {product.specs?.writeSpeed || '3000 MB/s'}
-                </div>
-              </div>
-              <div className="feature-item">
-                <span className="icon">✅</span>
-                <div>
-                  <strong>Bảo hành:</strong> 60 tháng hoặc trong giới hạn TBW
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Right: Product Info */}
@@ -528,10 +489,136 @@ function ProductDetail() {
             )}
           </div>
 
+          {/* Product Quick Features List */}
+          <div className="product-quick-features">
+            <div className="feature-item">
+              <span className="icon">✅</span>
+              <div>
+                <strong>Dung lượng ổ cứng:</strong> {product.specs?.storage || 'N/A'}
+              </div>
+            </div>
+            <div className="feature-item">
+              <span className="icon">✅</span>
+              <div>
+                <strong>Form Factor:</strong> {product.specs?.formFactor || 'M.2 2280'}
+              </div>
+            </div>
+            <div className="feature-item">
+              <span className="icon">✅</span>
+              <div>
+                <strong>Chuẩn kết nối:</strong> {product.specs?.interface || 'PCIe Gen 4.0 x4 NVMe'}
+              </div>
+            </div>
+            <div className="feature-item">
+              <span className="icon">✅</span>
+              <div>
+                <strong>Tốc độ đọc:</strong> {product.specs?.readSpeed || '5000 MB/s'}
+              </div>
+            </div>
+            <div className="feature-item">
+              <span className="icon">✅</span>
+              <div>
+                <strong>Tốc độ ghi:</strong> {product.specs?.writeSpeed || '3000 MB/s'}
+              </div>
+            </div>
+            <div className="feature-item">
+              <span className="icon">✅</span>
+              <div>
+                <strong>Bảo hành:</strong> {product.specs?.warranty || '60 tháng hoặc trong giới hạn TBW'}
+              </div>
+            </div>
+          </div>
+
+          {/* Product Features/Specs Grid */}
+          {(product.specs || product.specs) && (
+            <div className="product-features-section">
+              <h3>Thông số kỹ thuật</h3>
+              <div className="features-grid">
+                {product.specs?.storage && (
+                  <div className="feature-box">
+                    <div className="feature-icon">💾</div>
+                    <div className="feature-label">Dung lượng ổ cứng</div>
+                    <div className="feature-value">{product.specs.storage}</div>
+                  </div>
+                )}
+                {product.specs?.formFactor && (
+                  <div className="feature-box">
+                    <div className="feature-icon">📦</div>
+                    <div className="feature-label">Form Factor</div>
+                    <div className="feature-value">{product.specs.formFactor}</div>
+                  </div>
+                )}
+                {product.specs?.interface && (
+                  <div className="feature-box">
+                    <div className="feature-icon">🔌</div>
+                    <div className="feature-label">Chuẩn kết nối</div>
+                    <div className="feature-value">{product.specs.interface}</div>
+                  </div>
+                )}
+                {product.specs?.readSpeed && (
+                  <div className="feature-box">
+                    <div className="feature-icon">📖</div>
+                    <div className="feature-label">Tốc độ đọc</div>
+                    <div className="feature-value">{product.specs.readSpeed}</div>
+                  </div>
+                )}
+                {product.specs?.writeSpeed && (
+                  <div className="feature-box">
+                    <div className="feature-icon">✍️</div>
+                    <div className="feature-label">Tốc độ ghi</div>
+                    <div className="feature-value">{product.specs.writeSpeed}</div>
+                  </div>
+                )}
+                {product.specs?.warranty && (
+                  <div className="feature-box">
+                    <div className="feature-icon">🛡️</div>
+                    <div className="feature-label">Bảo hành</div>
+                    <div className="feature-value">{product.specs.warranty}</div>
+                  </div>
+                )}
+                {product.specs?.cpu && (
+                  <div className="feature-box">
+                    <div className="feature-icon">⚙️</div>
+                    <div className="feature-label">CPU</div>
+                    <div className="feature-value">{product.specs.cpu}</div>
+                  </div>
+                )}
+                {product.specs?.ram && (
+                  <div className="feature-box">
+                    <div className="feature-icon">🧠</div>
+                    <div className="feature-label">RAM</div>
+                    <div className="feature-value">{product.specs.ram}</div>
+                  </div>
+                )}
+                {product.specs?.display && (
+                  <div className="feature-box">
+                    <div className="feature-icon">🖥️</div>
+                    <div className="feature-label">Màn hình</div>
+                    <div className="feature-value">{product.specs.display}</div>
+                  </div>
+                )}
+                {product.specs?.gpu && (
+                  <div className="feature-box">
+                    <div className="feature-icon">🎮</div>
+                    <div className="feature-label">Card đồ họa</div>
+                    <div className="feature-value">{product.specs.gpu}</div>
+                  </div>
+                )}
+                {product.specs?.os && (
+                  <div className="feature-box">
+                    <div className="feature-icon">💻</div>
+                    <div className="feature-label">Hệ điều hành</div>
+                    <div className="feature-value">{product.specs.os}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Specifications Table */}
           {product.specs && (
             <div className="specifications-table">
-              <h3>Thông số kỹ thuật</h3>
+              <h3>Chi tiết kỹ thuật</h3>
               <table>
                 <tbody>
                   {product.specs.cpu && (
@@ -575,6 +662,9 @@ function ProductDetail() {
             </div>
           )}
         </div>
+
+        {/* Related Products */}
+        <RelatedProducts categoryId={product.categoryId} currentProductId={product.id} />
       </div>
     </div>
   );

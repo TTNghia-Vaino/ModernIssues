@@ -10,6 +10,8 @@ function BestSellingLaptops() {
   const { isInTokenGracePeriod } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [laptops, setLaptops] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [direction, setDirection] = useState('next');
 
   // Load laptops from API, but delay if in grace period
   useEffect(() => {
@@ -140,6 +142,16 @@ function BestSellingLaptops() {
     navigate('/products?category=Laptop');
   };
 
+  const handleCarouselNext = () => {
+    setDirection('next');
+    setCurrentIndex(prev => (prev + 1) % filteredLaptops.length);
+  };
+
+  const handleCarouselPrev = () => {
+    setDirection('prev');
+    setCurrentIndex(prev => (prev - 1 + filteredLaptops.length) % filteredLaptops.length);
+  };
+
   // Render laptop specs
   const renderSpecs = (specs) => {
     if (!specs) return null;
@@ -215,52 +227,123 @@ function BestSellingLaptops() {
 
         <div className="laptops-grid">
           {filteredLaptops.length > 0 ? (
-            filteredLaptops.map((laptop) => (
-              <div 
-                key={laptop.id} 
-                className="laptop-card"
-                onClick={() => handleProductClick(laptop.id)}
-              >
-                {laptop.discount > 0 && (
-                  <div className="discount-badge">-{laptop.discount}%</div>
-                )}
-                
-                {renderBadge(laptop)}
-                
-                <div className="laptop-image-wrapper">
-                  <img 
-                    src={laptop.image || 'https://via.placeholder.com/300x200?text=Laptop'} 
-                    alt={laptop.name} 
-                    className="laptop-image" 
-                  />
+            <>
+              <div className="carousel-wrapper">
+                <div className="carousel-container">
+                  {/* Previous Button */}
+                  <button 
+                    className="carousel-btn carousel-btn-prev"
+                    onClick={handleCarouselPrev}
+                    aria-label="Previous"
+                  >
+                    ❮
+                  </button>
+
+                  <div className="carousel-content">
+                    <div className="laptops-carousel-grid" style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(5, 1fr)',
+                      gap: '16px'
+                    }}>
+                      {(() => {
+                        // Show 5 products at a time
+                        const itemsPerSlide = 5;
+                        const visibleLaptops = [];
+                        for (let i = 0; i < itemsPerSlide; i++) {
+                          if (filteredLaptops.length > 0) {
+                            visibleLaptops.push(filteredLaptops[(currentIndex + i) % filteredLaptops.length]);
+                          }
+                        }
+                        return visibleLaptops.map((laptop, idx) => (
+                          <div 
+                            key={`${currentIndex}-${idx}`}
+                            className={`laptop-card slide-${direction}`}
+                            onClick={() => handleProductClick(laptop.id)}
+                            style={{
+                              animation: `${direction === 'next' ? 'itemSlideInRight' : 'itemSlideInLeft'} 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
+                              animationDelay: `${idx * 0.05}s`
+                            }}
+                          >
+                            {laptop.discount > 0 && (
+                              <div className="discount-badge">-{laptop.discount}%</div>
+                            )}
+                            
+                            {renderBadge(laptop)}
+                            
+                            <div className="laptop-image-wrapper">
+                              <img 
+                                src={laptop.image || 'https://via.placeholder.com/300x200?text=Laptop'} 
+                                alt={laptop.name} 
+                                className="laptop-image" 
+                              />
+                            </div>
+
+                            <div className="laptop-info">
+                              <h3 className="laptop-name">{laptop.name}</h3>
+
+                              {laptop.brand && (
+                                <div className="laptop-brand">
+                                  <span className="brand-tag">{laptop.brand}</span>
+                                </div>
+                              )}
+
+                              {renderSpecs(laptop.specs)}
+
+                              <div className="laptop-price-section">
+                                <div className="current-price">{formatPrice(laptop.price)}</div>
+                                {(() => {
+                                  let originalPrice = null;
+                                  
+                                  if (laptop.originalPrice && laptop.originalPrice > laptop.price) {
+                                    originalPrice = laptop.originalPrice;
+                                  } else if (laptop.discount && laptop.discount > 0) {
+                                    originalPrice = Math.round(laptop.price / (1 - laptop.discount / 100));
+                                  } else if (!laptop.discount && !laptop.originalPrice) {
+                                    // Default: add 10% to current price
+                                    originalPrice = Math.round(laptop.price * 1.1);
+                                  }
+                                  
+                                  if (originalPrice && originalPrice > laptop.price) {
+                                    return <div className="original-price">{formatPrice(originalPrice)}</div>;
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Next Button */}
+                  <button 
+                    className="carousel-btn carousel-btn-next"
+                    onClick={handleCarouselNext}
+                    aria-label="Next"
+                  >
+                    ❯
+                  </button>
                 </div>
 
-                {renderSpecs(laptop.specs)}
-
-                <h3 className="laptop-name">{laptop.name}</h3>
-
-                <div className="laptop-price-section">
-                  <div className="current-price">{formatPrice(laptop.price)}</div>
-                  {(() => {
-                    // Nếu có originalPrice, dùng nó
-                    if (laptop.originalPrice && laptop.originalPrice > laptop.price) {
-                      return <div className="original-price">{formatPrice(laptop.originalPrice)}</div>;
-                    }
-                    // Nếu có discount nhưng không có originalPrice, tính ngược lại
-                    if (laptop.discount && laptop.discount > 0) {
-                      const calculatedOriginalPrice = Math.round(laptop.price / (1 - laptop.discount / 100));
-                      return <div className="original-price">{formatPrice(calculatedOriginalPrice)}</div>;
-                    }
-                    // Nếu không có discount nhưng muốn hiển thị giá gốc mặc định (thêm 10%)
-                    if (!laptop.discount && !laptop.originalPrice) {
-                      const defaultOriginalPrice = Math.round(laptop.price * 1.1);
-                      return <div className="original-price">{formatPrice(defaultOriginalPrice)}</div>;
-                    }
-                    return null;
-                  })()}
+                {/* Carousel Controls Below */}
+                <div className="carousel-controls">
+                  {/* Carousel Indicators */}
+                  {filteredLaptops.length > 5 && (
+                    <div className="carousel-indicators">
+                      {filteredLaptops.map((_, idx) => (
+                        <button
+                          key={idx}
+                          className={`indicator ${currentIndex % filteredLaptops.length === idx ? 'active' : ''}`}
+                          onClick={() => setCurrentIndex(idx)}
+                          aria-label={`Slide ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-            ))
+            </>
           ) : (
             <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: '#6b7280' }}>
               Chưa có laptop nào. Vui lòng thêm sản phẩm từ trang Admin.
