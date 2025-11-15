@@ -1,41 +1,191 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+import { useNotification } from '../context/NotificationContext';
+import * as productService from '../services/productService';
+import { transformProduct } from '../utils/productUtils';
 import './ProductDetail.css';
 
 function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isInTokenGracePeriod } = useAuth();
+  const { addItem } = useCart();
+  const { success, error: showError } = useNotification();
   const [product, setProduct] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedCapacity, setSelectedCapacity] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchProductDetail();
-  }, [id]);
+    let cancelled = false;
+    
+    const attemptLoad = async () => {
+      // Scroll to top immediately when product detail loads
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      
+      // If in grace period, wait for it to end
+      if (isInTokenGracePeriod) {
+        console.log('[ProductDetail] Waiting for token grace period to end before loading product');
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        if (cancelled) return;
+      }
+      
+      if (!cancelled) {
+        fetchProductDetail();
+      }
+    };
+    
+    attemptLoad();
+    
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]); // Run when id changes
 
-  const fetchProductDetail = () => {
+  // Scroll to top after loading completes
+  useEffect(() => {
+    if (!loading) {
+      // Use setTimeout to ensure DOM is fully rendered
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }, 0);
+    }
+  }, [loading]);
+
+  const fetchProductDetail = async () => {
     try {
-      const savedProducts = localStorage.getItem('adminProducts');
-      if (savedProducts) {
-        const allProducts = JSON.parse(savedProducts);
-        const foundProduct = allProducts.find(p => p.id === id);
+      setLoading(true);
+      setError(null);
+      console.log('[ProductDetail] Fetching product with id:', id);
+      
+      // Try API first
+      try {
+        const productData = await productService.getProductById(id);
+        console.log('[ProductDetail] Product from API:', productData);
         
-        if (foundProduct) {
-          setProduct(foundProduct);
-          // Nếu có variants (dung lượng), chọn variant đầu tiên
-          if (foundProduct.variants && foundProduct.variants.length > 0) {
-            setSelectedCapacity(foundProduct.variants[0]);
+        // Handle Swagger response format: response.data contains product object
+        const product = productData && typeof productData === 'object' ? productData : productData;
+        // Transform API format to component format
+        const transformedProduct = transformProduct(product);
+        setProduct(transformedProduct);
+        
+        // Nếu có variants (dung lượng), chọn variant đầu tiên
+        if (transformedProduct.variants && transformedProduct.variants.length > 0) {
+          setSelectedCapacity(transformedProduct.variants[0]);
+        }
+        
+        // Lưu sản phẩm vào danh sách đã xem
+        saveToRecentlyViewed(transformedProduct);
+      } catch (apiError) {
+        console.warn('[ProductDetail] API failed, trying localStorage:', apiError);
+        // Fallback to localStorage
+        const savedProducts = localStorage.getItem('adminProducts');
+        if (savedProducts) {
+          const allProducts = JSON.parse(savedProducts);
+          const foundProduct = allProducts.find(p => p.id === parseInt(id));
+          
+          if (foundProduct) {
+            console.log('[ProductDetail] Found product in localStorage:', foundProduct.name);
+            setProduct(foundProduct);
+            if (foundProduct.variants && foundProduct.variants.length > 0) {
+              setSelectedCapacity(foundProduct.variants[0]);
+            }
+            saveToRecentlyViewed(foundProduct);
+          } else {
+            setError('Không tìm thấy sản phẩm');
           }
         } else {
-          console.error('Product not found');
+          setError('Không tìm thấy sản phẩm');
         }
       }
-      setLoading(false);
     } catch (error) {
       console.error('Error fetching product:', error);
+      setError(error.message || 'Có lỗi xảy ra khi tải sản phẩm');
+    } finally {
       setLoading(false);
+    }
+  };
+
+  const saveToRecentlyViewed = (viewedProduct) => {
+    try {
+      // Lấy danh sách sản phẩm đã xem
+      const viewed = localStorage.getItem('recentlyViewedProducts');
+      let viewedProducts = [];
+      
+      if (viewed) {
+        try {
+          viewedProducts = JSON.parse(viewed);
+          // Làm sạch dữ liệu cũ: xóa các sản phẩm không hợp lệ
+          viewedProducts = viewedProducts.filter(p => {
+            const hasValidPrice = p.price || p.salePrice || p.originalPrice || p.onPrice;
+            const hasRequiredFields = p.id && p.name && p.image;
+            return hasRequiredFields && hasValidPrice;
+          });
+        } catch (error) {
+          console.error('[ProductDetail] Error parsing old data, clearing localStorage:', error);
+          // Nếu có lỗi parse dữ liệu cũ, xóa toàn bộ và bắt đầu lại
+          localStorage.removeItem('recentlyViewedProducts');
+          viewedProducts = [];
+        }
+      }
+      
+      // Loại bỏ sản phẩm nếu đã tồn tại (để cập nhật vị trí)
+      viewedProducts = viewedProducts.filter(p => p.id !== viewedProduct.id);
+      
+      // Thêm sản phẩm vào đầu danh sách với đầy đủ thông tin
+      // Xử lý giá: API có thể trả về onPrice thay vì originalPrice
+      const onPrice = viewedProduct.onPrice || (Array.isArray(viewedProduct.onPrices) && viewedProduct.onPrices.length > 0 ? viewedProduct.onPrices[0] : null);
+      const originalPriceValue = viewedProduct.originalPrice || onPrice || viewedProduct.price;
+      const salePriceValue = viewedProduct.salePrice || viewedProduct.price;
+      const priceValue = viewedProduct.price || salePriceValue || originalPriceValue;
+      
+      const productToSave = {
+        id: viewedProduct.id,
+        name: viewedProduct.name,
+        image: viewedProduct.image,
+        images: viewedProduct.images || [], // Tất cả hình ảnh
+        salePrice: salePriceValue || null,
+        originalPrice: originalPriceValue || null,
+        price: priceValue || null,
+        onPrice: onPrice || null, // Lưu thêm onPrice từ API
+        rating: viewedProduct.rating || 0,
+        reviewCount: viewedProduct.reviewCount || 0,
+        isNew: viewedProduct.isNew || false,
+        brand: viewedProduct.brand || '',
+        category: viewedProduct.category || '',
+        shortDescription: viewedProduct.shortDescription || '',
+        stock: viewedProduct.stock || 0,
+        inStock: viewedProduct.inStock !== false, // Default true
+        variants: viewedProduct.variants || [] // Các biến thể (dung lượng, màu sắc...)
+      };
+      
+      console.log('[ProductDetail] Saving product:', productToSave);
+      viewedProducts.unshift(productToSave);
+      
+      // Giữ tối đa 10 sản phẩm
+      if (viewedProducts.length > 10) {
+        viewedProducts = viewedProducts.slice(0, 10);
+      }
+      
+      console.log('[ProductDetail] Saving to localStorage:', viewedProducts);
+      
+      // Lưu lại vào localStorage
+      localStorage.setItem('recentlyViewedProducts', JSON.stringify(viewedProducts));
+      
+      // Dispatch event để các component khác biết có cập nhật
+      window.dispatchEvent(new Event('recentlyViewedUpdated'));
+      console.log('[ProductDetail] Event dispatched');
+    } catch (error) {
+      console.error('Error saving to recently viewed:', error);
     }
   };
 
@@ -54,45 +204,72 @@ function ProductDetail() {
     }
   };
 
-  const handleAddToCart = () => {
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const cartItem = {
+  const handleAddToCart = async () => {
+    const currentPrice = selectedCapacity ? selectedCapacity.price : product.price;
+    const productToAdd = {
       id: product.id,
+      productId: product.productId || product.id, // Ensure productId is available for API
       name: product.name,
-      price: selectedCapacity ? selectedCapacity.price : product.price,
+      price: currentPrice,
       image: product.image,
-      quantity: quantity,
+      brand: product.brand,
+      category: product.category,
       capacity: selectedCapacity ? selectedCapacity.capacity : null
     };
     
-    // Kiểm tra sản phẩm đã có trong giỏ hàng chưa
-    const existingIndex = cart.findIndex(item => 
-      item.id === cartItem.id && item.capacity === cartItem.capacity
-    );
-    
-    if (existingIndex > -1) {
-      cart[existingIndex].quantity += quantity;
-    } else {
-      cart.push(cartItem);
+    try {
+      await addItem(productToAdd, quantity);
+      success('Đã thêm vào giỏ hàng!');
+    } catch (error) {
+      console.error('[ProductDetail] Error adding to cart:', error);
+      showError('Không thể thêm sản phẩm vào giỏ hàng. Vui lòng thử lại.');
     }
-    
-    localStorage.setItem('cart', JSON.stringify(cart));
-    alert('Đã thêm vào giỏ hàng!');
   };
 
-  const handleBuyNow = () => {
-    handleAddToCart();
-    navigate('/cart');
+  const handleBuyNow = async () => {
+    try {
+      await handleAddToCart();
+      
+      // Scroll to top immediately before navigation
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      
+      // Navigate to cart
+      navigate('/cart');
+      
+      // Additional scroll to top after navigation to ensure it works
+      setTimeout(() => {
+        window.scrollTo({
+          top: 0,
+          left: 0,
+          behavior: 'instant'
+        });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }, 50);
+      
+      // Final scroll after page is fully loaded
+      setTimeout(() => {
+        window.scrollTo({
+          top: 0,
+          left: 0,
+          behavior: 'instant'
+        });
+      }, 200);
+    } catch (error) {
+      console.error('[ProductDetail] Error in handleBuyNow:', error);
+    }
   };
 
   if (loading) {
     return <div className="product-detail-loading">Đang tải...</div>;
   }
 
-  if (!product) {
+  if (error || !product) {
     return (
       <div className="product-not-found">
-        <h2>Không tìm thấy sản phẩm</h2>
+        <h2>{error || 'Không tìm thấy sản phẩm'}</h2>
         <button onClick={() => navigate('/')}>Về trang chủ</button>
       </div>
     );
@@ -202,11 +379,6 @@ function ProductDetail() {
                 <span className="label">SKU:</span>
                 <span className="sku">{product.sku || product.id}</span>
               </div>
-              <div className="meta-item">
-                <span className={`stock-status ${product.stock > 0 ? 'in-stock' : 'out-of-stock'}`}>
-                  {product.stock > 0 ? '🎯 Sẵn sàng' : '❌ Hết hàng'}
-                </span>
-              </div>
             </div>
 
             {/* Price */}
@@ -228,8 +400,7 @@ function ProductDetail() {
               </div>
               <div className="promo-item">
                 <span className="gift-icon">🎁</span>
-                <strong>Hỗ trợ lắp đặt SSD</strong> và Copy hệ điều hành sang ổ cứng mới tại cửa hàng (Miễn phí). 
-                <a href="#" className="promo-link"> (Click here)</a>
+                <strong>Hỗ trợ lắp đặt SSD</strong> và Copy hệ điều hành sang ổ cứng mới tại cửa hàng (Miễn phí).
               </div>
             </div>
 
@@ -253,7 +424,6 @@ function ProductDetail() {
                   <div><strong>HCM & Hà Nội</strong> cho đơn hàng tối thiểu <strong className="min-order">300.000đ</strong></div>
                 </div>
               </div>
-              <img src="https://via.placeholder.com/600x100?text=Free+Ship+Banner" alt="Free Ship" className="shipping-banner" />
             </div>
 
             {/* Product Line (Variants) */}
@@ -340,27 +510,10 @@ function ProductDetail() {
                 onClick={handleAddToCart}
                 disabled={product.stock <= 0}
               >
-                🛒 THÊM VÀO GIỎ
+                <i className="fas fa-cart-plus"></i> THÊM VÀO GIỎ
               </button>
             </div>
 
-            {/* Additional Services */}
-            <div className="additional-services">
-              <div className="service-item">
-                <span className="service-icon">📞</span>
-                <div>
-                  <strong>Tư vấn miễn phí</strong>
-                  <p>Gọi: 1900 xxxx (8:00 - 21:00)</p>
-                </div>
-              </div>
-              <div className="service-item">
-                <span className="service-icon">🏪</span>
-                <div>
-                  <strong>Mua tại cửa hàng</strong>
-                  <p>Xem địa chỉ cửa hàng gần bạn</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 

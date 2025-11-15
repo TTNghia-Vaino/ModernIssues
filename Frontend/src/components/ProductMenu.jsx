@@ -1,23 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCategories } from '../context/CategoryContext';
 import './ProductMenu.css';
 
 const DEFAULT_CATEGORIES = [
-  { icon: 'fas fa-mouse', label: 'Chuột-Bàn phím-Tai nghe',
-    children: {
-      'Chuột': ['Razer','Logitech','Rapoo','Corsair'],
-      'Bàn phím': ['AKKO','Keychron','DareU'],
-      'Tai nghe': ['HyperX','Razer','Logitech'],
-      'Sản phẩm nổi bật': ['Chuột Pro M1','RAM 16GB DDR4']
-    }
-  },
-  { icon: 'fas fa-laptop', label: 'Laptop',
-    children: {
-      'Thương hiệu': ['Acer','Asus','MSI','Dell'],
-      'Nhu cầu': ['Gaming','Văn phòng','Mỏng nhẹ'],
-      'Sản phẩm nổi bật': ['Laptop Gaming X']
-    }
-  },
+  { icon: 'fas fa-mouse', label: 'Chuột-Bàn phím-Tai nghe', children: { 'Chuột': ['Razer','Logitech','Rapoo','Corsair'], 'Bàn phím': ['AKKO','Keychron','DareU'], 'Tai nghe': ['HyperX','Razer','Logitech'], 'Sản phẩm nổi bật': ['Chuột Pro M1','RAM 16GB DDR4'] } },
+  { icon: 'fas fa-laptop', label: 'Laptop', children: { 'Thương hiệu': ['Acer','Asus','MSI','Dell'], 'Nhu cầu': ['Gaming','Văn phòng','Mỏng nhẹ'], 'Sản phẩm nổi bật': ['Laptop Gaming X'] } },
   { icon: 'fas fa-desktop', label: 'PC / Máy Bộ', children: { 'PC Gaming': ['RTX 4060','RTX 4070'], 'PC Văn phòng': ['Core i5','Ryzen 5'] } },
   { icon: 'fas fa-tools', label: 'PC Tự Build', children: { 'Mainboard': ['Intel','AMD'], 'Case': ['ATX','mATX'] } },
   { icon: 'fas fa-microchip', label: 'Linh kiện PC / Laptop', children: { 'CPU': ['Intel','AMD'], 'GPU': ['NVIDIA','AMD'] } },
@@ -35,27 +23,77 @@ const DEFAULT_CATEGORIES = [
   { icon: 'fas fa-tools', label: 'Dịch vụ thu phí', children: { 'Dịch vụ': ['Cài đặt','Vệ sinh','Bảo hành'] } },
 ];
 
-const ProductMenu = ({ title = 'DANH MỤC SẢN PHẨM', categories = DEFAULT_CATEGORIES }) => {
+const getCategoryIcon = (name) => {
+  // Handle undefined or null name
+  if (!name || typeof name !== 'string') {
+    return 'fas fa-box';
+  }
+  const lower = name.toLowerCase();
+  const iconMap = {
+    laptop: 'fas fa-laptop',
+    pc: 'fas fa-desktop', 'máy bộ': 'fas fa-desktop',
+    chuột: 'fas fa-mouse', 'bàn phím': 'fas fa-mouse', 'tai nghe': 'fas fa-mouse',
+    ssd: 'fas fa-sd-card',
+    ram: 'fas fa-memory',
+    'màn hình': 'fas fa-tv', loa: 'fas fa-tv',
+    'phụ kiện': 'fas fa-plug',
+    usb: 'fas fa-usb',
+    hdd: 'fas fa-database'
+  };
+  return Object.entries(iconMap).find(([key]) => lower.includes(key))?.[1] || 'fas fa-box';
+};
+
+const transformCategories = (apiCategories) => {
+  if (!Array.isArray(apiCategories)) return null;
+  return apiCategories.map(cat => ({
+    id: cat.id,
+    icon: cat.icon || getCategoryIcon(cat.name || cat.label),
+    label: cat.name || cat.label || 'Unnamed Category',
+    children: cat.children?.length > 0 
+      ? { 'Danh mục con': cat.children.map(c => c.name || c) }
+      : { 'Sản phẩm': [] }
+  }));
+};
+
+const ProductMenu = ({ title = 'DANH MỤC SẢN PHẨM', categories: propCategories }) => {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [categories, setCategories] = useState(propCategories || DEFAULT_CATEGORIES);
   const navigate = useNavigate();
+  const { categories: apiCategories } = useCategories();
 
-  const ITEM_TO_PRODUCT_ID = {
-    'Laptop Gaming X': 'p1',
-    'Chuột Pro M1': 'p2',
-    'SSD NVMe 1TB': 'p3',
-    'RAM 16GB DDR4': 'p4',
+  useEffect(() => {
+    if (propCategories) {
+      setCategories(propCategories);
+      return;
+    }
+    // Use categories from context instead of direct API call
+    if (apiCategories && Array.isArray(apiCategories) && apiCategories.length > 0) {
+      const transformed = transformCategories(apiCategories);
+      if (transformed?.length > 0) {
+        setCategories(transformed);
+      }
+    }
+  }, [propCategories, apiCategories]);
+
+  const ITEM_TO_PRODUCT_ID = { 'Laptop Gaming X': 'p1', 'Chuột Pro M1': 'p2', 'SSD NVMe 1TB': 'p3', 'RAM 16GB DDR4': 'p4' };
+
+  const navigateTo = (path) => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    navigate(path);
+    setOpen(false);
   };
 
-  const handleSubItemClick = (group, item) => {
-    const matchedId = ITEM_TO_PRODUCT_ID[item];
-    if (matchedId) {
-      navigate(`/products/${matchedId}`);
-    } else {
-      const q = encodeURIComponent(item);
-      navigate(`/products?q=${q}`);
-    }
-    setOpen(false);
+  const handleSubItemClick = (item, categoryId) => {
+    const productId = ITEM_TO_PRODUCT_ID[item];
+    if (productId) navigateTo(`/products/${productId}`);
+    else if (categoryId) navigateTo(`/products?category=${categoryId}`);
+    else navigateTo(`/products?q=${encodeURIComponent(item)}`);
+  };
+
+  const handleCategoryClick = (category) => {
+    const path = category.id ? `/products?category=${category.id}` : `/products?q=${encodeURIComponent(category.label)}`;
+    navigateTo(path);
   };
 
   return (
@@ -68,30 +106,51 @@ const ProductMenu = ({ title = 'DANH MỤC SẢN PHẨM', categories = DEFAULT_C
 
       {open && (
         <>
-        <div className="product-menu__backdrop" onClick={() => setOpen(false)} aria-hidden="true"></div>
-        <div className="product-menu__dropdown" role="menu" aria-label="Product categories">
-          <div className="pmenu-left">
-            {categories.map((c, idx) => (
-              <button key={idx} className={`product-menu__item ${idx===activeIndex?'active':''}`} onMouseEnter={()=>setActiveIndex(idx)}>
-                <i className={c.icon} aria-hidden="true"></i>
-                <span className="label">{c.label}</span>
-                <i className="fas fa-angle-right arrow" aria-hidden="true"></i>
-              </button>
-            ))}
-          </div>
-          <div className="pmenu-right">
-            {Object.entries(categories[activeIndex]?.children || {}).map(([group, items]) => (
-              <div key={group} className="pmenu-group">
-                <div className="pmenu-group-title">{group}</div>
-                <div className="pmenu-links">
-                  {(items || []).map(it => (
-                    <a key={it} href="#" className="pmenu-link" onClick={(e)=>{e.preventDefault();handleSubItemClick(group,it);}}>{it}</a>
-                  ))}
+          <div className="product-menu__backdrop" onClick={() => setOpen(false)} aria-hidden="true"></div>
+          <div className="product-menu__dropdown" role="menu" aria-label="Product categories">
+            <div className="pmenu-left">
+              {categories.map((c, idx) => {
+                const hasChildren = c.children && Object.values(c.children).some(items => Array.isArray(items) && items.length > 0);
+                return (
+                  <button 
+                    key={c.id || idx} 
+                    className={`product-menu__item ${idx === activeIndex ? 'active' : ''}`} 
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    onClick={() => !hasChildren && c.id && handleCategoryClick(c)}
+                  >
+                    <i className={c.icon} aria-hidden="true"></i>
+                    <span className="label">{c.label}</span>
+                    <i className="fas fa-angle-right arrow" aria-hidden="true"></i>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="pmenu-right">
+              {Object.entries(categories[activeIndex]?.children || {}).map(([group, items]) => (
+                <div key={group} className="pmenu-group">
+                  <div className="pmenu-group-title">{group}</div>
+                  <div className="pmenu-links">
+                    {(items || []).map(it => {
+                      const item = typeof it === 'object' ? it : { name: it };
+                      return (
+                        <a 
+                          key={item.id || item.name} 
+                          href="#" 
+                          className="pmenu-link" 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleSubItemClick(item.name, item.id || categories[activeIndex]?.id);
+                          }}
+                        >
+                          {item.name}
+                        </a>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
         </>
       )}
     </div>
@@ -99,5 +158,3 @@ const ProductMenu = ({ title = 'DANH MỤC SẢN PHẨM', categories = DEFAULT_C
 };
 
 export default ProductMenu;
-
-

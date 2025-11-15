@@ -166,7 +166,7 @@ const PaymentMethodsPage = () => {
               <span className="support-icon">✉️</span>
               <div className="support-text">
                 <span className="support-label">Email</span>
-                <span className="support-value">support@techzone.vn</span>
+                <span className="support-value">bachxuancanh@techzone.vn</span>
               </div>
             </div>
             <div className="support-item">

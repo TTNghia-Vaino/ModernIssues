@@ -1,124 +1,193 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import * as productService from '../services/productService';
+import { transformProducts } from '../utils/productUtils';
 import './BestSellingLaptops.css';
 
 function BestSellingLaptops() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('Lenovo');
+  const { isInTokenGracePeriod } = useAuth();
+  const [activeTab, setActiveTab] = useState('all');
+  const [laptops, setLaptops] = useState([]);
 
-  const brands = ['Lenovo', 'Asus', 'Acer', 'MSI', 'HP', 'LG', 'Dell'];
+  // Load laptops from API, but delay if in grace period
+  useEffect(() => {
+    let cancelled = false;
+    
+    const attemptLoad = async () => {
+      // If in grace period, wait for it to end
+      if (isInTokenGracePeriod) {
+        console.log('[BestSellingLaptops] Waiting for token grace period to end before loading laptops');
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        if (cancelled) return;
+      }
+      
+      if (!cancelled) {
+        loadLaptops();
+      }
+    };
+    
+    attemptLoad();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, []); // Only run on mount
 
-  const laptops = [
-    {
-      id: 1,
-      name: 'Laptop Acer Aspire Lite AL15-41P-R3U5 NX.J53SV.001',
-      price: '12.300.000',
-      originalPrice: '12.990.000',
-      discount: '-5%',
-      image: '/images/laptops/laptop-1.jpg',
-      specs: ['RYZEN 7', 'AMD RADEON', '16GB DDR4', '512GB GEN4', '15.6" IPS FHD 60Hz'],
-      badge: 'TRÚNG KHÔNG GIỚI HẠN',
-      badgeDate: 'BỐCTHĂM NGÀY 13.03.2021',
-      brand: 'Acer',
-      isNew: true
-    },
-    {
-      id: 2,
-      name: 'Laptop Lenovo V14 G4 83A000BEVN (i5-13420H, 8GB, 512GB, 14" IPS FHD 60Hz)',
-      price: '12.490.000',
-      originalPrice: '12.990.000',
-      discount: '-4%',
-      image: '/images/laptops/laptop-2.jpg',
-      specs: ['CORE i5 13420H', 'INTEL UHD GRAPHICS', '8GB DDR4', '512GB GEN4', '14" IPS FHD 60Hz'],
-      badge: 'TRÚNG KHÔNG GIỚI HẠN',
-      badgeDate: 'BỐC THĂM NGÀY 13.03.2021',
-      brand: 'Lenovo',
-      isNew: true
-    },
-    {
-      id: 3,
-      name: 'Laptop Lenovo V15 G4 IRU 83A100URVN (i5-13420H, 8GB, 512GB, 15.6" IPS FHD 60Hz)',
-      price: '13.200.000',
-      originalPrice: '15.490.000',
-      discount: '-15%',
-      image: '/images/laptops/laptop-3.jpg',
-      specs: ['CORE i5 13420H', 'INTEL UHD GRAPHICS', '8GB DDR4', '512GB GEN4', '15.6" IPS FHD 60Hz'],
-      badge: 'TRÚNG KHÔNG GIỚI HẠN',
-      badgeDate: 'BỐC THĂM NGÀY 13.03.2021',
-      brand: 'Lenovo',
-      isNew: true
-    },
-    {
-      id: 4,
-      name: 'Combo Laptop Lenovo V15 G4 i5-13420H Intel UHD + Chuột Logitech',
-      price: '13.400.000',
-      originalPrice: null,
-      discount: null,
-      image: '/images/laptops/laptop-4.jpg',
-      specs: ['CORE i5 13420H', 'INTEL UHD GRAPHICS', '8GB DDR4', '512GB GEN4', '15.6" IPS FHD 60Hz'],
-      badge: 'TRÚNG KHÔNG GIỚI HẠN',
-      badgeDate: 'BỐC THĂM NGÀY 13.03.2021',
-      brand: 'Lenovo',
-      isCombo: true,
-      comboText: 'COMBO VĂN PHÒNG CẦN MỚI DEADLINE'
-    },
-    {
-      id: 5,
-      name: 'Laptop Asus Vivobook 15 X1502VA-BQ886W (i7-13700H, 16GB, 512GB, 15.6" IPS FHD 60Hz)',
-      price: '16.500.000',
-      originalPrice: '17.990.000',
-      discount: '-8%',
-      image: '/images/laptops/laptop-5.jpg',
-      specs: ['CORE i7 13620H', 'UHD GRAPHICS', '16GB DDR4', '512GB GEN4', '15.6" IPS FHD 60Hz'],
-      badge: 'TRÚNG KHÔNG GIỚI HẠN',
-      badgeDate: 'BỐC THĂM NGÀY PROFESSIONAL PLUS 2021',
-      brand: 'Asus',
-      isNew: true
-    },
-    {
-      id: 6,
-      name: 'Laptop Acer Aspire 5 A515-58M-79R7 (i7-13620H, UHD Graphics, 16GB, 512GB, 15.6" IPS FHD 60Hz)',
-      price: '17.000.000',
-      originalPrice: '20.990.000',
-      discount: '-19%',
-      image: '/images/laptops/laptop-6.jpg',
-      specs: ['CORE i7 13620H', 'UHD GRAPHICS', '16GB DDR4', '512GB GEN4', '15.6" IPS FHD 60Hz'],
-      badge: 'TRÚNG KHÔNG GIỚI HẠN',
-      badgeDate: 'BỐC THĂM NGÀY PROFESSIONAL PLUS 2021',
-      brand: 'Acer',
-      isNew: true
-    },
-    {
-      id: 7,
-      name: 'Laptop ASUS ExpertBook P1 P1403CVA-i7 i6-50W (i7-1355U, 16GB, 512GB, 14" IPS FHD)',
-      price: '17.500.000',
-      originalPrice: '19.900.000',
-      discount: '-12%',
-      image: '/images/laptops/laptop-7.jpg',
-      specs: ['CORE i7 1355U', 'INTEL GRAPHICS', '16GB DDR4', '512GB GEN4', '14" IPS FHD 60Hz'],
-      badge: 'TRÚNG KHÔNG GIỚI HẠN',
-      badgeDate: 'BỐC THĂM NGÀY PROFESSIONAL PLUS 2021',
-      brand: 'Asus',
-      isNew: true
-    },
-    {
-      id: 8,
-      name: 'Laptop Asus ExpertBook P3 P3405CVA-NZ0027W (i5-1340P, 16GB, 512GB, 14" IPS 2.5K 144Hz)',
-      price: '17.800.000',
-      originalPrice: '19.990.000',
-      discount: '-11%',
-      image: '/images/laptops/laptop-8.jpg',
-      specs: ['CORE i5 1340P', 'INTEL GRAPHICS', '16GB DDR4', '512GB GEN4', '14" IPS 2.5K 144Hz'],
-      badge: 'TRÚNG KHÔNG GIỚI HẠN',
-      badgeDate: 'BỐC THĂM NGÀY PROFESSIONAL PLUS 2021',
-      brand: 'Asus',
-      isNew: true
+  const loadLaptops = async () => {
+    try {
+      // Try API first
+      try {
+        console.log('[BestSellingLaptops] Fetching products from API...');
+        const productsData = await productService.listProducts({ 
+          page: 1, 
+          limit: 50,
+          search: 'Laptop'
+        });
+        
+        console.log('[BestSellingLaptops] Raw API response:', productsData);
+        
+        // Handle Swagger response format: { totalCount, currentPage, limit, data: [...] }
+        let productsArray = [];
+        if (productsData && typeof productsData === 'object') {
+          if (Array.isArray(productsData.data)) {
+            productsArray = productsData.data;
+            console.log('[BestSellingLaptops] Found products in productsData.data:', productsArray.length);
+          } else if (Array.isArray(productsData)) {
+            productsArray = productsData;
+            console.log('[BestSellingLaptops] productsData is array:', productsArray.length);
+          } else if (productsData.items) {
+            productsArray = productsData.items;
+            console.log('[BestSellingLaptops] Found products in productsData.items:', productsArray.length);
+          } else {
+            console.warn('[BestSellingLaptops] Unknown response format:', Object.keys(productsData));
+          }
+        } else if (Array.isArray(productsData)) {
+          productsArray = productsData;
+          console.log('[BestSellingLaptops] productsData is direct array:', productsArray.length);
+        } else {
+          console.warn('[BestSellingLaptops] Unexpected response type:', typeof productsData);
+        }
+        
+        console.log('[BestSellingLaptops] Products array length:', productsArray.length);
+        
+        // Transform API format to component format
+        const transformedProducts = transformProducts(productsArray);
+        console.log('[BestSellingLaptops] Transformed products:', transformedProducts.length);
+        
+        const activeLaptops = transformedProducts.filter(
+          product => product.status === 'active' || product.status === undefined ||
+                     product.category?.toLowerCase().includes('laptop') ||
+                     product.name?.toLowerCase().includes('laptop')
+        );
+        console.log('[BestSellingLaptops] Filtered laptops:', activeLaptops.length);
+        setLaptops(activeLaptops);
+      } catch (apiError) {
+        console.error('[BestSellingLaptops] API failed:', apiError);
+        console.error('[BestSellingLaptops] Error details:', {
+          message: apiError.message,
+          status: apiError.status,
+          data: apiError.data
+        });
+        // Fallback to localStorage
+        const savedProducts = localStorage.getItem('adminProducts');
+        if (savedProducts) {
+          console.log('[BestSellingLaptops] Using localStorage fallback');
+          const allProducts = JSON.parse(savedProducts);
+          const activeLaptops = allProducts.filter(
+            product => product.category === 'Laptop' && product.status === 'active'
+          );
+          setLaptops(activeLaptops);
+        } else {
+          console.warn('[BestSellingLaptops] No localStorage data available');
+        }
+      }
+    } catch (error) {
+      console.error('[BestSellingLaptops] Unexpected error:', error);
     }
-  ];
+  };
 
-  const filteredLaptops = activeTab === 'Lenovo' 
-    ? laptops.filter(laptop => laptop.brand === 'Lenovo')
-    : laptops;
+  // Extract unique brands (memoized)
+  const brands = useMemo(() => {
+    return [...new Set(laptops.map(p => p.brand).filter(Boolean))];
+  }, [laptops]);
+
+  // Filter laptops by active tab (memoized)
+  const filteredLaptops = useMemo(() => {
+    return activeTab === 'all' 
+      ? laptops 
+      : laptops.filter(laptop => laptop.brand === activeTab);
+  }, [activeTab, laptops]);
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND'
+    }).format(price);
+  };
+
+  const handleProductClick = (productId) => {
+    // Scroll to top immediately before navigation
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    // Then navigate
+    navigate(`/products/${productId}`, { replace: false });
+  };
+
+  const handleViewAll = () => {
+    navigate('/products?category=Laptop');
+  };
+
+  // Render laptop specs
+  const renderSpecs = (specs) => {
+    if (!specs) return null;
+    
+    const specItems = [
+      specs.cpu,
+      specs.gpu,
+      specs.ram,
+      specs.storage,
+      specs.display
+    ].filter(Boolean);
+
+    return (
+      <div className="laptop-specs">
+        {specItems.map((spec, index) => (
+          <div key={index} className="spec-item">{spec}</div>
+        ))}
+      </div>
+    );
+  };
+
+  // Render laptop badge
+  const renderBadge = (laptop) => {
+    if (!laptop.badge) return null;
+
+    const BoltIcon = () => (
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+      </svg>
+    );
+
+    return (
+      <>
+        <div className="new-badge">
+          <BoltIcon />
+        </div>
+        <div className="laptop-badge">
+          <div className="badge-icon">
+            <BoltIcon />
+          </div>
+          <div className="badge-text">
+            <div className="badge-title">{laptop.badge}</div>
+            {laptop.featured && <div className="badge-date">SẢN PHẨM NỔI BẬT</div>}
+          </div>
+        </div>
+      </>
+    );
+  };
 
   return (
     <section className="best-selling-laptops">
@@ -135,68 +204,68 @@ function BestSellingLaptops() {
                 {brand}
               </button>
             ))}
-            <button className="brand-tab view-all">
+            <button 
+              className="brand-tab view-all"
+              onClick={handleViewAll}
+            >
               Xem tất cả <span className="arrow">›</span>
             </button>
           </div>
         </div>
 
         <div className="laptops-grid">
-          {filteredLaptops.map((laptop) => (
-            <div 
-              key={laptop.id} 
-              className="laptop-card"
-              onClick={() => navigate(`/products/${laptop.id}`)}
-              style={{ cursor: 'pointer' }}
-            >
-              {laptop.discount && (
-                <div className="discount-badge">{laptop.discount}</div>
-              )}
-              {laptop.isNew && (
-                <div className="new-badge">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-                  </svg>
-                </div>
-              )}
-              
-              <div className="laptop-image-wrapper">
-                <img src={laptop.image} alt={laptop.name} className="laptop-image" />
-                {laptop.comboText && (
-                  <div className="combo-overlay">{laptop.comboText}</div>
+          {filteredLaptops.length > 0 ? (
+            filteredLaptops.map((laptop) => (
+              <div 
+                key={laptop.id} 
+                className="laptop-card"
+                onClick={() => handleProductClick(laptop.id)}
+              >
+                {laptop.discount > 0 && (
+                  <div className="discount-badge">-{laptop.discount}%</div>
                 )}
-              </div>
-
-              <div className="laptop-specs">
-                {laptop.specs.map((spec, index) => (
-                  <div key={index} className="spec-item">
-                    {spec}
-                  </div>
-                ))}
-              </div>
-
-              <div className="laptop-badge">
-                <div className="badge-icon">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-                  </svg>
+                
+                {renderBadge(laptop)}
+                
+                <div className="laptop-image-wrapper">
+                  <img 
+                    src={laptop.image || 'https://via.placeholder.com/300x200?text=Laptop'} 
+                    alt={laptop.name} 
+                    className="laptop-image" 
+                  />
                 </div>
-                <div className="badge-text">
-                  <div className="badge-title">{laptop.badge}</div>
-                  <div className="badge-date">{laptop.badgeDate}</div>
+
+                {renderSpecs(laptop.specs)}
+
+                <h3 className="laptop-name">{laptop.name}</h3>
+
+                <div className="laptop-price-section">
+                  <div className="current-price">{formatPrice(laptop.price)}</div>
+                  {(() => {
+                    // Nếu có originalPrice, dùng nó
+                    if (laptop.originalPrice && laptop.originalPrice > laptop.price) {
+                      return <div className="original-price">{formatPrice(laptop.originalPrice)}</div>;
+                    }
+                    // Nếu có discount nhưng không có originalPrice, tính ngược lại
+                    if (laptop.discount && laptop.discount > 0) {
+                      const calculatedOriginalPrice = Math.round(laptop.price / (1 - laptop.discount / 100));
+                      return <div className="original-price">{formatPrice(calculatedOriginalPrice)}</div>;
+                    }
+                    // Nếu không có discount nhưng muốn hiển thị giá gốc mặc định (thêm 10%)
+                    if (!laptop.discount && !laptop.originalPrice) {
+                      const defaultOriginalPrice = Math.round(laptop.price * 1.1);
+                      return <div className="original-price">{formatPrice(defaultOriginalPrice)}</div>;
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
-
-              <h3 className="laptop-name">{laptop.name}</h3>
-
-              <div className="laptop-price-section">
-                <div className="current-price">{laptop.price} ₫</div>
-                {laptop.originalPrice && (
-                  <div className="original-price">{laptop.originalPrice} ₫</div>
-                )}
-              </div>
+            ))
+          ) : (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+              Chưa có laptop nào. Vui lòng thêm sản phẩm từ trang Admin.
             </div>
-          ))}
+          )}
         </div>
       </div>
     </section>

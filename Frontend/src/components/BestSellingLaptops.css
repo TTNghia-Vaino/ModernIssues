@@ -99,15 +99,17 @@
 /* ===== BADGES ===== */
 .discount-badge {
   position: absolute;
-  top: 10px;
-  left: 10px;
-  background: #e53935;
+  top: 0;
+  left: 0;
+  background: linear-gradient(135deg, #e53935 0%, #d32f2f 100%);
   color: white;
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: bold;
+  padding: 8px 12px;
+  border-radius: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 800;
   z-index: 2;
+  box-shadow: 0 2px 8px rgba(229, 57, 53, 0.4);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0);
 }
 
 .new-badge {
@@ -168,24 +170,33 @@
 
 /* ===== LAPTOP SPECS ===== */
 .laptop-specs {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e0e0e0;
 }
 
 .spec-item {
-  background: #f5f5f5;
-  padding: 6px 4px;
-  border-radius: 4px;
-  font-size: 9px;
-  font-weight: 600;
+  background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%);
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.3;
   color: #333;
   text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid #ddd;
+  flex: 0 0 auto;
+}
+
+.spec-item:nth-child(1),
+.spec-item:nth-child(2) {
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  color: white;
+  border-color: #ff6b35;
+  font-weight: 800;
 }
 
 /* ===== LAPTOP BADGE ===== */
@@ -193,15 +204,16 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
-  padding: 8px 10px;
-  border-radius: 6px;
+  background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
+  padding: 10px 12px;
+  border-radius: 8px;
   margin-bottom: 12px;
+  box-shadow: 0 2px 6px rgba(0, 102, 204, 0.3);
 }
 
 .badge-icon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   color: #ffd700;
   flex-shrink: 0;
 }
@@ -209,6 +221,7 @@
 .badge-icon svg {
   width: 100%;
   height: 100%;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
 .badge-text {
@@ -216,52 +229,57 @@
 }
 
 .badge-title {
-  font-size: 9px;
-  font-weight: bold;
+  font-size: 10px;
+  font-weight: 800;
   color: white;
-  line-height: 1.2;
-  margin-bottom: 2px;
+  line-height: 1.3;
+  margin-bottom: 3px;
+  text-transform: uppercase;
 }
 
 .badge-date {
-  font-size: 8px;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.95);
   line-height: 1.2;
+  font-weight: 600;
 }
 
 /* ===== LAPTOP NAME ===== */
 .laptop-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  color: #333;
+  color: #1a1a1a;
   margin: 0 0 12px 0;
-  line-height: 1.4;
+  line-height: 1.5;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-height: 40px;
+  min-height: 58px;
 }
 
 /* ===== LAPTOP PRICE ===== */
 .laptop-price-section {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 5px;
   margin-top: auto;
 }
 
 .current-price {
-  font-size: 18px;
-  font-weight: bold;
-  color: #e53935;
+  font-size: 20px;
+  font-weight: 800;
+  color: #00a651;
+  letter-spacing: -0.5px;
 }
 
 .original-price {
-  font-size: 14px;
-  color: #999;
+  font-size: 16px;
+  color: #666;
   text-decoration: line-through;
+  font-weight: 600;
+  text-decoration-thickness: 2px;
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
@@ -378,8 +396,21 @@
   }
   
   .spec-item {
-    font-size: 8px;
-    padding: 5px 3px;
+    font-size: 9px;
+    padding: 5px 8px;
+  }
+  
+  .laptop-name {
+    font-size: 12px;
+    min-height: 54px;
+  }
+  
+  .current-price {
+    font-size: 18px;
+  }
+  
+  .original-price {
+    font-size: 14px;
   }
 }
 
@@ -395,13 +426,12 @@
   }
   
   .laptop-specs {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
+    gap: 5px;
   }
   
   .spec-item {
-    font-size: 7px;
-    padding: 4px 2px;
+    font-size: 8px;
+    padding: 5px 7px;
   }
   
   .badge-title {
@@ -429,7 +459,12 @@
   }
   
   .laptop-specs {
-    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  
+  .spec-item {
+    font-size: 9px;
+    padding: 6px 8px;
   }
   
   .section-title {

@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { getCategories, createCategory, updateCategory, deleteCategory } from '../services/categoryService';
 import './AdminCategories.css';
 
 const AdminCategories = () => {
-  const [categories, setCategories] = useState([
-    { id: 1, name: 'Điện thoại', description: 'Điện thoại thông minh', status: 'active', productCount: 45 },
-    { id: 2, name: 'Laptop', description: 'Máy tính xách tay', status: 'active', productCount: 32 },
-    { id: 3, name: 'Phụ kiện', description: 'Phụ kiện điện tử', status: 'active', productCount: 28 },
-    { id: 4, name: 'Đồng hồ', description: 'Đồng hồ thông minh', status: 'inactive', productCount: 15 }
-  ]);
-  
+  const { isInTokenGracePeriod } = useAuth();
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
 
   const [showModal, setShowModal] = useState(false);
@@ -16,13 +14,70 @@ const AdminCategories = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    status: 'active'
+    status: 'active',
+    parentId: null
   });
   const [errors, setErrors] = useState({});
 
+  // Load categories from API, but delay if in grace period
+  useEffect(() => {
+    let cancelled = false;
+    
+    const attemptLoad = async () => {
+      // If in grace period, wait for it to end
+      if (isInTokenGracePeriod) {
+        console.log('[AdminCategories] Waiting for token grace period to end before loading categories');
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        if (cancelled) return;
+      }
+      
+      if (!cancelled) {
+        loadCategories();
+      }
+    };
+    
+    attemptLoad();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, []); // Only run on mount
+
+  const loadCategories = async () => {
+    try {
+      setLoading(true);
+      const apiCategories = await getCategories();
+      // Flatten the tree structure for display
+      const flattenCategories = (cats, result = []) => {
+        if (!Array.isArray(cats)) return result;
+        cats.forEach(cat => {
+          result.push({
+            id: cat.id,
+            name: cat.name,
+            description: cat.description || '',
+            status: cat.status || 'active',
+            productCount: cat.productCount || 0,
+            parentId: cat.parentId || null
+          });
+          if (cat.children && Array.isArray(cat.children)) {
+            flattenCategories(cat.children, result);
+          }
+        });
+        return result;
+      };
+      const flattened = flattenCategories(apiCategories);
+      setCategories(flattened);
+    } catch (error) {
+      console.error('[AdminCategories] Failed to load categories:', error);
+      showNotification('Không thể tải danh sách danh mục. Vui lòng thử lại.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAddNew = () => {
     setEditingCategory(null);
-    setFormData({ name: '', description: '', status: 'active' });
+    setFormData({ name: '', description: '', status: 'active', parentId: null });
     setErrors({});
     setShowModal(true);
   };
@@ -31,8 +86,9 @@ const AdminCategories = () => {
     setEditingCategory(category);
     setFormData({
       name: category.name,
-      description: category.description,
-      status: category.status
+      description: category.description || '',
+      status: category.status || 'active',
+      parentId: category.parentId || null
     });
     setErrors({});
     setShowModal(true);
@@ -45,10 +101,16 @@ const AdminCategories = () => {
     }, 3000);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa danh mục này?')) {
-      setCategories(categories.filter(cat => cat.id !== id));
-      showNotification('Xóa danh mục thành công!');
+  const handleDelete = async (id) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa danh mục này? (Soft delete)')) {
+      try {
+        await deleteCategory(id);
+        showNotification('Xóa danh mục thành công!', 'success');
+        loadCategories(); // Reload categories
+      } catch (error) {
+        console.error('[AdminCategories] Failed to delete category:', error);
+        showNotification('Không thể xóa danh mục. Vui lòng thử lại.', 'error');
+      }
     }
   };
 
@@ -69,35 +131,43 @@ const AdminCategories = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateForm()) {
       return;
     }
     
-    if (editingCategory) {
-      // Cập nhật danh mục
-      setCategories(categories.map(cat => 
-        cat.id === editingCategory.id 
-          ? { ...cat, ...formData }
-          : cat
-      ));
-      showNotification('Cập nhật danh mục thành công!');
-    } else {
-      // Thêm danh mục mới
-      const newCategory = {
-        id: Math.max(...categories.map(c => c.id)) + 1,
-        ...formData,
-        productCount: 0
-      };
-      setCategories([...categories, newCategory]);
-      showNotification('Thêm danh mục mới thành công!');
+    try {
+      if (editingCategory) {
+        // Cập nhật danh mục
+        await updateCategory(editingCategory.id, {
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          status: formData.status,
+          parentId: formData.parentId || null
+        });
+        showNotification('Cập nhật danh mục thành công!', 'success');
+      } else {
+        // Thêm danh mục mới
+        await createCategory({
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          status: formData.status,
+          parentId: formData.parentId || null
+        });
+        showNotification('Thêm danh mục mới thành công!', 'success');
+      }
+      
+      setShowModal(false);
+      setFormData({ name: '', description: '', status: 'active', parentId: null });
+      setErrors({});
+      loadCategories(); // Reload categories
+    } catch (error) {
+      console.error('[AdminCategories] Failed to save category:', error);
+      const errorMessage = error.data?.message || error.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
+      showNotification(errorMessage, 'error');
     }
-    
-    setShowModal(false);
-    setFormData({ name: '', description: '', status: 'active' });
-    setErrors({});
   };
 
   const handleInputChange = (e) => {
@@ -114,6 +184,17 @@ const AdminCategories = () => {
   const getStatusText = (status) => {
     return status === 'active' ? 'Hoạt động' : 'Không hoạt động';
   };
+
+  if (loading) {
+    return (
+      <div className="admin-categories">
+        <div className="page-header">
+          <h2>Quản lý danh mục</h2>
+        </div>
+        <div style={{ textAlign: 'center', padding: '40px' }}>Đang tải danh mục...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-categories">
@@ -222,6 +303,31 @@ const AdminCategories = () => {
                 >
                   <option value="active">Hoạt động</option>
                   <option value="inactive">Không hoạt động</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="parentId">Danh mục cha (tùy chọn):</label>
+                <select
+                  id="parentId"
+                  name="parentId"
+                  value={formData.parentId || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData({
+                      ...formData,
+                      parentId: value === '' ? null : parseInt(value)
+                    });
+                  }}
+                >
+                  <option value="">Không có (danh mục gốc)</option>
+                  {categories
+                    .filter(cat => !editingCategory || cat.id !== editingCategory.id)
+                    .map(cat => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
                 </select>
               </div>
               

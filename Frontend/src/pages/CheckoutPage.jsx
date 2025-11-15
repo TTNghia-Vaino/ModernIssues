@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
+import * as checkoutService from '../services/checkoutService';
+import * as emailService from '../services/emailService';
 import './CheckoutPage.css';
 
 // ========================================
@@ -15,7 +19,9 @@ const formatPrice = (price) => price.toLocaleString('vi-VN') + '₫';
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { items, totalCount, totalPrice } = useCart();
+  const { items, totalCount, totalPrice, reloadCart, clearCart } = useCart();
+  const { isAuthenticated } = useAuth();
+  const { error: showError, warning: showWarning } = useNotification();
   
   // ========================================
   // STATE MANAGEMENT
@@ -32,6 +38,7 @@ const CheckoutPage = () => {
     note: ''
   });
   const [paymentMethod, setPaymentMethod] = useState('vietqr');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ========================================
   // EVENT HANDLERS
@@ -42,31 +49,123 @@ const CheckoutPage = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validate form
     if (!formData.email || !formData.fullName || !formData.phone || 
         !formData.province || !formData.district || !formData.ward || !formData.address) {
-      alert('Vui lòng điền đầy đủ thông tin bắt buộc');
+      showWarning('Vui lòng điền đầy đủ thông tin bắt buộc');
       return;
     }
 
-    // Create order data
-    const orderData = {
-      orderId: Math.floor(100000 + Math.random() * 900000).toString(),
-      ...formData,
-      paymentMethod,
-      items,
-      totalPrice,
-      orderDate: new Date().toISOString()
-    };
+    // Check if cart is empty
+    if (items.length === 0) {
+      showWarning('Giỏ hàng trống. Vui lòng thêm sản phẩm vào giỏ hàng trước khi đặt hàng.');
+      return;
+    }
 
-    // Save order data to localStorage (temporary storage)
-    localStorage.setItem('lastOrder', JSON.stringify(orderData));
+    // Check if user is authenticated (Checkout API requires authentication)
+    if (!isAuthenticated) {
+      showWarning('Vui lòng đăng nhập để đặt hàng.');
+      navigate('/login');
+      return;
+    }
 
-    // Navigate to confirmation page
-    navigate('/order-confirmation');
+    try {
+      setIsSubmitting(true);
+      
+      // Prepare checkout data for API
+      // Note: Checkout API will use items from the current user's cart
+      const checkoutData = {
+        email: formData.email,
+        fullName: formData.fullName,
+        phone: formData.phone,
+        province: formData.province,
+        district: formData.district,
+        ward: formData.ward,
+        address: formData.address,
+        note: formData.note || '',
+        paymentMethod: paymentMethod
+      };
+
+      // Call Checkout API
+      try {
+        const createdOrder = await checkoutService.checkout(checkoutData);
+        console.log('[CheckoutPage] Order created successfully:', createdOrder);
+        
+        // Normalize order data to ensure consistent structure
+        const orderData = {
+          ...checkoutData,
+          orderId: createdOrder.orderId || createdOrder.id || createdOrder.order_id || 
+                   `ORD-${Date.now()}`,
+          items: createdOrder.items || createdOrder.orderItems || items.map(item => ({
+            name: item.name,
+            productName: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            image: item.image,
+            capacity: item.capacity,
+            variant: item.capacity
+          })),
+          totalPrice: createdOrder.totalPrice || createdOrder.total || createdOrder.amount || totalPrice,
+          orderDate: createdOrder.orderDate || createdOrder.createdAt || new Date().toISOString(),
+          status: createdOrder.status || 'pending',
+          ...createdOrder
+        };
+        
+        // Reload cart from API to sync with backend
+        // Backend should clear the cart after successful checkout
+        try {
+          await reloadCart();
+        } catch (cartError) {
+          console.warn('[CheckoutPage] Failed to reload cart:', cartError);
+          // Continue anyway, cart will be reloaded on next page visit
+        }
+        
+        // If payment method is VietQR, redirect to QR payment page
+        // Otherwise, redirect to confirmation page
+        if (paymentMethod === 'vietqr') {
+          // Save order data to localStorage for QR payment page
+          localStorage.setItem('pendingOrder', JSON.stringify(orderData));
+          navigate('/qr-payment');
+        } else {
+          // Save order data to localStorage for confirmation page
+          localStorage.setItem('lastOrder', JSON.stringify(orderData));
+          // Clear cart after successful order (for non-QR payments)
+          clearCart();
+          navigate('/order-confirmation');
+        }
+      } catch (apiError) {
+        console.error('[CheckoutPage] Checkout API failed:', apiError);
+        
+        // Show user-friendly error message
+        const errorMessage = apiError.data?.message || 
+                            apiError.data?.error || 
+                            apiError.message || 
+                            'Không thể tạo đơn hàng';
+        
+        if (apiError.status === 401) {
+          showError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+          setTimeout(() => navigate('/login'), 1500);
+        } else if (apiError.status === 400) {
+          showError(`Lỗi: ${errorMessage}`);
+        } else if (apiError.status === 403) {
+          showError('Bạn không có quyền thực hiện thao tác này.');
+        } else if (apiError.status === 404) {
+          showError('Không tìm thấy tài nguyên. Vui lòng thử lại.');
+        } else if (apiError.status >= 500) {
+          showError('Lỗi server. Vui lòng thử lại sau.');
+        } else {
+          showError(`Có lỗi xảy ra khi đặt hàng: ${errorMessage}. Vui lòng thử lại.`);
+        }
+      }
+    } catch (error) {
+      console.error('[CheckoutPage] Unexpected error:', error);
+      showError('Có lỗi xảy ra khi đặt hàng. Vui lòng thử lại.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ========================================
@@ -98,12 +197,29 @@ const CheckoutPage = () => {
       </div>
       
       <div className="container checkout-main">
+        {/* Progress Steps */}
+        <div className="checkout-progress">
+          <div className="progress-step completed">
+            <div className="step-circle">✓</div>
+            <span className="step-label">Giỏ hàng</span>
+          </div>
+          <div className="progress-line completed"></div>
+          <div className="progress-step active">
+            <div className="step-circle">2</div>
+            <span className="step-label">Thanh toán</span>
+          </div>
+          <div className="progress-line"></div>
+          <div className="progress-step">
+            <div className="step-circle">3</div>
+            <span className="step-label">Hoàn tất</span>
+          </div>
+        </div>
+
         <div className="checkout-grid">
           {/* Left: Shipping Information */}
           <div className="checkout-section">
             <div className="section-header">
               <h2>Thông tin nhận hàng</h2>
-              <Link to="/login" className="login-link">Đăng nhập</Link>
             </div>
             
             <form id="shipping-form" onSubmit={handleSubmit} className="shipping-form">
@@ -115,6 +231,7 @@ const CheckoutPage = () => {
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
+                  placeholder="example@email.com"
                   required
                 />
               </div>
@@ -127,62 +244,61 @@ const CheckoutPage = () => {
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleInputChange}
+                  placeholder="Nguyễn Văn A"
                   required
                 />
               </div>
 
               <div className="form-group">
                 <label htmlFor="phone">Số điện thoại *</label>
-                <div className="phone-input">
-                  <select className="country-code">
-                    <option value="+84">🇻🇳 +84</option>
-                  </select>
-                  <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    value={formData.phone}
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  placeholder="0901234567"
+                  required
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="province">Tỉnh thành *</label>
+                  <select
+                    id="province"
+                    name="province"
+                    value={formData.province}
                     onChange={handleInputChange}
                     required
-                  />
+                  >
+                    <option value="">Chọn tỉnh thành</option>
+                    <option value="hcm">TP. Hồ Chí Minh</option>
+                    <option value="hn">Hà Nội</option>
+                    <option value="dn">Đà Nẵng</option>
+                  </select>
                 </div>
-              </div>
 
-              <div className="form-group">
-                <label htmlFor="province">Tỉnh thành *</label>
-                <select
-                  id="province"
-                  name="province"
-                  value={formData.province}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option value="">---</option>
-                  <option value="hcm">TP. Hồ Chí Minh</option>
-                  <option value="hn">Hà Nội</option>
-                  <option value="dn">Đà Nẵng</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="district">Quận huyện *</label>
-                <select
-                  id="district"
-                  name="district"
-                  value={formData.district}
-                  onChange={handleInputChange}
-                  required
-                  disabled={!formData.province}
-                >
-                  <option value="">---</option>
-                  {formData.province && (
-                    <>
-                      <option value="q1">Quận 1</option>
-                      <option value="q2">Quận 2</option>
-                      <option value="q3">Quận 3</option>
-                    </>
-                  )}
-                </select>
+                <div className="form-group">
+                  <label htmlFor="district">Quận huyện *</label>
+                  <select
+                    id="district"
+                    name="district"
+                    value={formData.district}
+                    onChange={handleInputChange}
+                    required
+                    disabled={!formData.province}
+                  >
+                    <option value="">Chọn quận huyện</option>
+                    {formData.province && (
+                      <>
+                        <option value="q1">Quận 1</option>
+                        <option value="q2">Quận 2</option>
+                        <option value="q3">Quận 3</option>
+                      </>
+                    )}
+                  </select>
+                </div>
               </div>
 
               <div className="form-group">
@@ -195,7 +311,7 @@ const CheckoutPage = () => {
                   required
                   disabled={!formData.district}
                 >
-                  <option value="">---</option>
+                  <option value="">Chọn phường xã</option>
                   {formData.district && (
                     <>
                       <option value="p1">Phường 1</option>
@@ -214,6 +330,7 @@ const CheckoutPage = () => {
                   name="address"
                   value={formData.address}
                   onChange={handleInputChange}
+                  placeholder="Ví dụ: 123 Đường Nguyễn Huệ"
                   required
                 />
               </div>
@@ -225,23 +342,28 @@ const CheckoutPage = () => {
                   name="note"
                   value={formData.note}
                   onChange={handleInputChange}
+                  placeholder="Ghi chú thêm về đơn hàng..."
                   rows={3}
                 />
               </div>
             </form>
-          </div>
 
-          {/* Middle: Shipping & Payment */}
-          <div className="checkout-section">
-            <div className="shipping-section">
+            {/* Shipping Section */}
+            <div className="shipping-info-box">
               <h3>Vận chuyển</h3>
-              <div className="shipping-banner">
-                Vui lòng nhập thông tin giao hàng
+              <div className="shipping-method">
+                <div className="method-icon"></div>
+                <div className="method-details">
+                  <div className="method-name">Giao hàng tiêu chuẩn</div>
+                  <div className="method-time">Dự kiến: 2-3 ngày làm việc</div>
+                </div>
+                <div className="method-price">Miễn phí</div>
               </div>
             </div>
 
+            {/* Payment Section */}
             <div className="payment-section">
-              <h3>Thanh toán</h3>
+              <h3>Phương thức thanh toán</h3>
               <div className="payment-options">
                 <label className="payment-option">
                   <input
@@ -251,34 +373,12 @@ const CheckoutPage = () => {
                     checked={paymentMethod === 'vietqr'}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   />
+                  <div className="payment-icon">
+                    <img src="/images/payment/fundiin-payment.svg" alt="VietQR" />
+                  </div>
                   <div className="payment-content">
-                    <div className="payment-title">Chuyển khoản qua ngân hàng (VietQR)</div>
-                    <div className="payment-subtitle">(Miễn phí thanh toán)</div>
-                  </div>
-                  <div className="payment-logo">
-                    <div className="vietqr-logo">VIETQR™</div>
-                  </div>
-                </label>
-
-                <label className="payment-option">
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="payoo"
-                    checked={paymentMethod === 'payoo'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                  />
-                  <div className="payment-content">
-                    <div className="payment-title">Payoo - Thanh toán online, trả góp 0% lãi suất qua thẻ Visa, Master, JCB, Amex</div>
-                    <div className="payment-subtitle">(Miễn phí thanh toán)</div>
-                  </div>
-                  <div className="payment-logo">
-                    <div className="card-logos">
-                      <span>Visa</span>
-                      <span>Mastercard</span>
-                      <span>JCB</span>
-                      <span>Amex</span>
-                    </div>
+                    <div className="payment-title">Chuyển khoản qua ngân hàng</div>
+                    <div className="payment-subtitle">VietQR - Miễn phí thanh toán</div>
                   </div>
                 </label>
 
@@ -290,44 +390,35 @@ const CheckoutPage = () => {
                     checked={paymentMethod === 'cod'}
                     onChange={(e) => setPaymentMethod(e.target.value)}
                   />
-                  <div className="payment-content">
-                    <div className="payment-title">Thanh toán khi giao hàng (COD)</div>
+                  <div className="payment-icon">
+                    <img src="/images/payment/cod-payment.svg" alt="COD" />
                   </div>
-                  <div className="payment-logo">
-                    <div className="cod-icon">💰🚚</div>
+                  <div className="payment-content">
+                    <div className="payment-title">Thanh toán khi nhận hàng</div>
+                    <div className="payment-subtitle">Thanh toán trực tiếp khi nhận hàng</div>
                   </div>
                 </label>
 
-                <label className="payment-option">
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="fundiin"
-                    checked={paymentMethod === 'fundiin'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                  />
-                  <div className="payment-content">
-                    <div className="payment-title">Fundiin - Mua trả sau 0% lãi</div>
-                    <div className="fundiin-badge">Giảm đến 50K</div>
-                  </div>
-                  <div className="payment-logo">
-                    <div className="fundiin-logo">Fundiin</div>
-                  </div>
-                </label>
               </div>
             </div>
           </div>
 
           {/* Right: Order Summary */}
           <div className="checkout-section order-summary">
+            <h3 className="summary-title">Đơn hàng của bạn</h3>
             <div className="summary-items">
               {items.map(item => (
-                <div key={item.id} className="summary-item">
-                  <div className="item-image"></div>
+                <div key={`${item.id}-${item.capacity || 'default'}`} className="summary-item">
+                  {item.image && (
+                    <img src={item.image} alt={item.name} className="item-image" />
+                  )}
+                  {!item.image && <div className="item-image item-image-placeholder"></div>}
                   <div className="item-details">
                     <div className="item-name">{item.name}</div>
-                    <div className="item-price">{formatPrice(item.price)}</div>
+                    {item.capacity && <div className="item-capacity">{item.capacity}</div>}
+                    <div className="item-price">{formatPrice(item.price)} × {item.quantity}</div>
                   </div>
+                  <div className="item-total">{formatPrice(item.price * item.quantity)}</div>
                 </div>
               ))}
             </div>
@@ -353,10 +444,15 @@ const CheckoutPage = () => {
             </div>
 
             <div className="checkout-actions">
-              <Link to="/cart" className="back-link">← Quay về giỏ hàng</Link>
-              <button type="submit" form="shipping-form" className="place-order-btn">
-                ĐẶT HÀNG
+              <button 
+                type="submit" 
+                form="shipping-form" 
+                className="place-order-btn"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Đang xử lý...' : 'ĐẶT HÀNG'}
               </button>
+              <Link to="/cart" className="back-link">← Quay về giỏ hàng</Link>
             </div>
           </div>
         </div>

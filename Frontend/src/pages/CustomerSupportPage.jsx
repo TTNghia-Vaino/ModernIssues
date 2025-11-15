@@ -121,7 +121,7 @@ const CustomerSupportPage = () => {
               <i className="fas fa-envelope"></i>
               <div className="contact-info">
                 <h4>Email hỗ trợ</h4>
-                <p>support@techzone.vn</p>
+                <p>bachxuancanh@techzone.vn</p>
                 <span className="contact-time">Phản hồi trong 24h</span>
               </div>
             </div>
@@ -158,5 +158,7 @@ const CustomerSupportPage = () => {
 };
 
 export default CustomerSupportPage;
+
+
 
 

@@ -1,0 +1,323 @@
+/* Products List Container */
+.products-list-container {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  scroll-margin-top: 0px; /* For anchor links */
+  /* Padding giảm tối đa để filter sang trái và mở rộng phần sản phẩm tối đa */
+  padding-left: 30px !important; /* Giảm padding tối đa để mở rộng phần sản phẩm nhiều nhất */
+  padding-right: 60px !important; /* Giảm padding tối đa để mở rộng phần sản phẩm nhiều nhất */
+}
+
+/* Khi không có filter sidebar - chỉ cần tránh banner */
+.products-list-container.no-filter-sidebar {
+  padding-left: 60px !important; /* Giảm padding tối đa để mở rộng phần sản phẩm nhiều nhất */
+  padding-right: 60px !important;
+}
+
+/* Layout wrapper for filter and products */
+.products-layout-wrapper {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Products grid section - giới hạn để không chồng lên banner */
+.products-grid-section {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  /* Đảm bảo không vượt quá container */
+  overflow: visible !important;
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 4px !important; /* Giảm gap tối đa để card rộng hơn */
+  width: 100% !important;
+  grid-auto-flow: row !important; /* Đảm bảo items xếp theo hàng (từ trái sang phải) */
+  grid-auto-rows: auto !important; /* Tự động điều chỉnh chiều cao hàng */
+  min-width: 0 !important; /* Prevent grid from shrinking */
+  align-items: start !important;
+}
+
+/* Force grid layout - override any inline or other styles */
+section.products-grid-section,
+.products-layout-wrapper > section,
+.products-list-container section.products-grid-section {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  grid-auto-flow: row !important; /* Đảm bảo items xếp theo hàng (từ trái sang phải) */
+  grid-auto-rows: auto !important; /* Tự động điều chỉnh chiều cao hàng */
+  align-items: start !important;
+}
+
+/* Product card styling */
+.product-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important; /* Prevent overflow */
+  box-sizing: border-box !important;
+  /* Đảm bảo mỗi card chỉ chiếm 1 cột trong grid */
+  grid-column: auto !important;
+  padding: 4px !important; /* Giảm padding tối đa để card rộng hơn */
+  min-height: 400px !important; /* Chiều cao hợp lý */
+}
+
+/* Product card image container */
+.product-card > div:first-child {
+  height: 250px !important; /* Chiều cao hình ảnh hợp lý */
+  min-height: 250px !important;
+}
+
+/* Product card text styling */
+.product-card > div:nth-child(2) {
+  font-size: 16px !important; /* Font size hợp lý */
+  font-weight: 600 !important;
+  line-height: 1.5 !important;
+  margin-bottom: 10px !important;
+}
+
+.product-card > div:nth-child(3) {
+  font-size: 20px !important; /* Font size hợp lý */
+  font-weight: 700 !important;
+  margin-bottom: 8px !important;
+}
+
+.product-card > div:nth-child(4) {
+  font-size: 14px !important; /* Font size hợp lý */
+}
+
+/* Ensure product images don't break the layout */
+.product-card img {
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+.product-card > div:first-child {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+/* Filter Sidebar - Positioned on left, sticky, above banners */
+.products-filter-sidebar {
+  position: sticky !important;
+  top: 10px !important;
+  z-index: 100 !important;
+  background: #ffffff !important;
+  align-self: start !important;
+  max-height: calc(100vh - 20px) !important;
+  overflow-y: auto !important;
+  /* Filter được kéo sang trái nhưng không được che banner bên trái (banner ở left: 20px, width: 180px = kết thúc ở 200px) */
+  width: 260px !important; /* Ensure fixed width */
+  margin-left: -60px !important; /* Kéo filter sang trái tối đa nhưng không che banner */
+  /* Đảm bảo filter không che banner bên trái - banner kết thúc ở 200px từ trái */
+  left: 0 !important;
+}
+
+/* Ensure page can scroll - override any conflicting styles */
+html {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+body {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  position: relative;
+}
+
+/* Product grid section - legacy selector */
+.products-list-container section,
+.products-list-container .products-grid-section {
+  overflow: visible !important;
+  min-height: 400px;
+  /* Ensure products don't extend beyond container */
+  max-width: 100%;
+  box-sizing: border-box;
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 4px !important; /* Giảm gap tối đa để card rộng hơn */
+  width: 100% !important;
+  grid-auto-flow: row !important; /* Đảm bảo items xếp theo hàng (từ trái sang phải) */
+  grid-auto-rows: auto !important; /* Tự động điều chỉnh chiều cao hàng */
+  align-items: start !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1023px) {
+  .products-list-container {
+    padding-top: 0px !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    scroll-margin-top: 0px;
+  }
+  
+  /* Khi không có filter sidebar trên mobile */
+  .products-list-container.no-filter-sidebar {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+  
+  /* Products grid - 4 cột trên tablet */
+  .products-grid-section {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 4px !important; /* Giảm gap tối đa để card rộng hơn */
+  }
+  
+  .product-card {
+    padding: 4px !important; /* Giảm padding tối đa để card rộng hơn */
+    min-height: 380px !important;
+  }
+  
+  .product-card > div:first-child {
+    height: 240px !important;
+    min-height: 240px !important;
+  }
+  
+  .products-filter-sidebar {
+    top: 10px !important;
+    max-height: calc(100vh - 20px) !important;
+    margin-left: 0 !important; /* Reset margin on tablet/mobile where banners are hidden */
+  }
+}
+
+/* Desktop with side banners - adjust padding for medium screens */
+@media (min-width: 1024px) and (max-width: 1399px) {
+  .products-list-container {
+    padding-left: 30px !important; /* Giảm padding tối đa để mở rộng phần sản phẩm nhiều nhất */
+    padding-right: 50px !important;
+  }
+  
+  /* Khi không có filter sidebar trên medium desktop */
+  .products-list-container.no-filter-sidebar {
+    padding-left: 50px !important;
+    padding-right: 50px !important;
+  }
+  
+  /* Products grid - 4 cột trên medium desktop */
+  .products-grid-section {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 4px !important; /* Giảm gap tối đa để card rộng hơn */
+  }
+  
+  .products-filter-sidebar {
+    margin-left: -45px !important; /* Kéo filter sang trái tối đa nhưng không che banner */
+  }
+}
+
+/* Large Desktop - full padding */
+@media (min-width: 1400px) {
+  .products-list-container {
+    padding-left: 30px !important; /* Giảm padding tối đa để mở rộng phần sản phẩm nhiều nhất */
+    padding-right: 60px !important;
+  }
+  
+  /* Khi không có filter sidebar trên large desktop */
+  .products-list-container.no-filter-sidebar {
+    padding-left: 60px !important;
+    padding-right: 60px !important;
+  }
+  
+  /* Products grid - 5 cột trên large desktop */
+  .products-grid-section {
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 4px !important; /* Giảm gap tối đa để card rộng hơn */
+  }
+  
+  .products-filter-sidebar {
+    margin-left: -60px !important; /* Kéo filter sang trái tối đa nhưng không che banner */
+  }
+}
+
+/* Extra Large Desktop - hiển thị 6 cột */
+@media (min-width: 1600px) {
+  .products-grid-section {
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 4px !important; /* Giảm gap tối đa để card rộng hơn */
+  }
+  
+  .product-card {
+    padding: 4px !important; /* Padding giảm tối đa */
+    min-height: 400px !important; /* Chiều cao hợp lý */
+  }
+  
+  .product-card > div:first-child {
+    height: 250px !important; /* Chiều cao hình ảnh hợp lý */
+    min-height: 250px !important;
+  }
+  
+  .products-filter-sidebar {
+    margin-left: -60px !important; /* Kéo filter sang trái tối đa nhưng không che banner */
+  }
+}
+
+@media (max-width: 768px) {
+  .products-list-container {
+    padding-top: 0px !important;
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+    scroll-margin-top: 0px;
+  }
+  
+  /* Khi không có filter sidebar trên mobile */
+  .products-list-container.no-filter-sidebar {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+  
+  /* Stack sidebar and products vertically on mobile */
+  .products-list-container > div[style*="grid"] {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+  
+  /* Products grid - 2 cột trên mobile */
+  .products-grid-section {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 4px !important;
+  }
+  
+  /* Make sidebar full width on mobile */
+  .products-list-container aside,
+  .products-filter-sidebar {
+    position: sticky !important;
+    top: 10px !important;
+    z-index: 100 !important;
+    background: white !important;
+    max-height: calc(100vh - 20px) !important;
+    overflow-y: auto !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .products-list-container {
+    padding-top: 0px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    scroll-margin-top: 0px;
+  }
+  
+  /* Khi không có filter sidebar trên mobile nhỏ */
+  .products-list-container.no-filter-sidebar {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  
+  /* Products grid - 2 cột trên mobile nhỏ */
+  .products-grid-section {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 4px !important;
+  }
+  
+  .products-list-container aside,
+  .products-filter-sidebar {
+    top: 5px !important;
+    max-height: calc(100vh - 10px) !important;
+  }
+}
+

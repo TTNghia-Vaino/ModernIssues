@@ -73,3 +73,6 @@ Các text sẽ được overlay tự động bởi CSS:
 
 **Lưu ý:** Ảnh nên để khoảng trống ở góc trên trái và dưới trái để hiển thị text!
 
+
+
+

@@ -3,6 +3,26 @@ import './InstallmentPage.css';
 
 const InstallmentPage = () => {
   const [activeTab, setActiveTab] = useState('creditCard');
+  const [calculatorPrice, setCalculatorPrice] = useState('');
+  const [calculatorMonths, setCalculatorMonths] = useState(6);
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND'
+    }).format(price);
+  };
+
+  const calculateMonthlyPayment = () => {
+    const price = parseFloat(calculatorPrice) || 0;
+    if (price === 0 || calculatorMonths === 0) return 0;
+    return Math.round(price / calculatorMonths);
+  };
+
+  const handlePriceChange = (e) => {
+    const value = e.target.value.replace(/[^\d]/g, '');
+    setCalculatorPrice(value);
+  };
 
   const banks = [
     { name: 'SHB', logo: '/images/banks/shb.png' },
@@ -23,34 +43,9 @@ const InstallmentPage = () => {
     <div className="installment-page">
       {/* Hero Banner */}
       <div className="installment-hero">
-        <div className="hero-lights">
-          <div className="light star"></div>
-          <div className="light bulb blue"></div>
-          <div className="light bulb pink"></div>
-          <div className="light bulb yellow"></div>
-          <div className="light star right"></div>
-          <div className="light bulb pink right"></div>
-          <div className="light bulb yellow right"></div>
-        </div>
-        
         <div className="hero-content">
           <h1 className="hero-title">HƯỚNG DẪN TRẢ GÓP</h1>
           <p className="hero-subtitle">Với nhiều ưu đãi hấp dẫn</p>
-          
-          <div className="hero-benefits">
-            <div className="benefit-card">
-              <span className="benefit-label">0 phí</span>
-              <span className="benefit-desc">quẹt thẻ</span>
-            </div>
-            <div className="benefit-card">
-              <span className="benefit-label">0%</span>
-              <span className="benefit-desc">lãi suất</span>
-            </div>
-          </div>
-          
-          <button className="hero-cta">
-            Tìm hiểu ngay <i className="fas fa-arrow-right"></i>
-          </button>
         </div>
       </div>
 
@@ -72,13 +67,6 @@ const InstallmentPage = () => {
             >
               <i className="fas fa-shopping-bag"></i>
               Mua trước Trả sau qua Fundiin
-            </button>
-            <button 
-              className={`tab-btn ${activeTab === 'company' ? 'active' : ''}`}
-              onClick={() => setActiveTab('company')}
-            >
-              <i className="fas fa-building"></i>
-              Trả góp qua công ty tài chính
             </button>
           </div>
 
@@ -168,6 +156,43 @@ const InstallmentPage = () => {
                     <img src="/images/payment/card-payment.svg" alt="Payment" className="card-image" />
                     <h3 className="card-title">Thanh toán dễ dàng</h3>
                     <p className="card-text">Chỉ cần vài thao tác đơn giản là bạn đã có thể sở hữu sản phẩm yêu thích</p>
+                    
+                    {/* Installment Calculator */}
+                    <div className="installment-calculator">
+                      <h4 className="calculator-title">Tính trả góp</h4>
+                      <div className="calculator-input-group">
+                        <label>Giá sản phẩm (VNĐ)</label>
+                        <input
+                          type="text"
+                          className="calculator-input"
+                          placeholder="Nhập giá sản phẩm"
+                          value={calculatorPrice ? formatPrice(parseFloat(calculatorPrice)) : ''}
+                          onChange={handlePriceChange}
+                        />
+                      </div>
+                      <div className="calculator-input-group">
+                        <label>Kỳ hạn trả góp</label>
+                        <select
+                          className="calculator-select"
+                          value={calculatorMonths}
+                          onChange={(e) => setCalculatorMonths(parseInt(e.target.value))}
+                        >
+                          <option value={3}>3 tháng</option>
+                          <option value={6}>6 tháng</option>
+                          <option value={9}>9 tháng</option>
+                          <option value={12}>12 tháng</option>
+                          <option value={18}>18 tháng</option>
+                          <option value={24}>24 tháng</option>
+                        </select>
+                      </div>
+                      {calculatorPrice && parseFloat(calculatorPrice) > 0 && (
+                        <div className="calculator-result">
+                          <div className="result-label">Số tiền trả mỗi tháng:</div>
+                          <div className="result-price">{formatPrice(calculateMonthlyPayment())}</div>
+                          <div className="result-note">* 0% lãi suất, không phí ẩn</div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -270,132 +295,46 @@ const InstallmentPage = () => {
                         <span>Duyệt tự động</span>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {activeTab === 'company' && (
-              <div className="content-section">
-                <div className="section-left">
-                  <h2 className="section-title">Trả góp qua công ty tài chính</h2>
-                  
-                  <div className="info-card">
-                    <h3 className="info-title">
-                      <span className="number">1.</span> Giới thiệu
-                    </h3>
-                    <ul className="info-list">
-                      <li>• Hình thức trả góp phổ biến cho các sản phẩm giá trị cao.</li>
-                      <li>• Không cần thẻ tín dụng, chỉ cần CMND/CCCD.</li>
-                      <li>• Hồ sơ đơn giản, duyệt nhanh trong ngày.</li>
-                      <li>• Áp dụng cho đơn hàng từ 3.000.000đ trở lên.</li>
-                    </ul>
-                  </div>
-
-                  <div className="info-card">
-                    <h3 className="info-title">
-                      <span className="number">2.</span> Hồ sơ cần thiết
-                    </h3>
-                    <ul className="info-list">
-                      <li>• CMND/CCCD hoặc Hộ chiếu (bản photo công chứng)</li>
-                      <li>• Hộ khẩu hoặc Sổ tạm trú (bản photo)</li>
-                      <li>• Giấy xác nhận thu nhập hoặc Bảng lương 3 tháng gần nhất</li>
-                      <li>• Hóa đơn điện/nước tại địa chỉ cư trú</li>
-                    </ul>
-                  </div>
-
-                  <div className="info-card">
-                    <h3 className="info-title">
-                      <span className="number">3.</span> Đối tác tài chính
-                    </h3>
-                    <div className="finance-partners">
-                      <div className="partner-card">
-                        <div className="partner-name">Home Credit</div>
-                        <ul className="partner-features">
-                          <li>• Lãi suất ưu đãi 0% - 2.5%/tháng</li>
-                          <li>• Trả góp 6-24 tháng</li>
-                          <li>• Duyệt hồ sơ trong 2h</li>
-                        </ul>
+                    {/* Installment Calculator */}
+                    <div className="installment-calculator">
+                      <h4 className="calculator-title">Tính trả góp</h4>
+                      <div className="calculator-input-group">
+                        <label>Giá sản phẩm (VNĐ)</label>
+                        <input
+                          type="text"
+                          className="calculator-input"
+                          placeholder="Nhập giá sản phẩm"
+                          value={calculatorPrice ? formatPrice(parseFloat(calculatorPrice)) : ''}
+                          onChange={handlePriceChange}
+                        />
                       </div>
-                      <div className="partner-card">
-                        <div className="partner-name">FE Credit</div>
-                        <ul className="partner-features">
-                          <li>• Lãi suất từ 0%</li>
-                          <li>• Trả góp 3-18 tháng</li>
-                          <li>• Không cần chứng minh thu nhập</li>
-                        </ul>
+                      <div className="calculator-input-group">
+                        <label>Kỳ hạn trả góp</label>
+                        <select
+                          className="calculator-select"
+                          value={calculatorMonths}
+                          onChange={(e) => setCalculatorMonths(parseInt(e.target.value))}
+                        >
+                          <option value={3}>3 tháng</option>
+                          <option value={6}>6 tháng</option>
+                          <option value={9}>9 tháng</option>
+                          <option value={12}>12 tháng</option>
+                        </select>
                       </div>
-                      <div className="partner-card">
-                        <div className="partner-name">HD Saison</div>
-                        <ul className="partner-features">
-                          <li>• Lãi suất cạnh tranh</li>
-                          <li>• Trả góp 6-12 tháng</li>
-                          <li>• Hỗ trợ 24/7</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="info-card">
-                    <h3 className="info-title">
-                      <span className="number">4.</span> Quy trình đăng ký
-                    </h3>
-                    <div className="process-steps">
-                      <div className="step">
-                        <div className="step-number">1</div>
-                        <div className="step-content">
-                          <h4>Chọn sản phẩm</h4>
-                          <p>Chọn sản phẩm và hình thức trả góp công ty tài chính</p>
+                      {calculatorPrice && parseFloat(calculatorPrice) > 0 && (
+                        <div className="calculator-result">
+                          <div className="result-label">Số tiền trả mỗi tháng:</div>
+                          <div className="result-price">{formatPrice(calculateMonthlyPayment())}</div>
+                          <div className="result-note">* 0% lãi suất, không phí ẩn</div>
                         </div>
-                      </div>
-                      <div className="step">
-                        <div className="step-number">2</div>
-                        <div className="step-content">
-                          <h4>Nộp hồ sơ</h4>
-                          <p>Chuẩn bị và nộp hồ sơ tại cửa hàng hoặc online</p>
-                        </div>
-                      </div>
-                      <div className="step">
-                        <div className="step-number">3</div>
-                        <div className="step-content">
-                          <h4>Chờ phê duyệt</h4>
-                          <p>Công ty tài chính xét duyệt trong vòng 2-4 giờ</p>
-                        </div>
-                      </div>
-                      <div className="step">
-                        <div className="step-number">4</div>
-                        <div className="step-content">
-                          <h4>Ký hợp đồng & Nhận hàng</h4>
-                          <p>Ký hợp đồng và nhận sản phẩm ngay sau khi duyệt</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="section-right">
-                  <div className="sticky-card company-card">
-                    <i className="fas fa-building card-icon"></i>
-                    <h3 className="card-title">Công ty tài chính</h3>
-                    <p className="card-text">Giải pháp tài chính linh hoạt cho mọi nhu cầu mua sắm</p>
-                    <div className="company-stats">
-                      <div className="stat-item">
-                        <div className="stat-value">2-4h</div>
-                        <div className="stat-label">Thời gian duyệt</div>
-                      </div>
-                      <div className="stat-item">
-                        <div className="stat-value">0-2.5%</div>
-                        <div className="stat-label">Lãi suất/tháng</div>
-                      </div>
-                      <div className="stat-item">
-                        <div className="stat-value">3-24</div>
-                        <div className="stat-label">Tháng trả góp</div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
             )}
+
           </div>
         </div>
       </div>

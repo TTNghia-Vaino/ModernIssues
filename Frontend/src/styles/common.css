@@ -173,64 +173,11 @@
   box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
-/* Common social buttons */
-.social-section {
-  margin-top: 30px;
-  text-align: center;
-}
-
-.social-section p {
-  color: #666;
-  font-size: 14px;
-  margin-bottom: 15px;
-}
-
-.social-buttons {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
-.social-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  background: white;
-  color: #333;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-decoration: none;
-}
-
-.social-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.facebook-btn:hover {
-  border-color: #1877f2;
-  color: #1877f2;
-}
-
-.google-btn:hover {
-  border-color: #db4437;
-  color: #db4437;
-}
-
-.social-btn i {
-  font-size: 16px;
-}
-
 /* Common floating contacts */
 .floating-contacts {
   position: fixed;
   right: 20px;
-  bottom: 20px;
+  bottom: 10px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -295,17 +242,6 @@
   
   .form-title {
     font-size: 24px;
-  }
-  
-  .social-buttons {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .social-btn {
-    width: 100%;
-    max-width: 200px;
-    justify-content: center;
   }
   
   .floating-contacts {

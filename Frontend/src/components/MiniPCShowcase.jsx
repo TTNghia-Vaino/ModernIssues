@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import * as productService from '../services/productService';
+import { transformProducts } from '../utils/productUtils';
 import './MiniPCShowcase.css';
-import miniPCBanner from '../assets/mini-pc-banner.png';
+import miniPCBanner from '../assets/section_product_2.webp';
 
 function MiniPCShowcase() {
   const navigate = useNavigate();
+  const { isInTokenGracePeriod } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,29 +22,110 @@ function MiniPCShowcase() {
   ];
 
   useEffect(() => {
-    fetchMiniPCProducts();
-  }, []);
-
-  const fetchMiniPCProducts = () => {
-    try {
-      // Lấy sản phẩm từ localStorage (từ Admin Products)
-      const savedProducts = localStorage.getItem('adminProducts');
-      if (savedProducts) {
-        const allProducts = JSON.parse(savedProducts);
-        // Lọc sản phẩm theo category "Mini PC" và status "active"
-        const miniPCProducts = allProducts.filter(
-          product => product.category === 'Mini PC' && product.status === 'active'
-        );
-        setProducts(miniPCProducts.slice(0, 10)); // Lấy 10 sản phẩm đầu tiên
+    let cancelled = false;
+    
+    const attemptLoad = async () => {
+      // If in grace period, wait for it to end
+      if (isInTokenGracePeriod) {
+        console.log('[MiniPCShowcase] Waiting for token grace period to end before loading products');
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        if (cancelled) return;
       }
-      setLoading(false);
+      
+      if (!cancelled) {
+        fetchMiniPCProducts();
+      }
+    };
+    
+    attemptLoad();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, []); // Only run on mount
+
+  const fetchMiniPCProducts = async () => {
+    try {
+      setLoading(true);
+      // Try API first
+      try {
+        console.log('[MiniPCShowcase] Fetching products from API...');
+        const productsData = await productService.listProducts({ 
+          page: 1, 
+          limit: 10,
+          search: 'Mini PC'
+        });
+        
+        console.log('[MiniPCShowcase] Raw API response:', productsData);
+        
+        // Handle Swagger response format: { totalCount, currentPage, limit, data: [...] }
+        let productsArray = [];
+        if (productsData && typeof productsData === 'object') {
+          if (Array.isArray(productsData.data)) {
+            productsArray = productsData.data;
+            console.log('[MiniPCShowcase] Found products in productsData.data:', productsArray.length);
+          } else if (Array.isArray(productsData)) {
+            productsArray = productsData;
+            console.log('[MiniPCShowcase] productsData is array:', productsArray.length);
+          } else if (productsData.items) {
+            productsArray = productsData.items;
+            console.log('[MiniPCShowcase] Found products in productsData.items:', productsArray.length);
+          } else {
+            console.warn('[MiniPCShowcase] Unknown response format:', Object.keys(productsData));
+          }
+        } else if (Array.isArray(productsData)) {
+          productsArray = productsData;
+          console.log('[MiniPCShowcase] productsData is direct array:', productsArray.length);
+        } else {
+          console.warn('[MiniPCShowcase] Unexpected response type:', typeof productsData);
+        }
+        
+        console.log('[MiniPCShowcase] Products array length:', productsArray.length);
+        
+        // Transform API format to component format
+        const transformedProducts = transformProducts(productsArray);
+        console.log('[MiniPCShowcase] Transformed products:', transformedProducts.length);
+        
+        const miniPCProducts = transformedProducts.filter(
+          product => product.status === 'active' || product.status === undefined ||
+                     product.category?.toLowerCase().includes('mini') ||
+                     product.name?.toLowerCase().includes('mini')
+        );
+        console.log('[MiniPCShowcase] Filtered Mini PC products:', miniPCProducts.length);
+        setProducts(miniPCProducts.slice(0, 10)); // Lấy 10 sản phẩm đầu tiên
+      } catch (apiError) {
+        console.error('[MiniPCShowcase] API failed:', apiError);
+        console.error('[MiniPCShowcase] Error details:', {
+          message: apiError.message,
+          status: apiError.status,
+          data: apiError.data
+        });
+        // Fallback to localStorage
+        const savedProducts = localStorage.getItem('adminProducts');
+        if (savedProducts) {
+          console.log('[MiniPCShowcase] Using localStorage fallback');
+          const allProducts = JSON.parse(savedProducts);
+          const miniPCProducts = allProducts.filter(
+            product => product.category === 'Mini PC' && product.status === 'active'
+          );
+          setProducts(miniPCProducts.slice(0, 10));
+        } else {
+          console.warn('[MiniPCShowcase] No localStorage data available');
+        }
+      }
     } catch (error) {
-      console.error('Error fetching Mini PC products:', error);
+      console.error('[MiniPCShowcase] Unexpected error:', error);
+    } finally {
       setLoading(false);
     }
   };
 
   const handleProductClick = (productId) => {
+    // Scroll to top immediately before navigation
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    // Then navigate
     navigate(`/products/${productId}`);
   };
 
@@ -59,10 +144,6 @@ function MiniPCShowcase() {
     }).format(price);
   };
 
-  const calculateDiscount = (originalPrice, salePrice) => {
-    if (!originalPrice || !salePrice || originalPrice <= salePrice) return 0;
-    return Math.round(((originalPrice - salePrice) / originalPrice) * 100);
-  };
 
   if (loading) {
     return <div className="mini-pc-showcase loading">Đang tải...</div>;
@@ -115,7 +196,18 @@ function MiniPCShowcase() {
                   )}
 
                   <div className="product-image">
-                    <img src={product.image || 'https://via.placeholder.com/200'} alt={product.name} />
+                    <img 
+                      src={product.image || 'https://via.placeholder.com/200'} 
+                      alt={product.name}
+                      className="product-image-main" 
+                    />
+                    {product.image2 && (
+                      <img 
+                        src={product.image2} 
+                        alt={`${product.name} - View 2`} 
+                        className="product-image-hover" 
+                      />
+                    )}
                   </div>
 
                   <div className="product-specs">

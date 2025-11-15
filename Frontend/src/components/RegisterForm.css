@@ -60,16 +60,28 @@
   margin-bottom: 30px;
   color: #666;
   font-size: 14px;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 0;
+  background: transparent;
 }
 
-.login-link a {
-  color: #4CAF50;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.login-link a:hover {
-  text-decoration: underline;
+.login-link a,
+.login-link a:link,
+.login-link a:visited,
+.login-link a:hover,
+.login-link a:active,
+.login-link a:focus {
+  color: #000000 !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
 }
 
 /* ===== FORM STYLES ===== */
@@ -107,8 +119,95 @@
   box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
 }
 
+/* Password input wrapper */
+.password-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-input-wrapper input {
+  padding-right: 45px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  color: #666;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.3s ease;
+  outline: none;
+  z-index: 1;
+}
+
+.password-toggle:hover {
+  color: #4CAF50;
+}
+
+.password-toggle:focus {
+  color: #4CAF50;
+  outline: 2px solid rgba(76, 175, 80, 0.3);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .form-group input::placeholder {
   color: #999;
+}
+
+.form-group input.error {
+  border-color: #e74c3c;
+  background: #fff5f5;
+}
+
+.form-group input.error:focus {
+  border-color: #e74c3c;
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+}
+
+.error-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e74c3c;
+  font-size: 12px;
+  margin-top: 6px;
+  font-weight: 400;
+}
+
+.error-text i {
+  font-size: 11px;
+}
+
+.error-message {
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #c33;
+  font-size: 14px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.error-message.submit-error {
+  background: #fff3cd;
+  border-color: #ffc107;
+  color: #856404;
+}
+
+.error-message i {
+  font-size: 16px;
 }
 
 /* ===== TERMS AGREEMENT ===== */
@@ -169,9 +268,9 @@
 
 /* ===== REGISTER BUTTON ===== */
 .register-btn {
-  background: #4CAF50;
-  color: white;
-  border: none;
+  background: #FFD700;
+  color: #333;
+  border: 2px solid #FFD700;
   padding: 14px 24px;
   border-radius: 8px;
   font-size: 16px;
@@ -183,7 +282,9 @@
 }
 
 .register-btn:hover {
-  background: #45a049;
+  background: #FFC107;
+  color: #333;
+  border: 2px solid #FFC107;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
@@ -192,78 +293,11 @@
   transform: translateY(0);
 }
 
-/* ===== SOCIAL REGISTER ===== */
-.social-register {
-  margin-top: 30px;
-  text-align: center;
-}
-
-.social-register p {
-  color: #666;
-  font-size: 14px;
-  margin-bottom: 15px;
-}
-
-.social-buttons {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
-.social-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  background: white;
-  color: #333;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-decoration: none;
-}
-
-.social-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.facebook-btn {
-  background: #1877f2;
-  color: #ffffff;
-  border-color: #1877f2;
-}
-
-.facebook-btn:hover {
-  background: #166fe5;
-  border-color: #166fe5;
-  color: #ffffff;
-}
-
-.google-btn {
-  background: #db4437;
-  color: #ffffff;
-  border-color: #db4437;
-}
-
-.google-btn:hover {
-  background: #c23321;
-  border-color: #c23321;
-  color: #ffffff;
-}
-
-.social-btn i {
-  font-size: 16px;
-}
-
 /* ===== FLOATING CONTACTS ===== */
 .floating-contacts {
   position: fixed;
   right: 20px;
-  bottom: 20px;
+  bottom: 10px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -330,20 +364,9 @@
     font-size: 24px;
   }
   
-  .social-buttons {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .social-btn {
-    width: 100%;
-    max-width: 200px;
-    justify-content: center;
-  }
-  
   .floating-contacts {
     right: 15px;
-    bottom: 15px;
+    bottom: 10px;
   }
   
   .floating-btn {

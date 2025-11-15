@@ -42,12 +42,11 @@ function Footer() {
 
   return (
     <footer className="footer">
-      <div className="container">
-        {/* Main Footer Content */}
-        <div className="footer-main">
-          <div className="footer-grid">
-            {/* Company Info */}
-            <div className="footer-section company-info">
+      {/* Main Footer Content */}
+      <div className="footer-main">
+        <div className="footer-grid">
+          {/* Company Info */}
+          <div className="footer-section company-info">
               <div className="footer-logo">
                 <img src="/Logo-Dai-Hoc-Quoc-Te-Sai-Gon-SIU.webp" alt="SIU" />
                 <span>TechZone</span>
@@ -56,120 +55,64 @@ function Footer() {
                 Chuyên cung cấp laptop gaming, PC gaming, phụ kiện và linh kiện máy tính 
                 chính hãng với giá tốt nhất thị trường.
               </p>
-              <div className="contact-info">
-                <div className="contact-item">
-                  <i className="fas fa-map-marker-alt"></i>
-                  <span>8C Tống Hữu Định, Phường 13, Quận 2, Tp. HCM</span>
-                </div>
-                <div className="contact-item">
-                  <i className="fas fa-phone"></i>
-                  <span>(028) 7301 3878</span>
-                </div>
-                <div className="contact-item">
-                  <i className="fas fa-envelope"></i>
-                  <span>support@techzone.com.vn</span>
-                </div>
-              </div>
             </div>
 
-            {/* Products Links */}
-            <div className="footer-section">
-              <h3 className="footer-title">Sản phẩm</h3>
-              <ul className="footer-links">
-                {footerLinks.products.map((link, index) => (
-                  <li key={index}>
-                    <a href={link.link}>{link.name}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Support Links */}
-            <div className="footer-section">
-              <h3 className="footer-title">Hỗ trợ</h3>
-              <ul className="footer-links">
-                {footerLinks.support.map((link, index) => (
-                  <li key={index}>
-                    <a href={link.link}>{link.name}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Company Links */}
-            <div className="footer-section">
-              <h3 className="footer-title">Công ty</h3>
-              <ul className="footer-links">
-                {footerLinks.company.map((link, index) => (
-                  <li key={index}>
-                    <a href={link.link}>{link.name}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Newsletter & Social */}
-        <div className="newsletter-social-section">
-          <div className="newsletter-content">
-            <div className="newsletter-left">
-              <h3 className="section-title">Đăng ký nhận tin</h3>
-              <p className="section-description">
-                Nhận thông tin về sản phẩm mới và khuyến mãi hấp dẫn
-              </p>
-            </div>
-            <div className="newsletter-right">
-              <div className="newsletter-form">
-                <input 
-                  type="email" 
-                  placeholder="Nhập email của bạn"
-                  className="newsletter-input"
-                />
-                <button className="newsletter-btn">
-                  <i className="fas fa-paper-plane"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          <div className="social-links-section">
-            <h4>Theo dõi chúng tôi</h4>
-            <div className="social-icons">
-              {socialLinks.map((social, index) => (
-                <a 
-                  key={index}
-                  href={social.link}
-                  className="social-icon"
-                  style={{ '--social-color': social.color }}
-                  title={social.name}
-                >
-                  <i className={social.icon}></i>
-                </a>
+          {/* Products Links */}
+          <div className="footer-section">
+            <h3 className="footer-title">Sản phẩm</h3>
+            <ul className="footer-links">
+              {footerLinks.products.map((link, index) => (
+                <li key={index}>
+                  <a href={link.link}>{link.name}</a>
+                </li>
               ))}
-            </div>
+            </ul>
+          </div>
+
+          {/* Support Links */}
+          <div className="footer-section">
+            <h3 className="footer-title">Hỗ trợ</h3>
+            <ul className="footer-links">
+              {footerLinks.support.map((link, index) => (
+                <li key={index}>
+                  <a href={link.link}>{link.name}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Company Links */}
+          <div className="footer-section">
+            <h3 className="footer-title">Công ty</h3>
+            <ul className="footer-links">
+              {footerLinks.company.map((link, index) => (
+                <li key={index}>
+                  <a href={link.link}>{link.name}</a>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
+      </div>
 
-        {/* Footer Bottom */}
-        <div className="footer-bottom">
-          <div className="footer-bottom-content">
-            <div className="copyright">
-              <p>&copy; {currentYear} TechZone. Tất cả quyền được bảo lưu.</p>
+      {/* Footer Bottom */}
+      <div className="footer-bottom">
+        <div className="footer-bottom-content">
+          <div className="copyright">
+            <p>&copy; {currentYear} TechZone. Tất cả quyền được bảo lưu.</p>
+          </div>
+          <div className="certifications">
+            <div className="cert-item">
+              <i className="fas fa-shield-alt"></i>
+              <span>Bảo mật SSL</span>
             </div>
-            <div className="certifications">
-              <div className="cert-item">
-                <i className="fas fa-shield-alt"></i>
-                <span>Bảo mật SSL</span>
-              </div>
-              <div className="cert-item">
-                <i className="fas fa-award"></i>
-                <span>Chứng nhận ISO</span>
-              </div>
-              <div className="cert-item">
-                <i className="fas fa-check-circle"></i>
-                <span>Hàng chính hãng</span>
-              </div>
+            <div className="cert-item">
+              <i className="fas fa-award"></i>
+              <span>Chứng nhận ISO</span>
+            </div>
+            <div className="cert-item">
+              <i className="fas fa-check-circle"></i>
+              <span>Hàng chính hãng</span>
             </div>
           </div>
         </div>

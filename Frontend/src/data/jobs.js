@@ -1,4 +1,3 @@
-// 招聘职位数据
 export const jobs = [
   {
     id: 'j1',

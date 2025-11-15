@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API - List Products</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            border-left: 4px solid #2196F3;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .success {
+            border-left: 4px solid #4CAF50;
+            background: #f1f8f4;
+        }
+        .error {
+            border-left: 4px solid #f44336;
+            background: #fff5f5;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 0;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #2196F3;
+        }
+        .params {
+            margin: 15px 0;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test API - List Products</h1>
+        
+        <div class="info">
+            <strong>📋 Thông tin:</strong><br>
+            API URL: <code id="apiUrl">http://35.232.61.38:5000/v1/Product/ListProducts</code><br>
+            Method: <code>POST</code><br>
+            Endpoint này sẽ lấy danh sách sản phẩm từ database.
+        </div>
+
+        <div class="test-section">
+            <h2>🔧 Tham số Request</h2>
+            <div class="params">
+                <label>Page:</label>
+                <input type="number" id="page" value="1" min="1">
+                
+                <label>Limit:</label>
+                <input type="number" id="limit" value="10" min="1" max="100">
+                
+                <label>Search:</label>
+                <input type="text" id="search" placeholder="Laptop, Dell, etc.">
+                
+                <label>Category ID:</label>
+                <input type="number" id="categoryId" placeholder="(optional)">
+            </div>
+            <button onclick="testAPI()">🚀 Test API Call</button>
+            <button onclick="testAllProducts()">📦 Test All Products (no search)</button>
+            <button onclick="clearResult()">🗑️ Clear Result</button>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Kết quả</h2>
+            <div id="status"></div>
+            <div id="result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://35.232.61.38:5000';
+        const API_VERSION = 'v1';
+        const API_URL = `${API_BASE}/${API_VERSION}/Product/ListProducts`;
+
+        function getParams() {
+            return {
+                page: parseInt(document.getElementById('page').value) || 1,
+                limit: parseInt(document.getElementById('limit').value) || 10,
+                search: document.getElementById('search').value.trim() || undefined,
+                categoryId: document.getElementById('categoryId').value ? 
+                    parseInt(document.getElementById('categoryId').value) : undefined
+            };
+        }
+
+        function buildQueryString(params) {
+            const queryParams = new URLSearchParams();
+            if (params.page !== undefined) queryParams.append('page', params.page);
+            if (params.limit !== undefined) queryParams.append('limit', params.limit);
+            if (params.search) queryParams.append('search', params.search);
+            if (params.categoryId !== undefined) queryParams.append('categoryId', params.categoryId);
+            return queryParams.toString();
+        }
+
+        function formatTime() {
+            return new Date().toLocaleTimeString('vi-VN');
+        }
+
+        function updateStatus(message, isError = false) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<strong style="color: ${isError ? '#f44336' : '#4CAF50'}">[${formatTime()}] ${message}</strong>`;
+        }
+
+        function updateResult(data, isError = false) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        async function testAPI() {
+            const params = getParams();
+            const queryString = buildQueryString(params);
+            const url = queryString ? `${API_URL}?${queryString}` : API_URL;
+
+            updateStatus('Đang gọi API...');
+            updateResult('Loading...');
+
+            try {
+                console.log('[Test API] Request params:', params);
+                console.log('[Test API] Full URL:', url);
+
+                const startTime = Date.now();
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+
+                console.log('[Test API] Response status:', response.status);
+                console.log('[Test API] Response headers:', Object.fromEntries(response.headers.entries()));
+
+                const contentType = response.headers.get('content-type');
+                const isJson = contentType && contentType.includes('application/json');
+
+                let data;
+                if (isJson) {
+                    data = await response.json();
+                } else {
+                    const text = await response.text();
+                    data = { 
+                        rawText: text,
+                        contentType: contentType,
+                        note: 'Response is not JSON format'
+                    };
+                }
+
+                console.log('[Test API] Response data:', data);
+
+                const result = {
+                    success: response.ok,
+                    status: response.status,
+                    statusText: response.statusText,
+                    duration: `${duration}ms`,
+                    url: url,
+                    params: params,
+                    response: data,
+                    timestamp: new Date().toISOString()
+                };
+
+                if (response.ok && data.success !== false) {
+                    updateStatus(`✅ Thành công! Status: ${response.status} (${duration}ms)`);
+                    
+                    // Thêm thông tin về products
+                    if (data.data && data.data.data) {
+                        result.summary = {
+                            totalProducts: data.data.totalCount || 0,
+                            currentPage: data.data.currentPage || 1,
+                            limit: data.data.limit || 10,
+                            productsInResponse: data.data.data.length || 0,
+                            sampleProducts: data.data.data.slice(0, 3).map(p => ({
+                                id: p.productId || p.id,
+                                name: p.productName || p.name,
+                                price: p.price
+                            }))
+                        };
+                    }
+                } else {
+                    updateStatus(`❌ Lỗi! Status: ${response.status} (${duration}ms)`, true);
+                }
+
+                updateResult(result, !response.ok);
+            } catch (error) {
+                console.error('[Test API] Error:', error);
+                updateStatus(`❌ Lỗi: ${error.message}`, true);
+                updateResult({
+                    error: error.message,
+                    type: error.name,
+                    stack: error.stack,
+                    note: 'Có thể là: CORS error, Network error, hoặc Server không chạy'
+                }, true);
+            }
+        }
+
+        async function testAllProducts() {
+            document.getElementById('search').value = '';
+            document.getElementById('page').value = '1';
+            document.getElementById('limit').value = '20';
+            await testAPI();
+        }
+
+        function clearResult() {
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('status').innerHTML = '';
+            document.getElementById('result').className = 'result';
+        }
+
+        // Auto test on load
+        window.addEventListener('load', () => {
+            console.log('[Test API] Page loaded');
+            console.log('[Test API] API URL:', API_URL);
+        });
+    </script>
+</body>
+</html>
+

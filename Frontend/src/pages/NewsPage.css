@@ -20,13 +20,13 @@
 }
 
 .breadcrumb a {
-  color: #667eea;
+  color: #10b981;
   text-decoration: none;
   transition: color 0.3s;
 }
 
 .breadcrumb a:hover {
-  color: #764ba2;
+  color: #059669;
 }
 
 .breadcrumb .separator {
@@ -178,14 +178,14 @@
 .category-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-  border-color: #667eea;
+  border-color: #10b981;
 }
 
 .category-card.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
-  border-color: #667eea;
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+  border-color: #10b981;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
 }
 
 .category-icon {
@@ -390,67 +390,6 @@
   margin: 0;
 }
 
-/* Newsletter Section */
-.newsletter-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.newsletter-section .sidebar-title {
-  color: white;
-}
-
-.newsletter-desc {
-  font-size: 0.9rem;
-  line-height: 1.6;
-  margin: 0 0 20px 0;
-  opacity: 0.95;
-}
-
-.newsletter-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.newsletter-input {
-  padding: 12px 15px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
-  font-size: 0.95rem;
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
-}
-
-.newsletter-input::placeholder {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.newsletter-input:focus {
-  outline: none;
-  border-color: white;
-  background: rgba(255, 255, 255, 0.25);
-}
-
-.newsletter-button {
-  padding: 12px 20px;
-  background: white;
-  color: #667eea;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.newsletter-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-}
-
 /* Tags Section */
 .tags-cloud {
   display: flex;
@@ -471,9 +410,9 @@
 }
 
 .tag-item:hover {
-  background: #667eea;
+  background: #10b981;
   color: white;
-  border-color: #667eea;
+  border-color: #10b981;
   transform: translateY(-2px);
 }
 
@@ -594,4 +533,6 @@
     padding: 20px;
   }
 }
+
+
 

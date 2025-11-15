@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './Navbar.css';
 import ProductMenu from './ProductMenu';
 import { useNavigate } from 'react-router-dom';
-import { products } from '../data/products';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { useProducts } from '../context/ProductsContext';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -13,7 +14,21 @@ const Navbar = () => {
   const navigate = useNavigate();
   const inputRef = useRef(null);
   const containerRef = useRef(null);
+  const userMenuRef = useRef(null);
   const { totalCount } = useCart();
+  const { user, isAuthenticated, logout } = useAuth();
+  const { products } = useProducts(); // Use products from context instead of local state
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Listen for storage changes (when products are updated in admin)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      // Products are now managed by context, but we can refresh if needed
+      // The context will handle refreshing automatically
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -23,6 +38,9 @@ const Navbar = () => {
         setShowSuggestions(false);
         setHighlightIndex(-1);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setShowUserMenu(false);
+      }
     };
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
@@ -31,15 +49,15 @@ const Navbar = () => {
   // Compute suggestions based on the current query
   const suggestions = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
-    if (!trimmed) return [];
+    if (!trimmed || !products.length) return [];
     return products
       .filter(p =>
         p.name.toLowerCase().includes(trimmed) ||
-        p.brand.toLowerCase().includes(trimmed) ||
+        (p.brand && p.brand.toLowerCase().includes(trimmed)) ||
         p.category.toLowerCase().includes(trimmed)
       )
       .slice(0, 8);
-  }, [query]);
+  }, [query, products]);
 
   // Reset highlight when query changes
   useEffect(() => {
@@ -88,6 +106,19 @@ const Navbar = () => {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    setShowUserMenu(false);
+    navigate('/');
+  };
+
+  const getUserDisplayName = () => {
+    if (user?.name) return user.name;
+    if (user?.username) return user.username;
+    if (user?.email) return user.email.split('@')[0];
+    return 'Người dùng';
+  };
+
   return (
     <nav className="navbar">
       {/* Top Bar */}
@@ -131,10 +162,16 @@ const Navbar = () => {
                     aria-selected={idx === highlightIndex}
                     className={`suggestion-item ${idx === highlightIndex ? 'active' : ''}`}
                     onMouseDown={(e)=>{ e.preventDefault(); }}
-                    onClick={()=>{ navigate(`/products/${p.id}`); setShowSuggestions(false);} }
+                    onClick={()=>{ 
+                      window.scrollTo(0, 0);
+                      document.documentElement.scrollTop = 0;
+                      document.body.scrollTop = 0;
+                      navigate(`/products/${p.id}`); 
+                      setShowSuggestions(false);
+                    } }
                   >
                     <span className="suggestion-name">{p.name}</span>
-                    <span className="suggestion-meta">{p.brand} · {p.category}</span>
+                    <span className="suggestion-meta">{p.brand ? `${p.brand} · ` : ''}{p.category}</span>
                   </li>
                 ))}
                 <li className="suggestion-footer" onMouseDown={(e)=>e.preventDefault()} onClick={()=>goToSearch()}>
@@ -146,13 +183,60 @@ const Navbar = () => {
 
           {/* User Actions */}
           <div className="navbar-actions">
-            <div className="action-btn account-btn">
-              <i className="far fa-user" aria-hidden="true"></i>
-              <div className="account-text">
-                <a href="/login" className="account-label">Tài khoản</a>
-                <a href="/login" className="account-action">Đăng nhập</a>
+            {isAuthenticated ? (
+              <div className="user-menu-wrapper" ref={userMenuRef}>
+                <button 
+                  className="action-btn account-btn user-btn"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  aria-label="Tài khoản"
+                  aria-expanded={showUserMenu}
+                >
+                  <i className="far fa-user" aria-hidden="true"></i>
+                  <div className="account-text">
+                    <span className="account-label">{getUserDisplayName()}</span>
+                    <span className="account-action">Tài khoản</span>
+                  </div>
+                  <i className={`fas fa-chevron-${showUserMenu ? 'up' : 'down'}`} style={{ fontSize: '10px', marginLeft: '4px' }}></i>
+                </button>
+                {showUserMenu && (
+                  <div className="user-dropdown">
+                    <div className="user-dropdown-header">
+                      <div className="user-avatar">
+                        <i className="far fa-user" aria-hidden="true"></i>
+                      </div>
+                      <div className="user-info">
+                        <div className="user-name">{getUserDisplayName()}</div>
+                        <div className="user-email">{user?.email || ''}</div>
+                      </div>
+                    </div>
+                    <div className="user-dropdown-divider"></div>
+                    <div className="user-dropdown-menu">
+                      <a href="/profile" className="user-menu-item" onClick={() => setShowUserMenu(false)}>
+                        <i className="fas fa-user-circle" aria-hidden="true"></i>
+                        <span>Thông tin tài khoản</span>
+                      </a>
+                      <a href="/orders" className="user-menu-item" onClick={() => setShowUserMenu(false)}>
+                        <i className="fas fa-shopping-bag" aria-hidden="true"></i>
+                        <span>Đơn hàng của tôi</span>
+                      </a>
+                      <div className="user-dropdown-divider"></div>
+                      <button className="user-menu-item logout-btn" onClick={handleLogout}>
+                        <span>Đăng xuất</span>
+                        <i className="fas fa-arrow-right" aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            ) : (
+              <a href="/login" className="action-btn account-btn">
+                <i className="far fa-user" aria-hidden="true"></i>
+                <div className="account-text">
+                  <span className="account-label">Tài khoản</span>
+                  <span className="account-action">Đăng nhập</span>
+                </div>
+              </a>
+            )}
             <a href="/cart" className="action-btn cart-btn" aria-label="Giỏ hàng">
               <i className="fas fa-shopping-cart" aria-hidden="true"></i>
               <span className="cart-text">Giỏ hàng</span>

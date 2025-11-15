@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { jobs, departments, getJobsByDepartment } from '../data/jobs';
+import { useNotification } from '../context/NotificationContext';
 import './CareersPage.css';
 
 const initialFormData = {
@@ -13,6 +14,7 @@ const initialFormData = {
 };
 
 const CareersPage = () => {
+  const { success } = useNotification();
   const [selectedDepartment, setSelectedDepartment] = useState('Tất cả phòng ban');
   const [filteredJobs, setFilteredJobs] = useState(jobs);
   const [showApplicationForm, setShowApplicationForm] = useState(false);
@@ -65,8 +67,7 @@ const CareersPage = () => {
       ...formData
     };
     
-    console.log('Application submitted:', applicationData);
-    alert('Đơn ứng tuyển của bạn đã được gửi thành công!');
+    success('Đơn ứng tuyển của bạn đã được gửi thành công!');
     handleCloseForm();
   };
 

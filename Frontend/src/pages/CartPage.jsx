@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import './CartPage.css';
 
@@ -8,6 +8,40 @@ const formatPrice = v => v.toLocaleString('vi-VN') + '₫';
 const CartPage = () => {
   const { items, updateQuantity, removeItem, clearCart, totalCount, totalPrice } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Scroll to top when navigating to cart page
+  useEffect(() => {
+    // Scroll immediately first
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    
+    // Then smooth scroll after a brief delay to ensure it works
+    const timer = setTimeout(() => {
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'smooth'
+      });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }, 100);
+    
+    // Also scroll after items are loaded/updated
+    const scrollTimer = setTimeout(() => {
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'instant'
+      });
+    }, 200);
+    
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(scrollTimer);
+    };
+  }, [location.pathname, items.length]);
 
   if (items.length === 0) {
     return (
@@ -37,14 +71,29 @@ const CartPage = () => {
         <h2 className="cart-title">Giỏ hàng</h2>
         <div className="cart-grid">
           <div className="cart-list">
-            {items.map(item => (
-              <div key={item.id} className="cart-item">
-                <Link to={`/products/${item.id}`} className="cart-item-link">{item.name}</Link>
-                <div className="cart-price">{formatPrice(item.price)}</div>
-                <input type="number" min={1} value={item.quantity} onChange={e=>updateQuantity(item.id, e.target.value)} className="cart-qty" />
-                <button onClick={()=>removeItem(item.id)} className="cart-remove" title="Xóa">✕</button>
-              </div>
-            ))}
+            {items.map(item => {
+              // Lấy productId từ item (có thể là id hoặc productId)
+              const productId = item.productId || item.id;
+              // Lấy cartId từ item nếu có (để hỗ trợ trường hợp mỗi item có cartId riêng)
+              const itemCartId = item.cartId || null;
+              
+              return (
+                <div key={`${productId}-${item.capacity || 'default'}`} className="cart-item">
+                  {item.image && (
+                    <img src={item.image} alt={item.name} className="cart-item-image" style={{width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', marginRight: '12px'}} />
+                  )}
+                  <div style={{flex: 1}}>
+                    <Link to={`/products/${productId}`} className="cart-item-link">
+                      {item.name}
+                      {item.capacity && <span style={{fontSize: '12px', color: '#666', marginLeft: '8px'}}>({item.capacity})</span>}
+                    </Link>
+                    <div className="cart-price">{formatPrice(item.price)}</div>
+                  </div>
+                  <input type="number" min={1} value={item.quantity} onChange={e=>updateQuantity(productId, e.target.value, itemCartId)} className="cart-qty" />
+                  <button onClick={()=>removeItem(productId, itemCartId)} className="cart-remove" title="Xóa">✕</button>
+                </div>
+              );
+            })}
             <div className="order-note-section">
               <label htmlFor="order-note" className="order-note-label">Ghi chú đơn hàng</label>
               <textarea id="order-note" rows={3} className="order-note" placeholder="Nhập ghi chú..." />

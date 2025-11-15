@@ -233,24 +233,6 @@ const NewsPage = () => {
             </div>
           </div>
 
-          {/* Newsletter Signup */}
-          <div className="sidebar-section newsletter-section">
-            <h3 className="sidebar-title">📬 Đăng Ký Nhận Tin</h3>
-            <p className="newsletter-desc">
-              Nhận thông tin mới nhất về sản phẩm, khuyến mãi và tin tức công nghệ
-            </p>
-            <form className="newsletter-form">
-              <input 
-                type="email" 
-                placeholder="Email của bạn"
-                className="newsletter-input"
-              />
-              <button type="submit" className="newsletter-button">
-                Đăng ký
-              </button>
-            </form>
-          </div>
-
           {/* Popular Tags */}
           <div className="sidebar-section tags-section">
             <h3 className="sidebar-title">🏷️ Tags Phổ Biến</h3>
@@ -267,4 +249,6 @@ const NewsPage = () => {
 };
 
 export default NewsPage;
+
+
 

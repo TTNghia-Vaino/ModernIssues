@@ -142,6 +142,45 @@
   box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
 }
 
+/* Password input wrapper */
+.password-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-input-wrapper input {
+  padding-right: 45px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  color: #666;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.3s ease;
+  outline: none;
+}
+
+.password-toggle:hover {
+  color: #e74c3c;
+}
+
+.password-toggle:focus {
+  color: #e74c3c;
+  outline: 2px solid rgba(231, 76, 60, 0.3);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .forgot-password {
   text-align: right;
   margin-bottom: 25px;
@@ -176,62 +215,11 @@
   box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
 }
 
-/* ===== SOCIAL LOGIN ===== */
-.social-login {
-  text-align: center;
-}
-
-.social-login p {
-  color: #666;
-  margin-bottom: 20px;
-  font-size: 14px;
-}
-
-.social-buttons {
-  display: flex;
-  gap: 15px;
-  justify-content: center;
-}
-
-.social-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-decoration: none;
-  color: white;
-}
-
-.facebook-btn {
-  background: #1877f2;
-}
-
-.facebook-btn:hover {
-  background: #166fe5;
-  transform: translateY(-2px);
-}
-
-.google-btn {
-  background: #db4437;
-}
-
-.google-btn:hover {
-  background: #c23321;
-  transform: translateY(-2px);
-}
-
 /* ===== FLOATING CONTACTS ===== */
 .floating-contacts {
   position: fixed;
   right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
+  bottom: 10px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -319,17 +307,9 @@
     font-size: 24px;
   }
   
-  .social-buttons {
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .social-btn {
-    justify-content: center;
-  }
-  
   .floating-contacts {
     right: 10px;
+    bottom: 10px;
     gap: 8px;
   }
   

@@ -3,26 +3,19 @@
   position: fixed;
   top: 150px;
   width: 180px;
-  height: calc(100vh - 400px);
+  height: 500px;
   z-index: 50;
   pointer-events: none;
-  transition: all 0.3s ease;
-  border-radius: 15px;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: opacity 0.3s ease;
   overflow: hidden;
 }
 
 .left-banner {
   left: 20px;
-  border-radius: 0 15px 15px 0;
-  box-shadow: 2px 0 15px rgba(0, 0, 0, 0.12);
 }
 
 .right-banner {
   right: 20px;
-  border-radius: 15px 0 0 15px;
-  box-shadow: -2px 0 15px rgba(0, 0, 0, 0.12);
 }
 
 /* ===== BANNER IMAGES ===== */
@@ -37,55 +30,10 @@
 .banner-full-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  border-radius: inherit;
+  object-fit: contain;
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
-
-/* Extra Large Desktop - 1600px+ */
-@media (min-width: 1600px) {
-  .side-banner {
-    width: 200px;
-    top: 150px;
-    height: calc(100vh - 400px);
-  }
-  .left-banner { left: 30px; }
-  .right-banner { right: 30px; }
-}
-
-/* Large Desktop - 1400px to 1599px */
-@media (max-width: 1599px) and (min-width: 1400px) {
-  .side-banner {
-    width: 180px;
-    top: 150px;
-    height: calc(100vh - 400px);
-  }
-  .left-banner { left: 20px; }
-  .right-banner { right: 20px; }
-}
-
-/* Desktop - 1200px to 1399px */
-@media (max-width: 1399px) and (min-width: 1200px) {
-  .side-banner {
-    width: 160px;
-    top: 140px;
-    height: calc(100vh - 380px);
-  }
-  .left-banner { left: 20px; }
-  .right-banner { right: 20px; }
-}
-
-/* Small Desktop - 1024px to 1199px */
-@media (max-width: 1199px) and (min-width: 1024px) {
-  .side-banner {
-    width: 140px;
-    top: 130px;
-    height: calc(100vh - 360px);
-  }
-  .left-banner { left: 15px; }
-  .right-banner { right: 15px; }
-}
 
 /* Tablet and below - Hide side banners */
 @media (max-width: 1023px) {

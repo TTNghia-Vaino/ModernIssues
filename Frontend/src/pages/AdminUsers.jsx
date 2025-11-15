@@ -1,53 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import * as userService from '../services/userService';
+import { useAuth } from '../context/AuthContext';
 import './AdminUsers.css';
 
 const AdminUsers = () => {
-  const [users, setUsers] = useState([
-    { 
-      id: 1, 
-      name: 'Nguyễn Văn A', 
-      email: 'nguyenvana@email.com', 
-      phone: '0123456789', 
-      role: 'customer', 
-      status: 'active', 
-      joinDate: '2024-01-10',
-      orderCount: 5,
-      totalSpent: 2500000
-    },
-    { 
-      id: 2, 
-      name: 'Trần Thị B', 
-      email: 'tranthib@email.com', 
-      phone: '0987654321', 
-      role: 'customer', 
-      status: 'active', 
-      joinDate: '2024-01-12',
-      orderCount: 3,
-      totalSpent: 1800000
-    },
-    { 
-      id: 3, 
-      name: 'Lê Văn C', 
-      email: 'levanc@email.com', 
-      phone: '0369258147', 
-      role: 'customer', 
-      status: 'inactive', 
-      joinDate: '2024-01-08',
-      orderCount: 1,
-      totalSpent: 500000
-    },
-    { 
-      id: 4, 
-      name: 'Phạm Thị D', 
-      email: 'phamthid@email.com', 
-      phone: '0741852963', 
-      role: 'customer', 
-      status: 'active', 
-      joinDate: '2024-01-15',
-      orderCount: 8,
-      totalSpent: 4200000
-    }
-  ]);
+  const { isInTokenGracePeriod } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -64,6 +23,61 @@ const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+
+  // Load users from API on mount, but delay if in grace period
+  useEffect(() => {
+    let cancelled = false;
+    
+    const attemptLoad = async () => {
+      // If in grace period, wait for it to end
+      if (isInTokenGracePeriod) {
+        console.log('[AdminUsers] Waiting for token grace period to end before loading users');
+        // Wait for grace period to end (5 seconds) plus a small buffer (1 second)
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        if (cancelled) return;
+      }
+      
+      if (!cancelled) {
+        loadUsers();
+      }
+    };
+    
+    attemptLoad();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, []); // Only run on mount
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      const usersData = await userService.listUsers();
+      const usersArray = Array.isArray(usersData) ? usersData : (usersData.data || usersData.items || []);
+      setUsers(usersArray);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      
+      // Handle 401 Unauthorized specifically
+      if (error.status === 401 || error.isUnauthorized) {
+        // Only redirect if not in grace period
+        if (!isInTokenGracePeriod) {
+          showNotification('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', 'error');
+          // Redirect to login after a short delay
+          setTimeout(() => {
+            window.location.href = '/login?redirect=/admin/users';
+          }, 2000);
+        } else {
+          console.log('[AdminUsers] Ignoring 401 during grace period, will retry later');
+        }
+        return;
+      }
+      
+      showNotification('Lỗi khi tải danh sách người dùng: ' + (error.message || 'Lỗi không xác định'), 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddNew = () => {
     setEditingUser(null);
@@ -92,10 +106,39 @@ const AdminUsers = () => {
     }, 3000);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa người dùng này?')) {
-      setUsers(users.filter(user => user.id !== id));
-      showNotification('Xóa người dùng thành công!');
+  const handleDelete = async (id) => {
+    if (window.confirm('Bạn có chắc chắn muốn vô hiệu hóa người dùng này? (Soft delete)')) {
+      try {
+        setLoading(true);
+        await userService.deleteUser(id);
+        setUsers(users.map(user => 
+          user.id === id ? { ...user, status: 'inactive' } : user
+        ));
+        showNotification('Vô hiệu hóa người dùng thành công!');
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        showNotification('Lỗi khi vô hiệu hóa người dùng: ' + error.message, 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleActivate = async (id) => {
+    if (window.confirm('Bạn có chắc chắn muốn kích hoạt lại người dùng này?')) {
+      try {
+        setLoading(true);
+        await userService.activateUser(id);
+        setUsers(users.map(user => 
+          user.id === id ? { ...user, status: 'active' } : user
+        ));
+        showNotification('Kích hoạt người dùng thành công!');
+      } catch (error) {
+        console.error('Error activating user:', error);
+        showNotification('Lỗi khi kích hoạt người dùng: ' + error.message, 'error');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -124,37 +167,63 @@ const AdminUsers = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateForm()) {
       return;
     }
     
-    if (editingUser) {
-      // Cập nhật người dùng
-      setUsers(users.map(user => 
-        user.id === editingUser.id 
-          ? { ...user, ...formData }
-          : user
-      ));
-      showNotification('Cập nhật người dùng thành công!');
-    } else {
-      // Thêm người dùng mới
-      const newUser = {
-        id: Math.max(...users.map(u => u.id)) + 1,
-        ...formData,
-        joinDate: new Date().toISOString().split('T')[0],
-        orderCount: 0,
-        totalSpent: 0
-      };
-      setUsers([...users, newUser]);
-      showNotification('Thêm người dùng mới thành công!');
+    try {
+      setLoading(true);
+      
+      if (editingUser) {
+        // Update user via API
+        // Format according to Swagger: { Phone, Address, Email, Avatar }
+        const updateData = {
+          Phone: formData.phone,
+          Email: formData.email,
+          Address: editingUser.address || '', // Keep existing address if not provided
+          Avatar: editingUser.avatar || '' // Keep existing avatar if not provided
+        };
+        
+        try {
+          const updatedUser = await userService.updateUser(editingUser.id, updateData);
+          
+          // Map API response back to local format
+          const mappedUser = {
+            ...editingUser,
+            ...formData,
+            phone: updatedUser.phone || updatedUser.Phone || formData.phone,
+            email: updatedUser.email || updatedUser.Email || formData.email,
+            name: updatedUser.name || updatedUser.fullName || editingUser.name,
+            address: updatedUser.address || updatedUser.Address || editingUser.address,
+            avatar: updatedUser.avatar || updatedUser.Avatar || editingUser.avatar
+          };
+          
+          setUsers(users.map(user => 
+            user.id === editingUser.id ? mappedUser : user
+          ));
+          showNotification('Cập nhật người dùng thành công!');
+        } catch (apiError) {
+          console.error('API update failed:', apiError);
+          showNotification('Lỗi khi cập nhật người dùng: ' + (apiError.message || 'Unknown error'), 'error');
+        }
+      } else {
+        // Note: Creating users should be done via register endpoint
+        // This is just for admin UI, might need to adjust based on API
+        showNotification('Vui lòng sử dụng chức năng đăng ký để tạo người dùng mới', 'error');
+      }
+      
+      setShowModal(false);
+      setFormData({ name: '', email: '', phone: '', role: 'customer', status: 'active' });
+      setErrors({});
+    } catch (error) {
+      console.error('Error saving user:', error);
+      showNotification('Lỗi khi lưu người dùng: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
     }
-    
-    setShowModal(false);
-    setFormData({ name: '', email: '', phone: '', role: 'customer', status: 'active' });
-    setErrors({});
   };
 
   const handleInputChange = (e) => {
@@ -268,15 +337,28 @@ const AdminUsers = () => {
               <button 
                 className="edit-btn"
                 onClick={() => handleEdit(user)}
+                title="Chỉnh sửa"
               >
                 ✏️
               </button>
-              <button 
-                className="delete-btn"
-                onClick={() => handleDelete(user.id)}
-              >
-                🗑️
-              </button>
+              {user.status === 'active' ? (
+                <button 
+                  className="delete-btn"
+                  onClick={() => handleDelete(user.id)}
+                  title="Vô hiệu hóa"
+                >
+                  🗑️
+                </button>
+              ) : (
+                <button 
+                  className="activate-btn"
+                  onClick={() => handleActivate(user.id)}
+                  title="Kích hoạt"
+                  style={{ backgroundColor: '#2ecc71', color: 'white' }}
+                >
+                  ✓
+                </button>
+              )}
             </div>
           </div>
         ))}

@@ -29,3 +29,6 @@ Thêm các ảnh icon category vào thư mục này với tên file như sau:
 - Tránh ảnh quá phức tạp, ưu tiên đơn giản
 - Có thể tham khảo các icon từ trang như trong ảnh mẫu
 
+
+
+

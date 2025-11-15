@@ -11,82 +11,6 @@
   padding: 60px 20px;
 }
 
-.hero-lights {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  height: 120px;
-}
-
-.light {
-  position: absolute;
-  animation: swing 3s ease-in-out infinite;
-}
-
-.light.star {
-  width: 30px;
-  height: 30px;
-  background: #ffd700;
-  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-  top: 20px;
-  left: 8%;
-}
-
-.light.star.right {
-  left: auto;
-  right: 8%;
-  animation-delay: -1s;
-}
-
-.light.bulb {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  box-shadow: 0 0 15px currentColor;
-}
-
-.light.bulb.blue {
-  background: #3498db;
-  left: 15%;
-  top: 10px;
-  animation-delay: -0.5s;
-}
-
-.light.bulb.pink {
-  background: #ff69b4;
-  left: 25%;
-  top: 30px;
-  animation-delay: -1.5s;
-}
-
-.light.bulb.yellow {
-  background: #ffd700;
-  left: 35%;
-  top: 15px;
-  animation-delay: -2s;
-}
-
-.light.bulb.blue.right {
-  left: auto;
-  right: 15%;
-}
-
-.light.bulb.pink.right {
-  left: auto;
-  right: 25%;
-}
-
-.light.bulb.yellow.right {
-  left: auto;
-  right: 35%;
-}
-
-@keyframes swing {
-  0%, 100% { transform: translateY(0) rotate(-5deg); }
-  50% { transform: translateY(-10px) rotate(5deg); }
-}
 
 .hero-content {
   max-width: 700px;
@@ -97,17 +21,18 @@
   color: white;
 }
 
-.hero-title {
+.installment-hero .hero-title {
   font-size: 48px;
   font-weight: 800;
   margin: 0 0 10px 0;
   letter-spacing: 1px;
+  color: white !important;
 }
 
-.hero-subtitle {
+.installment-hero .hero-subtitle {
   font-size: 32px;
   font-family: 'Brush Script MT', cursive;
-  color: #ffd700;
+  color: white !important;
   margin: 0 0 30px 0;
   font-weight: 400;
   font-style: italic;
@@ -169,11 +94,17 @@
 /* Main Content */
 .installment-content {
   padding: 60px 20px;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .container {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 0;
+  width: 100%;
 }
 
 /* Tabs */
@@ -227,6 +158,34 @@
   display: grid;
   grid-template-columns: 1fr 350px;
   gap: 40px;
+  position: relative;
+}
+
+/* Ensure content doesn't get covered by side banners */
+.content-section .section-right {
+  position: relative;
+  z-index: 100;
+}
+
+/* On large screens, ensure right section doesn't overlap with side banner */
+@media (min-width: 1024px) {
+  .content-section {
+    max-width: 100%;
+    padding-right: 0;
+  }
+  
+  .content-section .section-right {
+    max-width: 350px;
+    margin-right: 0;
+    position: relative;
+    z-index: 100;
+  }
+  
+  /* Ensure sticky card doesn't get covered by side banner */
+  .content-section .section-right .sticky-card {
+    z-index: 100;
+    position: sticky;
+  }
 }
 
 .section-left {
@@ -425,6 +384,9 @@
 /* Sticky Card */
 .section-right {
   position: relative;
+  padding-right: 0;
+  margin-right: 0;
+  z-index: 100;
 }
 
 .sticky-card {
@@ -435,6 +397,11 @@
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.1);
   text-align: center;
+  z-index: 100;
+  margin-right: 0;
+  width: 100%;
+  max-width: 350px;
+  box-sizing: border-box;
 }
 
 .card-image {
@@ -466,7 +433,7 @@
 
 /* Fundiin Card */
 .fundiin-card {
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #0a804a 0%, #10b981 100%);
   color: white;
 }
 
@@ -504,6 +471,122 @@
 .benefit-item i {
   color: #ffd700;
   font-size: 18px;
+}
+
+/* Installment Calculator */
+.installment-calculator {
+  margin-top: 30px;
+  padding-top: 25px;
+  border-top: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.fundiin-card .installment-calculator {
+  border-top: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.sticky-card:not(.fundiin-card) .installment-calculator {
+  border-top: 2px solid #e0e0e0;
+}
+
+.calculator-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 20px 0;
+  text-align: left;
+}
+
+.fundiin-card .calculator-title {
+  color: white;
+}
+
+.calculator-input-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.calculator-input-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.fundiin-card .calculator-input-group label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.calculator-input,
+.calculator-select {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  background: white;
+  color: #333;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+.calculator-input:focus,
+.calculator-select:focus {
+  outline: none;
+  border-color: #0a804a;
+  box-shadow: 0 0 0 3px rgba(10, 128, 74, 0.1);
+}
+
+.fundiin-card .calculator-input,
+.fundiin-card .calculator-select {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.calculator-result {
+  margin-top: 20px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.sticky-card:not(.fundiin-card) .calculator-result {
+  background: #f0f9f5;
+  border: 2px solid #0a804a;
+}
+
+.result-label {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.fundiin-card .result-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.result-price {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0a804a;
+  margin-bottom: 8px;
+}
+
+.fundiin-card .result-price {
+  color: #ffd700;
+}
+
+.result-note {
+  font-size: 12px;
+  color: #888;
+  font-style: italic;
+}
+
+.fundiin-card .result-note {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* Company Card */
@@ -556,12 +639,14 @@
     text-align: center;
   }
 
-  .hero-title {
+  .installment-hero .hero-title {
     font-size: 36px;
+    color: white !important;
   }
 
-  .hero-subtitle {
+  .installment-hero .hero-subtitle {
     font-size: 24px;
+    color: white !important;
   }
 
   .hero-benefits {
@@ -590,12 +675,14 @@
 }
 
 @media (max-width: 768px) {
-  .hero-title {
+  .installment-hero .hero-title {
     font-size: 28px;
+    color: white !important;
   }
 
-  .hero-subtitle {
+  .installment-hero .hero-subtitle {
     font-size: 20px;
+    color: white !important;
   }
 
   .benefit-label {

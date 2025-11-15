@@ -5,7 +5,7 @@
 
 /* Hero Section */
 .payment-hero {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2ecc71 0%, #0a804a 100%);
   color: white;
   padding: 60px 20px 50px;
   text-align: center;
@@ -40,7 +40,8 @@
 
 .payment-hero p {
   font-size: 1.2rem;
-  opacity: 0.95;
+  color: white;
+  opacity: 1;
   max-width: 600px;
   margin: 0 auto;
   line-height: 1.6;
@@ -77,7 +78,7 @@
 .payment-method-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
-  border-color: #667eea;
+  border-color: #0a804a;
 }
 
 .payment-icon-wrapper {
@@ -151,7 +152,7 @@
 
 /* Payment Support */
 .payment-support {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2ecc71 0%, #0a804a 100%);
   color: white;
   border-radius: 16px;
   padding: 45px 35px;
@@ -167,7 +168,8 @@
 
 .payment-support > p {
   font-size: 1.05rem;
-  opacity: 0.95;
+  color: white;
+  opacity: 1;
   margin-bottom: 35px;
   max-width: 700px;
   margin-left: auto;
@@ -178,7 +180,7 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 25px;
+  gap: 18px;
   max-width: 900px;
   margin: 0 auto;
 }
@@ -186,15 +188,15 @@
 .support-item {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
   background: rgba(255, 255, 255, 0.15);
-  padding: 20px 30px;
-  border-radius: 12px;
+  padding: 14px 22px;
+  border-radius: 10px;
   backdrop-filter: blur(10px);
   transition: all 0.3s ease;
   border: 2px solid rgba(255, 255, 255, 0.2);
   flex: 1;
-  min-width: 250px;
+  min-width: 200px;
 }
 
 .support-item:hover {
@@ -204,7 +206,7 @@
 }
 
 .support-icon {
-  font-size: 2rem;
+  font-size: 1.5rem;
   flex-shrink: 0;
 }
 
@@ -216,13 +218,13 @@
 }
 
 .support-label {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   opacity: 0.9;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .support-value {
-  font-size: 1.05rem;
+  font-size: 0.9rem;
   font-weight: 700;
 }
 

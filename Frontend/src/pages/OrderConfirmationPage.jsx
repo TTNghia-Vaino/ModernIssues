@@ -8,7 +8,6 @@ const formatPrice = (price) => price.toLocaleString('vi-VN') + '₫';
 const OrderConfirmationPage = () => {
   const navigate = useNavigate();
   const { clearCart } = useCart();
-  
 
   const [orderData, setOrderData] = useState(null);
 
@@ -16,10 +15,32 @@ const OrderConfirmationPage = () => {
     // Get order data from localStorage
     const savedOrder = localStorage.getItem('lastOrder');
     if (savedOrder) {
-      const order = JSON.parse(savedOrder);
-      setOrderData(order);
-      // Clear cart after successful order
-      clearCart();
+      try {
+        const order = JSON.parse(savedOrder);
+        
+        // Normalize order data structure to handle different API response formats
+        const normalizedOrder = {
+          orderId: order.orderId || order.id || order.order_id || 'N/A',
+          email: order.email || order.customerEmail || '',
+          fullName: order.fullName || order.customerName || order.name || '',
+          phone: order.phone || order.customerPhone || '',
+          province: order.province || '',
+          district: order.district || '',
+          ward: order.ward || '',
+          address: order.address || order.shippingAddress || '',
+          note: order.note || '',
+          paymentMethod: order.paymentMethod || order.payment_method || 'cod',
+          items: order.items || order.orderItems || [],
+          totalPrice: order.totalPrice || order.total || order.amount || 0
+        };
+        
+        setOrderData(normalizedOrder);
+        // Clear cart after successful order
+        clearCart();
+      } catch (error) {
+        console.error('[OrderConfirmationPage] Error parsing order data:', error);
+        navigate('/');
+      }
     } else {
       // If no order data, redirect to home
       navigate('/');
@@ -31,10 +52,6 @@ const OrderConfirmationPage = () => {
     window.print();
   };
 
-  const handleExportInvoice = () => {
-    // In a real app, this would generate and download an invoice PDF
-    alert('Chức năng xuất hóa đơn sẽ được triển khai trong phiên bản tiếp theo');
-  };
 
   // ========================================
   // RENDER HELPERS
@@ -138,32 +155,42 @@ const OrderConfirmationPage = () => {
           {/* Right column - Order summary */}
           <div className="confirmation-right">
             <div className="order-summary">
-              <h3>Đơn hàng {orderData.orderId} ({orderData.items.length})</h3>
+              <h3>Đơn hàng {orderData.orderId} ({orderData.items?.length || 0})</h3>
               
               <div className="order-items">
-                {orderData.items.map((item, index) => (
-                  <div key={index} className="order-item">
-                    <div className="item-image">
-                      <div className="item-thumbnail"></div>
+                {orderData.items && orderData.items.length > 0 ? (
+                  orderData.items.map((item, index) => (
+                    <div key={index} className="order-item">
+                      <div className="item-image">
+                        {item.image ? (
+                          <img src={item.image} alt={item.name || item.productName} className="item-thumbnail" />
+                        ) : (
+                          <div className="item-thumbnail"></div>
+                        )}
+                      </div>
+                      <div className="item-quantity">
+                        <div className="quantity-circle">{item.quantity || 1}</div>
+                      </div>
+                      <div className="item-details">
+                        <div className="item-name">{item.name || item.productName || 'Sản phẩm'}</div>
+                        {(item.variant || item.capacity) && (
+                          <div className="item-variant">{item.variant || item.capacity}</div>
+                        )}
+                        <div className="item-price">
+                          {formatPrice(typeof item.price === 'number' ? item.price : (item.price || 0))}
+                        </div>
+                      </div>
                     </div>
-                    <div className="item-quantity">
-                      <div className="quantity-circle">{item.quantity || 1}</div>
-                    </div>
-                    <div className="item-details">
-                      <div className="item-name">{item.name}</div>
-                      {item.variant && (
-                        <div className="item-variant">{item.variant}</div>
-                      )}
-                      <div className="item-price">{formatPrice(item.price)}</div>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <div className="no-items">Không có sản phẩm trong đơn hàng</div>
+                )}
               </div>
 
               <div className="order-totals">
                 <div className="total-row">
                   <span>Tạm tính</span>
-                  <span>{formatPrice(orderData.totalPrice)}</span>
+                  <span>{formatPrice(typeof orderData.totalPrice === 'number' ? orderData.totalPrice : 0)}</span>
                 </div>
                 <div className="total-row">
                   <span>Phí vận chuyển</span>
@@ -171,7 +198,7 @@ const OrderConfirmationPage = () => {
                 </div>
                 <div className="total-row final-total">
                   <span>Tổng cộng</span>
-                  <span>{formatPrice(orderData.totalPrice)}</span>
+                  <span>{formatPrice(typeof orderData.totalPrice === 'number' ? orderData.totalPrice : 0)}</span>
                 </div>
               </div>
             </div>
@@ -186,9 +213,6 @@ const OrderConfirmationPage = () => {
           <button onClick={handlePrint} className="action-btn print-btn">
             <span className="print-icon">🖨️</span>
             In
-          </button>
-          <button onClick={handleExportInvoice} className="action-btn export-btn">
-            Xuất hóa đơn
           </button>
         </div>
       </div>

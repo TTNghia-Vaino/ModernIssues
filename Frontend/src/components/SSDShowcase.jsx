@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import * as productService from '../services/productService';
+import { transformProducts } from '../utils/productUtils';
 import './SSDShowcase.css';
 
 function SSDShowcase() {
   const navigate = useNavigate();
+  const { isInTokenGracePeriod } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,29 +22,111 @@ function SSDShowcase() {
   ];
 
   useEffect(() => {
-    fetchSSDProducts();
-  }, []);
-
-  const fetchSSDProducts = () => {
-    try {
-      // Lấy sản phẩm từ localStorage (từ Admin Products)
-      const savedProducts = localStorage.getItem('adminProducts');
-      if (savedProducts) {
-        const allProducts = JSON.parse(savedProducts);
-        // Lọc sản phẩm theo category "SSD" và status "active"
-        const ssdProducts = allProducts.filter(
-          product => product.category === 'SSD' && product.status === 'active'
-        );
-        setProducts(ssdProducts.slice(0, 10)); // Lấy 10 sản phẩm đầu tiên
+    let cancelled = false;
+    
+    const attemptLoad = async () => {
+      // If in grace period, wait for it to end
+      if (isInTokenGracePeriod) {
+        console.log('[SSDShowcase] Waiting for token grace period to end before loading products');
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        if (cancelled) return;
       }
-      setLoading(false);
+      
+      if (!cancelled) {
+        fetchSSDProducts();
+      }
+    };
+    
+    attemptLoad();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, []); // Only run on mount
+
+  const fetchSSDProducts = async () => {
+    try {
+      setLoading(true);
+      // Try API first
+      try {
+        console.log('[SSDShowcase] Fetching products from API...');
+        const productsData = await productService.listProducts({ 
+          page: 1, 
+          limit: 10,
+          // Note: categoryId should be numeric, using search as fallback
+          search: 'SSD'
+        });
+        
+        console.log('[SSDShowcase] Raw API response:', productsData);
+        
+        // Handle Swagger response format: { totalCount, currentPage, limit, data: [...] }
+        let productsArray = [];
+        if (productsData && typeof productsData === 'object') {
+          if (Array.isArray(productsData.data)) {
+            productsArray = productsData.data;
+            console.log('[SSDShowcase] Found products in productsData.data:', productsArray.length);
+          } else if (Array.isArray(productsData)) {
+            productsArray = productsData;
+            console.log('[SSDShowcase] productsData is array:', productsArray.length);
+          } else if (productsData.items) {
+            productsArray = productsData.items;
+            console.log('[SSDShowcase] Found products in productsData.items:', productsArray.length);
+          } else {
+            console.warn('[SSDShowcase] Unknown response format:', Object.keys(productsData));
+          }
+        } else if (Array.isArray(productsData)) {
+          productsArray = productsData;
+          console.log('[SSDShowcase] productsData is direct array:', productsArray.length);
+        } else {
+          console.warn('[SSDShowcase] Unexpected response type:', typeof productsData);
+        }
+        
+        console.log('[SSDShowcase] Products array length:', productsArray.length);
+        
+        // Transform API format to component format
+        const transformedProducts = transformProducts(productsArray);
+        console.log('[SSDShowcase] Transformed products:', transformedProducts.length);
+        
+        const ssdProducts = transformedProducts.filter(
+          product => product.status === 'active' || product.status === undefined || 
+                     product.category?.toLowerCase().includes('ssd') ||
+                     product.name?.toLowerCase().includes('ssd')
+        );
+        console.log('[SSDShowcase] Filtered SSD products:', ssdProducts.length);
+        setProducts(ssdProducts.slice(0, 10)); // Lấy 10 sản phẩm đầu tiên
+      } catch (apiError) {
+        console.error('[SSDShowcase] API failed:', apiError);
+        console.error('[SSDShowcase] Error details:', {
+          message: apiError.message,
+          status: apiError.status,
+          data: apiError.data
+        });
+        // Fallback to localStorage
+        const savedProducts = localStorage.getItem('adminProducts');
+        if (savedProducts) {
+          console.log('[SSDShowcase] Using localStorage fallback');
+          const allProducts = JSON.parse(savedProducts);
+          const ssdProducts = allProducts.filter(
+            product => product.category === 'SSD' && product.status === 'active'
+          );
+          setProducts(ssdProducts.slice(0, 10));
+        } else {
+          console.warn('[SSDShowcase] No localStorage data available');
+        }
+      }
     } catch (error) {
-      console.error('Error fetching SSD products:', error);
+      console.error('[SSDShowcase] Unexpected error:', error);
+    } finally {
       setLoading(false);
     }
   };
 
   const handleProductClick = (productId) => {
+    // Scroll to top immediately before navigation
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    // Then navigate
     navigate(`/products/${productId}`);
   };
 
