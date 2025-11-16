@@ -1,0 +1,417 @@
+// Product API Service
+
+import { apiGet, apiPost, apiPut, apiDelete } from './api';
+import { getApiUrl } from '../config/api';
+
+/**
+ * Get list of active products
+ * Endpoint: POST /v1/Product/ListProducts
+ * Query params: page (default: 1), limit (default: 10), categoryId (optional), search (optional)
+ * Response format: { success: boolean, message: string, data: { totalCount, currentPage, limit, data: [...] }, errors: string[] }
+ * @param {object} params - Query parameters { page, limit, categoryId, search }
+ * @returns {Promise} - List of products with pagination info
+ */
+export const listProducts = async (params = {}) => {
+  // Build query string from params
+  const queryParams = new URLSearchParams();
+  if (params.page !== undefined) queryParams.append('page', params.page);
+  if (params.limit !== undefined) queryParams.append('limit', params.limit);
+  if (params.categoryId !== undefined) queryParams.append('categoryId', params.categoryId);
+  if (params.search) queryParams.append('search', params.search);
+  
+  const queryString = queryParams.toString();
+  const endpoint = queryString ? `Product/ListProducts?${queryString}` : 'Product/ListProducts';
+  
+  // Log request details
+  if (import.meta.env.DEV) {
+    console.log('[ProductService.listProducts] Request params:', params);
+    console.log('[ProductService.listProducts] Endpoint:', endpoint);
+    const fullUrl = getApiUrl(endpoint);
+    console.log('[ProductService.listProducts] Full URL:', fullUrl);
+  }
+  
+  try {
+    const response = await apiPost(endpoint, {});
+    
+    // Log response
+    if (import.meta.env.DEV) {
+      console.log('[ProductService.listProducts] Response received:', response);
+      console.log('[ProductService.listProducts] Response type:', typeof response);
+      console.log('[ProductService.listProducts] Response keys:', response && typeof response === 'object' ? Object.keys(response) : 'N/A');
+    }
+    
+    // Handle Swagger response format
+    if (response && typeof response === 'object') {
+      // Check for error
+      if (response.success === false) {
+        console.error('[ProductService.listProducts] API returned error:', response.message, response.errors);
+        throw new Error(response.message || 'Failed to get products list');
+      }
+      
+      // Return data if available, otherwise return full response
+      if (response.data) {
+        if (import.meta.env.DEV) {
+          console.log('[ProductService.listProducts] Returning response.data:', response.data);
+        }
+        return response.data;
+      } else {
+        if (import.meta.env.DEV) {
+          console.warn('[ProductService.listProducts] No response.data, returning full response');
+        }
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('[ProductService.listProducts] Error:', error);
+    console.error('[ProductService.listProducts] Error details:', {
+      message: error.message,
+      status: error.status,
+      data: error.data,
+      stack: error.stack
+    });
+    throw error;
+  }
+};
+
+/**
+ * Get product by ID
+ * Endpoint: GET /v1/Product/{id}
+ * Response format: { success: boolean, message: string, data: {...}, errors: string[] }
+ * @param {string|number} id - Product ID
+ * @returns {Promise} - Product data
+ */
+export const getProductById = async (id) => {
+  const response = await apiGet(`Product/${id}`);
+  
+  // Handle Swagger response format
+  if (response && typeof response === 'object') {
+    // Check for error
+    if (response.success === false) {
+      throw new Error(response.message || 'Product not found');
+    }
+    
+    // Return data if available
+    if (response.data && typeof response.data === 'object') {
+      return response.data;
+    }
+    
+    // If data is string, try to parse
+    if (response.data && typeof response.data === 'string') {
+      try {
+        return JSON.parse(response.data);
+      } catch (e) {
+        console.warn('[ProductService] Failed to parse response.data as JSON:', e);
+      }
+    }
+  }
+  
+  // Fallback: return response as is (for backward compatibility)
+  return response;
+};
+
+/**
+ * Get current user information
+ * Endpoint: GET /v1/Product/CurrentUser
+ * Response format: { success: boolean, message: string, data: string, errors: string[] }
+ * @returns {Promise} - Current user data (parsed from response.data if it's JSON string)
+ */
+export const getCurrentUserInfo = async () => {
+  const response = await apiGet('Product/CurrentUser');
+  
+  // Handle response format according to Swagger spec
+  // Response structure: { success, message, data, errors }
+  if (response && typeof response === 'object') {
+    // If data is a JSON string, parse it
+    if (response.data && typeof response.data === 'string') {
+      try {
+        const parsedData = JSON.parse(response.data);
+        return {
+          ...response,
+          data: parsedData
+        };
+      } catch (e) {
+        // If parsing fails, return as is
+        console.warn('[ProductService] Failed to parse response.data as JSON:', e);
+      }
+    }
+    
+    // Return response with success check
+    if (response.success === false) {
+      throw new Error(response.message || 'Failed to get current user info');
+    }
+    
+    return response;
+  }
+  
+  // If response is not in expected format, return as is
+  return response;
+};
+
+/**
+ * Get current user's products (for admin/seller)
+ * Note: This endpoint might actually return user info, not products
+ * @returns {Promise} - User info or products data
+ * @deprecated Consider using getCurrentUserInfo() if endpoint returns user info
+ */
+export const getCurrentUserProducts = async () => {
+  // Try to get user info first
+  try {
+    const response = await getCurrentUserInfo();
+    // If response has data property, return it
+    if (response.data) {
+      return response.data;
+    }
+    return response;
+  } catch (error) {
+    console.error('[ProductService] Error getting current user info:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create new product
+ * Endpoint: POST /v1/Product/CreateProduct
+ * Content-Type: multipart/form-data
+ * Fields: productName, description, price, categoryId, stock, warrantyPeriod, imageFile (optional), currentImageUrl (optional)
+ * Response format: { success: boolean, message: string, data: {...}, errors: string[] }
+ * @param {object} productData - Product data { productName, description, price, categoryId, stock, warrantyPeriod, currentImageUrl? }
+ * @param {File} imageFile - Product image file (optional)
+ * @returns {Promise} - Created product data
+ */
+export const createProduct = async (productData, imageFile = null) => {
+  const formData = new FormData();
+  
+  // Append required fields according to Swagger spec
+  if (productData.productName) formData.append('productName', productData.productName);
+  if (productData.description !== undefined) formData.append('description', productData.description);
+  if (productData.price !== undefined) formData.append('price', productData.price);
+  if (productData.categoryId !== undefined) formData.append('categoryId', productData.categoryId);
+  if (productData.stock !== undefined) formData.append('stock', productData.stock);
+  if (productData.warrantyPeriod !== undefined) formData.append('warrantyPeriod', productData.warrantyPeriod);
+  
+  // Optional fields
+  if (productData.currentImageUrl) formData.append('currentImageUrl', productData.currentImageUrl);
+  if (imageFile) formData.append('imageFile', imageFile);
+  
+  // Use custom fetch for FormData
+  const { getApiUrl, getDefaultHeaders } = await import('../config/api');
+  const url = getApiUrl('Product/CreateProduct');
+  const headers = getDefaultHeaders();
+  // Remove Content-Type header to let browser set it with boundary
+  delete headers['Content-Type'];
+  
+  // Debug logging
+  if (import.meta.env.DEV) {
+    console.log('[ProductService.createProduct] Request URL:', url);
+    console.log('[ProductService.createProduct] Request Method: POST');
+    console.log('[ProductService.createProduct] Request Headers:', headers);
+    console.log('[ProductService.createProduct] Product Data:', productData);
+    console.log('[ProductService.createProduct] Has Image File:', !!imageFile);
+    
+    // Log FormData contents (can't serialize FormData, but log what we appended)
+    const formDataLog = {};
+    formData.forEach((value, key) => {
+      if (value instanceof File) {
+        formDataLog[key] = `File: ${value.name} (${value.size} bytes)`;
+      } else {
+        formDataLog[key] = value;
+      }
+    });
+    console.log('[ProductService.createProduct] FormData Contents:', formDataLog);
+  }
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: formData
+  });
+  
+  if (import.meta.env.DEV) {
+    console.log('[ProductService.createProduct] Response Status:', response.status, response.statusText);
+    console.log('[ProductService.createProduct] Response Headers:', Object.fromEntries(response.headers.entries()));
+  }
+  
+  const contentType = response.headers.get('content-type');
+  const isJson = contentType && contentType.includes('application/json');
+  
+  let data;
+  if (isJson) {
+    data = await response.json();
+  } else {
+    const text = await response.text();
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { message: text };
+    }
+  }
+  
+  if (import.meta.env.DEV) {
+    console.log('[ProductService.createProduct] Response Data:', data);
+  }
+  
+  if (!response.ok) {
+    const error = new Error(data.message || `HTTP error! status: ${response.status}`);
+    error.status = response.status;
+    error.data = data;
+    if (import.meta.env.DEV) {
+      console.error('[ProductService.createProduct] ❌ API Error Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: data
+      });
+    }
+    throw error;
+  }
+  
+  // Handle Swagger response format
+  if (data && typeof data === 'object') {
+    if (data.success === false) {
+      if (import.meta.env.DEV) {
+        console.error('[ProductService.createProduct] ❌ API returned success: false', data);
+      }
+      throw new Error(data.message || 'Failed to create product');
+    }
+    
+    // Return data if available
+    if (data.data && typeof data.data === 'object') {
+      if (import.meta.env.DEV) {
+        console.log('[ProductService.createProduct] ✅ Product created successfully:', data.data);
+      }
+      return data.data;
+    }
+    
+    // If data is string, try to parse
+    if (data.data && typeof data.data === 'string') {
+      try {
+        const parsed = JSON.parse(data.data);
+        if (import.meta.env.DEV) {
+          console.log('[ProductService.createProduct] ✅ Product created successfully (parsed):', parsed);
+        }
+        return parsed;
+      } catch (e) {
+        console.warn('[ProductService] Failed to parse response.data as JSON:', e);
+      }
+    }
+    
+    // If response itself is the product data
+    if (import.meta.env.DEV) {
+      console.log('[ProductService.createProduct] ✅ Product created successfully (direct response):', data);
+    }
+    return data;
+  }
+  
+  if (import.meta.env.DEV) {
+    console.log('[ProductService.createProduct] ✅ Returning response as-is:', data);
+  }
+  return data;
+};
+
+/**
+ * Update product
+ * Endpoint: PUT /v1/Product/{id}
+ * Content-Type: multipart/form-data
+ * Fields: productName, description, price, categoryId, stock, warrantyPeriod, imageFile (optional), currentImageUrl (optional)
+ * Response format: { success: boolean, message: string, data: {...}, errors: string[] }
+ * @param {string|number} id - Product ID
+ * @param {object} productData - Updated product data { productName, description, price, categoryId, stock, warrantyPeriod, currentImageUrl? }
+ * @param {File} imageFile - New product image file (optional)
+ * @returns {Promise} - Updated product data
+ */
+export const updateProduct = async (id, productData, imageFile = null) => {
+  const formData = new FormData();
+  
+  // Append fields according to Swagger spec
+  if (productData.productName) formData.append('productName', productData.productName);
+  if (productData.description !== undefined) formData.append('description', productData.description);
+  if (productData.price !== undefined) formData.append('price', productData.price);
+  if (productData.categoryId !== undefined) formData.append('categoryId', productData.categoryId);
+  if (productData.stock !== undefined) formData.append('stock', productData.stock);
+  if (productData.warrantyPeriod !== undefined) formData.append('warrantyPeriod', productData.warrantyPeriod);
+  
+  // Optional fields
+  if (productData.currentImageUrl) formData.append('currentImageUrl', productData.currentImageUrl);
+  if (imageFile) formData.append('imageFile', imageFile);
+  
+  // Use custom fetch for FormData
+  const { getApiUrl, getDefaultHeaders } = await import('../config/api');
+  const url = getApiUrl(`Product/${id}`);
+  const headers = getDefaultHeaders();
+  // Remove Content-Type header to let browser set it with boundary
+  delete headers['Content-Type'];
+  
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers,
+    body: formData
+  });
+  
+  const contentType = response.headers.get('content-type');
+  const isJson = contentType && contentType.includes('application/json');
+  
+  let data;
+  if (isJson) {
+    data = await response.json();
+  } else {
+    const text = await response.text();
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { message: text };
+    }
+  }
+  
+  if (!response.ok) {
+    const error = new Error(data.message || `HTTP error! status: ${response.status}`);
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+  
+  // Handle Swagger response format
+  if (data && typeof data === 'object') {
+    if (data.success === false) {
+      throw new Error(data.message || 'Failed to update product');
+    }
+    
+    // Return data if available
+    if (data.data && typeof data.data === 'object') {
+      return data.data;
+    }
+    
+    // If data is string, try to parse
+    if (data.data && typeof data.data === 'string') {
+      try {
+        return JSON.parse(data.data);
+      } catch (e) {
+        console.warn('[ProductService] Failed to parse response.data as JSON:', e);
+      }
+    }
+  }
+  
+  return data;
+};
+
+/**
+ * Delete (soft delete) product
+ * Endpoint: DELETE /v1/Product/{id}
+ * Response format: { success: boolean, message: string, data: string, errors: string[] }
+ * @param {string|number} id - Product ID
+ * @returns {Promise} - Response data
+ */
+export const deleteProduct = async (id) => {
+  const response = await apiDelete(`Product/${id}`);
+  
+  // Handle Swagger response format
+  if (response && typeof response === 'object') {
+    if (response.success === false) {
+      throw new Error(response.message || 'Failed to delete product');
+    }
+    
+    return response;
+  }
+  
+  return response;
+};
+
