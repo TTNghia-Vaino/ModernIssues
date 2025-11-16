@@ -782,4 +782,3 @@ namespace ModernIssues.Controllers
         }
     }
 }
-}
