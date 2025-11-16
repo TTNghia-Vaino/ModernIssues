@@ -294,12 +294,14 @@ namespace ModernIssues.Controllers
         /// </summary>
         /// <param name="userId">ID của người dùng cần vô hiệu hóa.</param>
         /// <response code="200">Vô hiệu hóa thành công.</response>
-        /// <response code="404">Không tìm thấy người dùng.</response>
+        /// <response code="404">Không tìm thấy người dùng hoặc người dùng đã bị vô hiệu hóa.</response>
+        /// <response code="400">Không thể vô hiệu hóa tài khoản admin.</response>
         /// <response code="401">Chưa đăng nhập.</response>
         /// <response code="403">Không có quyền admin.</response>
         [HttpDelete("{userId}")]
         [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.NotFound)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
         [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
         public async Task<IActionResult> DeleteUser(int userId)
@@ -314,23 +316,60 @@ namespace ModernIssues.Controllers
             if (!AuthHelper.IsAdmin(HttpContext))
             {
                 return StatusCode(HttpStatusCodes.Forbidden, 
-                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xóa người dùng."));
+                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được vô hiệu hóa người dùng."));
+            }
+
+            // Lấy adminId từ người dùng đang đăng nhập
+            var adminId = AuthHelper.GetCurrentUserId(HttpContext);
+            if (!adminId.HasValue)
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Không thể xác định người dùng hiện tại."));
+            }
+
+            // Kiểm tra không cho phép admin tự vô hiệu hóa chính mình
+            if (adminId.Value == userId)
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse("Bạn không thể vô hiệu hóa tài khoản của chính mình."));
             }
 
             try
             {
-                var success = await _userService.DeleteUserAsync(userId);
-                if (!success)
+                // Kiểm tra xem user tồn tại không
+                var targetUser = await _userService.GetUserByIdAsync(userId);
+                if (targetUser == null)
                 {
                     return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy người dùng với ID: {userId}."));
                 }
-                return Ok(ApiResponse<object>.SuccessResponse(new { userId }, $"Người dùng {userId} đã được vô hiệu hóa thành công."));
+
+                // Không cho phép vô hiệu hóa tài khoản admin khác
+                if (targetUser.Role == "admin")
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Không thể vô hiệu hóa tài khoản admin."));
+                }
+
+                // Thực hiện vô hiệu hóa
+                var success = await _userService.DeleteUserAsync(userId, adminId.Value);
+                if (!success)
+                {
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Người dùng với ID: {userId} đã bị vô hiệu hóa hoặc không thể vô hiệu hóa."));
+                }
+
+                return Ok(ApiResponse<object>.SuccessResponse(
+                    new { 
+                        userId = userId,
+                        username = targetUser.Username,
+                        disabledBy = adminId.Value,
+                        disabledAt = DateTime.UtcNow
+                    }, 
+                    $"Người dùng '{targetUser.Username}' đã được vô hiệu hóa thành công."
+                ));
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[CRITICAL ERROR] DeleteUser: {ex.Message}");
+                Console.WriteLine($"[STACK TRACE] {ex.StackTrace}");
                 return StatusCode(HttpStatusCodes.InternalServerError,
-                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi xóa người dùng."));
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi vô hiệu hóa người dùng."));
             }
         }
 
@@ -342,7 +381,7 @@ namespace ModernIssues.Controllers
         /// </summary>
         /// <param name="userId">ID của người dùng cần kích hoạt.</param>
         /// <response code="200">Kích hoạt thành công.</response>
-        /// <response code="404">Không tìm thấy người dùng.</response>
+        /// <response code="404">Không tìm thấy người dùng hoặc người dùng đã được kích hoạt.</response>
         /// <response code="401">Chưa đăng nhập.</response>
         /// <response code="403">Không có quyền admin.</response>
         [HttpPut("{userId}/activate")]
@@ -365,18 +404,43 @@ namespace ModernIssues.Controllers
                     ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được kích hoạt người dùng."));
             }
 
+            // Lấy adminId từ người dùng đang đăng nhập
+            var adminId = AuthHelper.GetCurrentUserId(HttpContext);
+            if (!adminId.HasValue)
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Không thể xác định người dùng hiện tại."));
+            }
+
             try
             {
-                var success = await _userService.ActivateUserAsync(userId);
-                if (!success)
+                // Kiểm tra xem user tồn tại không
+                var targetUser = await _userService.GetUserByIdAsync(userId);
+                if (targetUser == null)
                 {
                     return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy người dùng với ID: {userId}."));
                 }
-                return Ok(ApiResponse<object>.SuccessResponse(new { userId }, $"Người dùng {userId} đã được kích hoạt thành công."));
+
+                // Thực hiện kích hoạt
+                var success = await _userService.ActivateUserAsync(userId, adminId.Value);
+                if (!success)
+                {
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Người dùng với ID: {userId} đã được kích hoạt hoặc không thể kích hoạt."));
+                }
+
+                return Ok(ApiResponse<object>.SuccessResponse(
+                    new { 
+                        userId = userId,
+                        username = targetUser.Username,
+                        activatedBy = adminId.Value,
+                        activatedAt = DateTime.UtcNow
+                    }, 
+                    $"Người dùng '{targetUser.Username}' đã được kích hoạt thành công."
+                ));
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[CRITICAL ERROR] ActivateUser: {ex.Message}");
+                Console.WriteLine($"[STACK TRACE] {ex.StackTrace}");
                 return StatusCode(HttpStatusCodes.InternalServerError,
                     ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi kích hoạt người dùng."));
             }
@@ -717,4 +781,5 @@ namespace ModernIssues.Controllers
             }
         }
     }
+}
 }
