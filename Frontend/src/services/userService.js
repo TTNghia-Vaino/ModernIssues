@@ -158,10 +158,20 @@ export const deleteUser = async (userId) => {
  * Get list of all users (Admin only)
  * Endpoint: GET /v1/User/ListUsers
  * Response format: { success: boolean, message: string, data: string|array, errors: string[] }
- * @returns {Promise} - List of users
+ * @param {object} params - Optional pagination parameters { page, pageSize }
+ * @returns {Promise} - List of users or paginated response
  */
-export const listUsers = async () => {
-  const response = await apiGet('User/ListUsers');
+export const listUsers = async (params = {}) => {
+  // Build query string if pagination params provided
+  let endpoint = 'User/ListUsers';
+  if (params.page || params.pageSize) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page);
+    if (params.pageSize) queryParams.append('pageSize', params.pageSize);
+    endpoint += `?${queryParams.toString()}`;
+  }
+  
+  const response = await apiGet(endpoint);
   
   // Handle Swagger response format
   if (response && typeof response === 'object') {
@@ -173,9 +183,46 @@ export const listUsers = async () => {
     if (response.data && typeof response.data === 'string') {
       try {
         const parsed = JSON.parse(response.data);
-        return Array.isArray(parsed) ? parsed : parsed;
+        return Array.isArray(parsed) ? parsed : parsed.data || parsed;
       } catch (e) {
         console.warn('[UserService] Failed to parse response.data as JSON:', e);
+        return [];
+      }
+    }
+    
+    // If data is array or object
+    if (response.data) {
+      return Array.isArray(response.data) ? response.data : response.data;
+    }
+  }
+  
+  // Fallback
+  return Array.isArray(response) ? response : [];
+};
+
+/**
+ * Search users by name, email or phone (Admin only)
+ * Endpoint: GET /v1/User/search?keyword={keyword}
+ * Response format: { success: boolean, message: string, data: string|array, errors: string[] }
+ * @param {string} keyword - Search keyword
+ * @returns {Promise} - List of matching users
+ */
+export const searchUsers = async (keyword) => {
+  const response = await apiGet(`User/search?keyword=${encodeURIComponent(keyword)}`);
+  
+  // Handle Swagger response format
+  if (response && typeof response === 'object') {
+    if (response.success === false) {
+      throw new Error(response.message || 'Failed to search users');
+    }
+    
+    // If data is string, try to parse
+    if (response.data && typeof response.data === 'string') {
+      try {
+        const parsed = JSON.parse(response.data);
+        return Array.isArray(parsed) ? parsed : parsed;
+      } catch (e) {
+        console.warn('[UserService] Failed to parse search results:', e);
         return [];
       }
     }

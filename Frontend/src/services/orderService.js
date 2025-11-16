@@ -58,9 +58,23 @@ export const getOrders = async (params = {}) => {
  * Get order by ID
  * Response format: { success: boolean, message: string, data: object|string, errors: string[] }
  * @param {string|number} orderId - Order ID
- * @returns {Promise} - Order data
+ * @returns {Promise} - Order data with order_details
  */
 export const getOrderById = async (orderId) => {
+  const response = await apiGet(`Order/GetOrderById/${orderId}`);
+  return handleResponse(response);
+};
+
+/**
+ * Get order details (products in an order)
+ * Response format: { 
+ *   order: { order_id, order_date, status, total_amount, created_at, updated_at },
+ *   order_details: [{ product_id, product_name, price_at_purchase, quantity, image_url }]
+ * }
+ * @param {string|number} orderId - Order ID
+ * @returns {Promise} - Order details with products
+ */
+export const getOrderDetails = async (orderId) => {
   const response = await apiGet(`Order/GetOrderById/${orderId}`);
   return handleResponse(response);
 };

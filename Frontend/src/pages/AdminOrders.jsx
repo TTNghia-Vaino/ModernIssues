@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import './AdminOrders.css';
 
 const AdminOrders = () => {
-  const { error: showError } = useNotification();
+  const { error: showError, success: showSuccess } = useNotification();
   const { isInTokenGracePeriod } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -43,7 +43,10 @@ const AdminOrders = () => {
   const loadOrders = async () => {
     try {
       setLoading(true);
+      console.log('[AdminOrders] Loading orders from API...');
       const ordersData = await orderService.getOrders();
+      
+      console.log('[AdminOrders] Raw API response:', ordersData);
       
       // Handle different response formats
       let ordersArray = [];
@@ -55,12 +58,68 @@ const AdminOrders = () => {
           // For now, set empty array - backend should return full order objects
           ordersArray = [];
         } else {
-          ordersArray = ordersData;
+          // Map snake_case API fields to camelCase frontend format
+          ordersArray = ordersData.map(order => ({
+            id: order.order_id,
+            orderId: order.order_id,
+            orderDate: order.order_date,
+            date: order.order_date,
+            createdAt: order.created_at,
+            updatedAt: order.updated_at,
+            status: order.status,
+            total: order.total_amount,
+            totalPrice: order.total_amount,
+            amount: order.total_amount,
+            // Map customer info if available
+            customerName: order.customer_name || order.fullName || order.full_name,
+            fullName: order.customer_name || order.fullName || order.full_name,
+            customerEmail: order.customer_email || order.email,
+            email: order.customer_email || order.email,
+            customerPhone: order.customer_phone || order.phone,
+            phone: order.customer_phone || order.phone,
+            // Map address if available
+            shippingAddress: order.shipping_address || order.address,
+            address: order.shipping_address || order.address,
+            // Map items if available
+            items: order.items || order.order_items || order.orderItems || [],
+            orderItems: order.items || order.order_items || order.orderItems || [],
+            // Payment info
+            paymentMethod: order.payment_method || order.paymentMethod,
+            // Keep original data
+            ...order
+          }));
         }
       } else if (ordersData && typeof ordersData === 'object') {
-        ordersArray = ordersData.data || ordersData.items || ordersData.orders || [];
+        // Handle wrapped response { success, data, ... }
+        const rawArray = ordersData.data || ordersData.items || ordersData.orders || [];
+        ordersArray = rawArray.map(order => ({
+          id: order.order_id,
+          orderId: order.order_id,
+          orderDate: order.order_date,
+          date: order.order_date,
+          createdAt: order.created_at,
+          updatedAt: order.updated_at,
+          status: order.status,
+          total: order.total_amount,
+          totalPrice: order.total_amount,
+          amount: order.total_amount,
+          customerName: order.customer_name || order.fullName || order.full_name,
+          fullName: order.customer_name || order.fullName || order.full_name,
+          customerEmail: order.customer_email || order.email,
+          email: order.customer_email || order.email,
+          customerPhone: order.customer_phone || order.phone,
+          phone: order.customer_phone || order.phone,
+          shippingAddress: order.shipping_address || order.address,
+          address: order.shipping_address || order.address,
+          items: order.items || order.order_items || order.orderItems || [],
+          orderItems: order.items || order.order_items || order.orderItems || [],
+          paymentMethod: order.payment_method || order.paymentMethod,
+          ...order
+        }));
       }
       
+      console.log('[AdminOrders] Parsed orders array:', ordersArray.length, 'orders');
+      console.log('[AdminOrders] First order:', ordersArray[0]);
       setOrders(ordersArray);
     } catch (error) {
       console.error('[AdminOrders] Error loading orders:', error);
@@ -77,7 +136,7 @@ const AdminOrders = () => {
         }
         return;
       } else {
-        console.error('Failed to load orders:', error.message || error);
+        showError('Lỗi khi tải danh sách đơn hàng: ' + (error.message || 'Lỗi không xác định'));
       }
       setOrders([]);
     } finally {
@@ -85,9 +144,44 @@ const AdminOrders = () => {
     }
   };
 
-  const handleViewDetails = (order) => {
-    setSelectedOrder(order);
-    setShowModal(true);
+  const handleViewDetails = async (order) => {
+    try {
+      setLoading(true);
+      console.log('[AdminOrders] Loading order details for order:', order.id || order.orderId);
+      
+      // Fetch full order details from API
+      const orderId = order.id || order.orderId;
+      const orderDetails = await orderService.getOrderDetails(orderId);
+      
+      console.log('[AdminOrders] Order details response:', orderDetails);
+      
+      // Map API response to component format
+      const mappedOrder = {
+        ...order,
+        order: orderDetails.order || {},
+        orderDetails: orderDetails.order_details || [],
+        items: (orderDetails.order_details || []).map(item => ({
+          id: item.product_id,
+          productId: item.product_id,
+          name: item.product_name,
+          productName: item.product_name,
+          price: item.price_at_purchase,
+          priceAtPurchase: item.price_at_purchase,
+          quantity: item.quantity,
+          image: item.image_url,
+          imageUrl: item.image_url
+        }))
+      };
+      
+      console.log('[AdminOrders] Mapped order:', mappedOrder);
+      setSelectedOrder(mappedOrder);
+      setShowModal(true);
+    } catch (error) {
+      console.error('[AdminOrders] Error loading order details:', error);
+      showError('Lỗi khi tải chi tiết đơn hàng: ' + (error.message || 'Lỗi không xác định'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleStatusChange = async (orderId, newStatus) => {
@@ -108,6 +202,7 @@ const AdminOrders = () => {
       // Call API to update order status
       await orderService.updateOrderStatus(orderId, newStatus);
       console.log(`[AdminOrders] Order ${orderId} status changed to ${newStatus}`);
+      showSuccess(`Cập nhật trạng thái đơn hàng #${orderId} thành công!`);
     } catch (error) {
       console.error('[AdminOrders] Error updating order status:', error);
       // Revert optimistic update on error
@@ -143,7 +238,23 @@ const AdminOrders = () => {
       case 'credit_card': return 'Thẻ tín dụng';
       case 'bank_transfer': return 'Chuyển khoản';
       case 'cash': return 'Tiền mặt';
-      default: return method;
+      default: return method || 'N/A';
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('vi-VN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return dateString;
     }
   };
 
@@ -165,6 +276,15 @@ const AdminOrders = () => {
 
   return (
     <div className="admin-orders">
+      {loading && orders.length === 0 && (
+        <div className="loading-overlay">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <p>Đang tải danh sách đơn hàng...</p>
+          </div>
+        </div>
+      )}
+      
       <div className="page-header">
         <h2>Quản lý đơn hàng</h2>
       </div>
@@ -198,39 +318,39 @@ const AdminOrders = () => {
         <div className="table-header">
           <div className="col-id">Mã đơn hàng</div>
           <div className="col-customer">Khách hàng</div>
-          <div className="col-items">Sản phẩm</div>
           <div className="col-total">Tổng tiền</div>
           <div className="col-status">Trạng thái</div>
           <div className="col-date">Ngày đặt</div>
           <div className="col-actions">Thao tác</div>
         </div>
 
-        {filteredOrders.map((order) => {
+        {loading && orders.length > 0 && (
+          <div className="loading-overlay-inline">
+            <div className="spinner"></div>
+            <p>Đang cập nhật...</p>
+          </div>
+        )}
+
+        {!loading && filteredOrders.map((order) => {
           const orderId = order.id || order.orderId || 'N/A';
-          const customerName = order.customerName || order.fullName || order.name || 'N/A';
+          const customerName = order.customerName || order.fullName || order.name || 'Khách hàng';
           const customerEmail = order.customerEmail || order.email || 'N/A';
           const items = order.items || order.orderItems || [];
           const total = order.total || order.totalPrice || order.amount || 0;
-          const orderDate = order.orderDate || order.createdAt || order.date || 'N/A';
+          const orderDate = formatDate(order.orderDate || order.createdAt || order.date);
           const status = order.status || 'pending';
           
           return (
-            <div key={orderId} className="table-row">
+            <div 
+              key={orderId} 
+              className="table-row"
+              onClick={() => handleViewDetails(order)}
+              style={{ cursor: 'pointer' }}
+            >
               <div className="col-id">{orderId}</div>
               <div className="col-customer">
                 <div className="customer-name">{customerName}</div>
                 <div className="customer-email">{customerEmail}</div>
-              </div>
-              <div className="col-items">
-                {items.length > 0 ? (
-                  items.map((item, index) => (
-                    <div key={index} className="item-info">
-                      {item.name || item.productName} x{item.quantity || 1}
-                    </div>
-                  ))
-                ) : (
-                  <div className="item-info">Không có sản phẩm</div>
-                )}
               </div>
               <div className="col-total">{typeof total === 'number' ? total.toLocaleString() : total} VNĐ</div>
               <div className="col-status">
@@ -239,13 +359,7 @@ const AdminOrders = () => {
                 </span>
               </div>
               <div className="col-date">{orderDate}</div>
-              <div className="col-actions">
-                <button 
-                  className="view-btn"
-                  onClick={() => handleViewDetails(order)}
-                >
-                  👁️
-                </button>
+              <div className="col-actions" onClick={(e) => e.stopPropagation()}>
                 <select 
                   className="status-select"
                   value={status}
@@ -262,7 +376,13 @@ const AdminOrders = () => {
         })}
       </div>
 
-      {filteredOrders.length === 0 && (
+      {!loading && filteredOrders.length === 0 && orders.length === 0 && (
+        <div className="no-results">
+          <p>Chưa có đơn hàng nào.</p>
+        </div>
+      )}
+      
+      {!loading && filteredOrders.length === 0 && orders.length > 0 && (
         <div className="no-results">
           <p>Không tìm thấy đơn hàng nào phù hợp với bộ lọc.</p>
         </div>
@@ -313,12 +433,25 @@ const AdminOrders = () => {
               <div className="details-section">
                 <h4>Sản phẩm</h4>
                 <div className="items-list">
-                  {(selectedOrder.items || selectedOrder.orderItems || []).map((item, index) => (
+                  {(selectedOrder.items || selectedOrder.orderItems || selectedOrder.orderDetails || []).map((item, index) => (
                     <div key={index} className="item-row">
-                      <div className="item-name">{item.name || item.productName || 'Sản phẩm'}</div>
-                      <div className="item-quantity">x{item.quantity || 1}</div>
-                      <div className="item-price">
-                        {typeof item.price === 'number' ? item.price.toLocaleString() : item.price || '0'} VNĐ
+                      <img 
+                        src={item.image || item.imageUrl || '/placeholder.png'} 
+                        alt={item.name || item.productName || 'Product'} 
+                        className="item-image"
+                        onError={(e) => { e.target.src = '/placeholder.png' }}
+                      />
+                      <div className="item-info">
+                        <div className="item-name">{item.name || item.productName || 'Sản phẩm'}</div>
+                        <div className="item-meta">
+                          <span className="item-quantity">SL: {item.quantity || 1}</span>
+                          <span className="item-price">
+                            {(item.price || item.priceAtPurchase || 0).toLocaleString()} VNĐ
+                          </span>
+                        </div>
+                      </div>
+                      <div className="item-total">
+                        {((item.price || item.priceAtPurchase || 0) * (item.quantity || 1)).toLocaleString()} VNĐ
                       </div>
                     </div>
                   ))}
@@ -328,7 +461,8 @@ const AdminOrders = () => {
                     Tổng cộng: {
                       typeof selectedOrder.total === 'number' 
                         ? selectedOrder.total.toLocaleString() 
-                        : (selectedOrder.totalPrice || selectedOrder.amount || 0).toLocaleString()
+                        : (selectedOrder.totalPrice || selectedOrder.amount || 
+                           (selectedOrder.order && selectedOrder.order.total_amount) || 0).toLocaleString()
                     } VNĐ
                   </strong>
                 </div>
@@ -349,12 +483,12 @@ const AdminOrders = () => {
                   </div>
                   <div className="detail-item">
                     <label>Ngày đặt hàng:</label>
-                    <span>{selectedOrder.orderDate || selectedOrder.createdAt || selectedOrder.date || 'N/A'}</span>
+                    <span>{formatDate(selectedOrder.orderDate || selectedOrder.createdAt || selectedOrder.date)}</span>
                   </div>
                   {selectedOrder.deliveryDate && (
                     <div className="detail-item">
                       <label>Ngày giao hàng:</label>
-                      <span>{selectedOrder.deliveryDate}</span>
+                      <span>{formatDate(selectedOrder.deliveryDate)}</span>
                     </div>
                   )}
                 </div>

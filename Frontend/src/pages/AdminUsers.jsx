@@ -7,6 +7,7 @@ const AdminUsers = () => {
   const { isInTokenGracePeriod } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [totalUsers, setTotalUsers] = useState(0); // Tổng số users từ server
 
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -23,6 +24,13 @@ const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [loadingUsers, setLoadingUsers] = useState({});
+  const [dropdownOpen, setDropdownOpen] = useState(null);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10); // mặc định 10 người / trang
+  // Checkbox selection state
+  const [selectedUsers, setSelectedUsers] = useState(new Set());
 
   // Load users from API on mount, but delay if in grace period
   useEffect(() => {
@@ -49,12 +57,39 @@ const AdminUsers = () => {
     };
   }, []); // Only run on mount
 
-  const loadUsers = async () => {
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setDropdownOpen(null);
+    };
+
+    if (dropdownOpen) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [dropdownOpen]);
+
+  const loadUsers = async (page = currentPage, size = pageSize) => {
     try {
       setLoading(true);
+      
+      // Note: Nếu backend chưa hỗ trợ pagination, API sẽ trả về toàn bộ dữ liệu
+      // và chúng ta vẫn filter ở client-side
       const usersData = await userService.listUsers();
-      const usersArray = Array.isArray(usersData) ? usersData : (usersData.data || usersData.items || []);
-      setUsers(usersArray);
+      
+      // Handle different response formats
+      let usersArray = [];
+      if (Array.isArray(usersData)) {
+        usersArray = usersData;
+      } else if (usersData && typeof usersData === 'object') {
+        usersArray = usersData.data || usersData.items || usersData.users || [];
+      }
+      
+      setUsers(usersArray || []);
+      setTotalUsers(usersArray.length); // Cập nhật tổng số
     } catch (error) {
       console.error('Error loading users:', error);
       
@@ -74,6 +109,8 @@ const AdminUsers = () => {
       }
       
       showNotification('Lỗi khi tải danh sách người dùng: ' + (error.message || 'Lỗi không xác định'), 'error');
+      setUsers([]);
+      setTotalUsers(0);
     } finally {
       setLoading(false);
     }
@@ -89,11 +126,11 @@ const AdminUsers = () => {
   const handleEdit = (user) => {
     setEditingUser(user);
     setFormData({
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      status: user.status
+      name: user.username || user.name || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      role: user.role || 'customer',
+      status: user.isDisabled ? 'inactive' : 'active'
     });
     setErrors({});
     setShowModal(true);
@@ -109,17 +146,26 @@ const AdminUsers = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Bạn có chắc chắn muốn vô hiệu hóa người dùng này? (Soft delete)')) {
       try {
-        setLoading(true);
-        await userService.deleteUser(id);
-        setUsers(users.map(user => 
-          user.id === id ? { ...user, status: 'inactive' } : user
-        ));
+        setLoadingUsers(prev => ({ ...prev, [id]: true }));
+        console.log('[AdminUsers] Deleting user:', id);
+        const response = await userService.deleteUser(id);
+        console.log('[AdminUsers] Delete response:', response);
+        
+        // Reload list from server to ensure sync
+        await loadUsers();
         showNotification('Vô hiệu hóa người dùng thành công!');
       } catch (error) {
-        console.error('Error deleting user:', error);
-        showNotification('Lỗi khi vô hiệu hóa người dùng: ' + error.message, 'error');
+        console.error('[AdminUsers] Error deleting user:', error);
+        
+        // If user not found (404), reload list to remove from UI
+        if (error.message && error.message.includes('Không tìm thấy người dùng')) {
+          showNotification('Người dùng không tồn tại hoặc đã bị xóa. Đang làm mới danh sách...', 'error');
+          await loadUsers();
+        } else {
+          showNotification('Lỗi khi vô hiệu hóa người dùng: ' + error.message, 'error');
+        }
       } finally {
-        setLoading(false);
+        setLoadingUsers(prev => ({ ...prev, [id]: false }));
       }
     }
   };
@@ -127,17 +173,19 @@ const AdminUsers = () => {
   const handleActivate = async (id) => {
     if (window.confirm('Bạn có chắc chắn muốn kích hoạt lại người dùng này?')) {
       try {
-        setLoading(true);
-        await userService.activateUser(id);
-        setUsers(users.map(user => 
-          user.id === id ? { ...user, status: 'active' } : user
-        ));
+        setLoadingUsers(prev => ({ ...prev, [id]: true }));
+        console.log('[AdminUsers] Activating user:', id);
+        const response = await userService.activateUser(id);
+        console.log('[AdminUsers] Activate response:', response);
+        
+        // Reload list from server to ensure sync
+        await loadUsers();
         showNotification('Kích hoạt người dùng thành công!');
       } catch (error) {
-        console.error('Error activating user:', error);
+        console.error('[AdminUsers] Error activating user:', error);
         showNotification('Lỗi khi kích hoạt người dùng: ' + error.message, 'error');
       } finally {
-        setLoading(false);
+        setLoadingUsers(prev => ({ ...prev, [id]: false }));
       }
     }
   };
@@ -238,22 +286,93 @@ const AdminUsers = () => {
   };
 
   const getStatusText = (status) => {
-    return status === 'active' ? 'Hoạt động' : 'Không hoạt động';
+    return status === 'active' ? 'Hoạt động' : 'Ngừng hoạt động';
   };
 
   const getRoleText = (role) => {
     return role === 'admin' ? 'Quản trị viên' : 'Khách hàng';
   };
 
+  // Avatar màu sắc theo thiết kế: dùng màu tím thống nhất
+  const getAvatarColor = () => 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)';
+
   // Lọc dữ liệu
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!user) return false;
+    
+    // Map backend properties to expected format
+    const name = user.username || user.fullName || user.FullName || user.firstName || '';
+    const email = user.email || user.Email || user.emailAddress || '';
+    const id = user.userId || user.id || '';
+    
+    if (!name || !email || !id) {
+      return false;
+    }
+    
+    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = filterRole === 'all' || user.role === filterRole;
-    const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
+    
+    // Status filter: isDisabled true = vô hiệu hóa, false = hoạt động
+    let matchesStatus = true;
+    if (filterStatus === 'active') {
+      matchesStatus = user.isDisabled === false;
+    } else if (filterStatus === 'inactive') {
+      matchesStatus = user.isDisabled === true;
+    }
     
     return matchesSearch && matchesRole && matchesStatus;
   });
+
+  // Tính toán phân trang
+  const totalPages = Math.ceil(filteredUsers.length / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Checkbox handlers (after paginatedUsers is defined)
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      const allIds = paginatedUsers.map(u => u.userId || u.id);
+      setSelectedUsers(new Set(allIds));
+    } else {
+      setSelectedUsers(new Set());
+    }
+  };
+
+  const handleSelectOne = (userId) => {
+    const newSelected = new Set(selectedUsers);
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId);
+    } else {
+      newSelected.add(userId);
+    }
+    setSelectedUsers(newSelected);
+  };
+
+  const isAllSelected = paginatedUsers.length > 0 && paginatedUsers.every(u => selectedUsers.has(u.userId || u.id));
+  const isSomeSelected = paginatedUsers.some(u => selectedUsers.has(u.userId || u.id)) && !isAllSelected;
+
+  // Load lại dữ liệu khi thay đổi trang hoặc kích thước trang
+  // (chỉ load nếu không phải lần đầu mount vì đã có useEffect load ban đầu)
+  useEffect(() => {
+    // Skip nếu users chưa được load lần đầu
+    if (users.length > 0 || totalUsers > 0) {
+      loadUsers(currentPage, pageSize);
+    }
+  }, [currentPage]); // Chỉ load khi đổi trang
+
+  // Reset trang khi thay đổi bộ lọc hoặc kích thước trang
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedUsers(new Set()); // Clear selection on filter change
+  }, [searchTerm, filterRole, filterStatus, pageSize]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
 
   return (
     <div className="admin-users">
@@ -263,38 +382,44 @@ const AdminUsers = () => {
         </div>
       )}
       
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <p>Đang tải danh sách người dùng...</p>
+          </div>
+        </div>
+      )}
+      
       <div className="page-header">
-        <h2>Quản lý người dùng</h2>
-        <button className="add-btn" onClick={handleAddNew}>
-          ➕ Thêm người dùng mới
+        <div className="page-titles">
+          <h2>Quản lý người dùng</h2>
+          <p className="page-sub">Quản lý tài khoản người dùng</p>
+        </div>
+        <button className="add-btn" onClick={handleAddNew} disabled={loading}>
+          <span className="add-icon">➕</span> Thêm người dùng mới
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="filters-section">
-        <div className="search-box">
+      {/* Thanh bộ lọc dạng bar */}
+      <div className="filters-bar">
+        <div className="filter-item search">
           <input
             type="text"
-            placeholder="Tìm kiếm theo tên hoặc email..."
+            placeholder="🔍 Tìm kiếm theo tên hoặc email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        
-        <div className="filter-controls">
-          <select 
-            value={filterRole} 
-            onChange={(e) => setFilterRole(e.target.value)}
-          >
+        <div className="filter-item">
+          <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
             <option value="all">Tất cả vai trò</option>
             <option value="customer">Khách hàng</option>
             <option value="admin">Quản trị viên</option>
           </select>
-          
-          <select 
-            value={filterStatus} 
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
+        </div>
+        <div className="filter-item">
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Hoạt động</option>
             <option value="inactive">Không hoạt động</option>
@@ -302,71 +427,181 @@ const AdminUsers = () => {
         </div>
       </div>
 
-      <div className="users-table">
-        <div className="table-header">
-          <div className="col-id">ID</div>
-          <div className="col-name">Tên</div>
-          <div className="col-email">Email</div>
-          <div className="col-phone">Số điện thoại</div>
-          <div className="col-role">Vai trò</div>
-          <div className="col-status">Trạng thái</div>
-          <div className="col-orders">Đơn hàng</div>
-          <div className="col-spent">Tổng chi</div>
-          <div className="col-actions">Thao tác</div>
-        </div>
-
-        {filteredUsers.map((user) => (
-          <div key={user.id} className="table-row">
-            <div className="col-id">{user.id}</div>
-            <div className="col-name">{user.name}</div>
-            <div className="col-email">{user.email}</div>
-            <div className="col-phone">{user.phone}</div>
-            <div className="col-role">
-              <span className={`role-badge ${user.role === 'admin' ? 'role-admin' : 'role-customer'}`}>
-                {getRoleText(user.role)}
-              </span>
-            </div>
-            <div className="col-status">
-              <span className={`status-badge ${getStatusClass(user.status)}`}>
-                {getStatusText(user.status)}
-              </span>
-            </div>
-            <div className="col-orders">{user.orderCount}</div>
-            <div className="col-spent">{user.totalSpent.toLocaleString()} VNĐ</div>
-            <div className="col-actions">
-              <button 
-                className="edit-btn"
-                onClick={() => handleEdit(user)}
-                title="Chỉnh sửa"
-              >
-                ✏️
-              </button>
-              {user.status === 'active' ? (
-                <button 
-                  className="delete-btn"
-                  onClick={() => handleDelete(user.id)}
-                  title="Vô hiệu hóa"
-                >
-                  🗑️
-                </button>
-              ) : (
-                <button 
-                  className="activate-btn"
-                  onClick={() => handleActivate(user.id)}
-                  title="Kích hoạt"
-                  style={{ backgroundColor: '#2ecc71', color: 'white' }}
-                >
-                  ✓
-                </button>
-              )}
-            </div>
+      <div className="data-table-container">
+        {loading && users.length > 0 ? (
+          <div className="loading-overlay-inline">
+            <div className="spinner"></div>
+            <p>Đang tải trang {currentPage}...</p>
           </div>
-        ))}
+        ) : filteredUsers.length > 0 ? (
+          <div className="data-table">
+            <table className="users-table">
+              <thead>
+                <tr>
+                  <th className="col-checkbox">
+                    <input 
+                      type="checkbox" 
+                      checked={isAllSelected}
+                      ref={input => {
+                        if (input) input.indeterminate = isSomeSelected;
+                      }}
+                      onChange={handleSelectAll}
+                      aria-label="Select all users"
+                    />
+                  </th>
+                  <th className="col-id">ID</th>
+                  <th className="col-user">Người dùng</th>
+                  <th className="col-role">Vai trò</th>
+                  <th className="col-status">Trạng thái</th>
+                  <th className="col-date">Ngày tạo</th>
+                  <th className="col-actions">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedUsers.map((user) => (
+                  <tr key={user.userId || user.id}>
+                    <td className="col-checkbox">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedUsers.has(user.userId || user.id)}
+                        onChange={() => handleSelectOne(user.userId || user.id)}
+                        aria-label={`Select ${user.username || user.name}`}
+                      />
+                    </td>
+                    <td className="col-id">
+                      <span className="id-badge">{user.userId || user.id}</span>
+                    </td>
+                    <td className="col-user">
+                      <div className="user-cell">
+                        <div className="avatar-badge">
+                          {(user.username || user.name || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="user-details">
+                          <p className="user-name" title={user.username || user.name}>{user.username || user.name}</p>
+                          <p className="user-email" title={user.email}>{user.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="col-role">
+                      <span className={`role-badge ${user.role === 'admin' ? 'role-admin' : 'role-customer'}`}>
+                        {getRoleText(user.role)}
+                      </span>
+                    </td>
+                    <td className="col-status">
+                      <div className={`status-indicator ${user.isDisabled ? 'status-inactive' : 'status-active'}`}>
+                        <span className={`status-dot ${user.isDisabled ? 'status-inactive' : 'status-active'}`}></span>
+                        <span className="status-text">{getStatusText(user.isDisabled ? 'inactive' : 'active')}</span>
+                      </div>
+                    </td>
+                    <td className="col-date">
+                      {new Date().toLocaleDateString('vi-VN')}
+                    </td>
+                    <td className="col-actions">
+                      <div style={{ position: 'relative' }}>
+                        <button
+                          className="btn-menu"
+                          title="Tùy chọn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDropdownOpen(dropdownOpen === (user.userId || user.id) ? null : (user.userId || user.id));
+                          }}
+                        >
+                          ⋮
+                        </button>
+                        {dropdownOpen === (user.userId || user.id) && (
+                          <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              className="dropdown-item edit"
+                              onClick={() => {
+                                handleEdit(user);
+                                setDropdownOpen(null);
+                              }}
+                            >
+                              ✏️ Chỉnh sửa
+                            </button>
+                            <button
+                              className="dropdown-item delete"
+                              onClick={() => {
+                                if (!user.isDisabled) {
+                                  handleDelete(user.userId || user.id);
+                                } else {
+                                  handleActivate(user.userId || user.id);
+                                }
+                                setDropdownOpen(null);
+                              }}
+                            >
+                              {!user.isDisabled ? '🗑️ Vô hiệu hóa' : '✅ Kích hoạt'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="no-results">
+            <p>Không tìm thấy người dùng nào phù hợp với bộ lọc.</p>
+          </div>
+        )}
       </div>
 
-      {filteredUsers.length === 0 && (
-        <div className="no-results">
-          <p>Không tìm thấy người dùng nào phù hợp với bộ lọc.</p>
+      {/* Pagination Controls */}
+      {filteredUsers.length > 0 && (
+        <div className="pagination-bar">
+          <div className="pagination-info">
+            Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredUsers.length)} / {filteredUsers.length} người dùng
+          </div>
+          
+          <div className="pagination-controls">
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+            >
+              «
+            </button>
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+            >
+              ‹
+            </button>
+            
+            <span className="page-indicator">
+              Trang {currentPage} / {totalPages}
+            </span>
+            
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+            >
+              ›
+            </button>
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              »
+            </button>
+          </div>
+          
+          <div className="page-size-selector">
+            <label>Hiển thị: </label>
+            <select value={pageSize} onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
         </div>
       )}
 

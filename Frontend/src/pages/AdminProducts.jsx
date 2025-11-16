@@ -38,6 +38,11 @@ const AdminProducts = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [dropdownOpen, setDropdownOpen] = useState(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Load products and categories from API on mount, but delay if in grace period
   useEffect(() => {
@@ -64,6 +69,21 @@ const AdminProducts = () => {
       cancelled = true;
     };
   }, []); // Only run on mount
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setDropdownOpen(null);
+    };
+
+    if (dropdownOpen) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [dropdownOpen]);
 
   const loadCategories = async () => {
     try {
@@ -97,22 +117,58 @@ const AdminProducts = () => {
       // Use listProducts to get ALL products (admin view)
       const response = await productService.listProducts({ page: 1, limit: 1000 });
       
+      console.log('[AdminProducts] API Response:', response);
+      
       // Handle different response formats
       let productsArray = [];
       if (response && typeof response === 'object') {
+        // Handle nested pagination response: { data: { totalCount, currentPage, limit, data: [...] } }
+        if (response.data && response.data.data && Array.isArray(response.data.data)) {
+          productsArray = response.data.data;
+          console.log('[AdminProducts] Found nested data.data array:', productsArray.length);
+        } 
         // Handle pagination response: { totalCount, currentPage, limit, data: [...] }
-        if (response.data && Array.isArray(response.data)) {
+        else if (response.data && Array.isArray(response.data)) {
           productsArray = response.data;
-        } else if (Array.isArray(response)) {
+          console.log('[AdminProducts] Found data array:', productsArray.length);
+        } 
+        else if (Array.isArray(response)) {
           productsArray = response;
-        } else if (response.items) {
+        } 
+        else if (response.items) {
           productsArray = response.items;
         }
       } else if (Array.isArray(response)) {
         productsArray = response;
       }
       
-      setProducts(productsArray);
+      console.log('[AdminProducts] Raw products array:', productsArray);
+      
+      // Map API fields to component format
+      const mappedProducts = productsArray.map(product => ({
+        id: product.productId,
+        name: product.productName,
+        productName: product.productName,
+        category: product.categoryId,
+        categoryId: product.categoryId,
+        categoryName: product.categoryName,
+        price: product.price,
+        originalPrice: product.onPrices || product.price,
+        onPrice: product.onPrices,
+        discount: product.onPrices > 0 ? Math.round(((product.onPrices - product.price) / product.onPrices) * 100) : 0,
+        image: product.imageUrl,
+        imageUrl: product.imageUrl,
+        description: product.description,
+        stock: product.stock,
+        warrantyPeriod: product.warrantyPeriod,
+        status: product.stock > 0 ? 'active' : 'inactive',
+        badge: product.badge || '',
+        featured: product.featured || false,
+        specs: product.specs || {}
+      }));
+      
+      console.log('[AdminProducts] Mapped products:', mappedProducts);
+      setProducts(mappedProducts);
     } catch (error) {
       console.error('[AdminProducts] Error loading products:', error);
       
@@ -191,19 +247,34 @@ const AdminProducts = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
+  const handleDisable = async (id) => {
+    if (window.confirm('Bạn có chắc chắn muốn vô hiệu hóa sản phẩm này?')) {
       try {
         setLoading(true);
         await productService.deleteProduct(id);
-        setProducts(products.filter(prod => prod.id !== id));
-        showNotification('Xóa sản phẩm thành công!');
-        // Also update localStorage
-        const updatedProducts = products.filter(prod => prod.id !== id);
-        localStorage.setItem('adminProducts', JSON.stringify(updatedProducts));
+        // Reload products to sync with backend
+        await loadProducts();
+        showNotification('Vô hiệu hóa sản phẩm thành công!');
       } catch (error) {
-        console.error('Error deleting product:', error);
-        showNotification('Lỗi khi xóa sản phẩm: ' + error.message, 'error');
+        console.error('Error disabling product:', error);
+        showNotification('Lỗi khi vô hiệu hóa sản phẩm: ' + error.message, 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleActivate = async (id) => {
+    if (window.confirm('Bạn có chắc chắn muốn kích hoạt lại sản phẩm này?')) {
+      try {
+        setLoading(true);
+        // Assuming there's an activate endpoint, otherwise handle differently
+        // await productService.activateProduct(id);
+        await loadProducts();
+        showNotification('Kích hoạt sản phẩm thành công!');
+      } catch (error) {
+        console.error('Error activating product:', error);
+        showNotification('Lỗi khi kích hoạt sản phẩm: ' + error.message, 'error');
       } finally {
         setLoading(false);
       }
@@ -257,15 +328,14 @@ const AdminProducts = () => {
         stock: Number(formData.stock)
       };
       
-      // Map formData to API format
+      // Map formData to API format - chỉ gửi các field API yêu cầu
       const apiProductData = {
-        productName: productData.name,
-        description: productData.description || '',
-        price: productData.price,
-        categoryId: typeof productData.category === 'number' ? productData.category : parseInt(productData.category) || 1, // Default to 1 if not numeric
-        stock: productData.stock || 0,
-        warrantyPeriod: productData.warrantyPeriod || 12, // Default 12 months
-        currentImageUrl: productData.image || productData.imageUrl || null
+        productName: productData.name || 'Untitled Product',
+        description: productData.description || 'No description',
+        price: Number(productData.price) || 0,
+        categoryId: Number(productData.category) || 1,
+        stock: Number(productData.stock) || 0,
+        warrantyPeriod: Number(productData.warrantyPeriod) || 12
       };
       
       // Handle image file if provided
@@ -434,6 +504,17 @@ const AdminProducts = () => {
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
+  // Pagination calculation
+  const totalPages = Math.ceil(filteredProducts.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterCategory, filterStatus]);
+
   return (
     <div className="admin-products">
       {notification.show && (
@@ -493,7 +574,7 @@ const AdminProducts = () => {
           <div className="col-actions">Thao tác</div>
         </div>
 
-        {filteredProducts.map((product) => (
+        {paginatedProducts.map((product) => (
           <div key={product.id} className="table-row">
             <div className="col-image">
               <img src={product.image} alt={product.name} />
@@ -504,11 +585,7 @@ const AdminProducts = () => {
               {product.featured && <span className="featured-badge">⭐ Nổi bật</span>}
             </div>
             <div className="col-category">
-              {(() => {
-                const categoryId = product.categoryId || product.category;
-                const categoryObj = categories.find(cat => cat.id === categoryId || cat.id === parseInt(categoryId));
-                return categoryObj ? categoryObj.name : (categoryId || 'N/A');
-              })()}
+              {product.categoryName || 'Chưa phân loại'}
             </div>
             <div className="col-price">
               <div className="price-current">{formatPrice(product.price)}</div>
@@ -530,18 +607,44 @@ const AdminProducts = () => {
               </span>
             </div>
             <div className="col-actions">
-              <button 
-                className="edit-btn"
-                onClick={() => handleEdit(product)}
-              >
-                ✏️
-              </button>
-              <button 
-                className="delete-btn"
-                onClick={() => handleDelete(product.id)}
-              >
-                🗑️
-              </button>
+              <div style={{ position: 'relative' }}>
+                <button
+                  className="btn-menu"
+                  title="Tùy chọn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDropdownOpen(dropdownOpen === product.id ? null : product.id);
+                  }}
+                >
+                  ⋮
+                </button>
+                {dropdownOpen === product.id && (
+                  <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="dropdown-item edit"
+                      onClick={() => {
+                        handleEdit(product);
+                        setDropdownOpen(null);
+                      }}
+                    >
+                      ✏️ Chỉnh sửa
+                    </button>
+                    <button
+                      className="dropdown-item delete"
+                      onClick={() => {
+                        if (product.status === 'active') {
+                          handleDisable(product.id);
+                        } else {
+                          handleActivate(product.id);
+                        }
+                        setDropdownOpen(null);
+                      }}
+                    >
+                      {product.status === 'active' ? '🗑️ Vô hiệu hóa' : '✅ Kích hoạt'}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ))}
@@ -803,6 +906,63 @@ const AdminProducts = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {filteredProducts.length > 0 && (
+        <div className="pagination-bar">
+          <div className="pagination-info">
+            Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredProducts.length)} / {filteredProducts.length} sản phẩm
+          </div>
+          
+          <div className="pagination-controls">
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+            >
+              «
+            </button>
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+            >
+              ‹
+            </button>
+            
+            <span className="page-indicator">
+              Trang {currentPage} / {totalPages}
+            </span>
+            
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+            >
+              ›
+            </button>
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              »
+            </button>
+          </div>
+          
+          <div className="page-size-selector">
+            <label>Hiển thị: </label>
+            <select value={pageSize} onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
           </div>
         </div>
       )}

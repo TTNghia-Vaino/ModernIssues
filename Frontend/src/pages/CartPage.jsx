@@ -53,8 +53,16 @@ const CartPage = () => {
         </div>
         <div className="container cart-container">
           <h2 className="cart-title">Giỏ hàng</h2>
-        <p>Giỏ hàng trống.</p>
-        <Link to="/products">Tiếp tục mua sắm</Link>
+          <div className="cart-empty-state">
+            <div className="cart-empty-content">
+              <div className="cart-empty-icon">🛒</div>
+              <p className="cart-empty-text">Giỏ hàng của bạn đang trống</p>
+              <p className="cart-empty-subtitle">Hãy khám phá những sản phẩm tuyệt vời của chúng tôi</p>
+              <Link to="/" className="cart-empty-btn">
+                Tiếp tục mua sắm
+              </Link>
+            </div>
+          </div>
         </div>
       </>
     );
@@ -80,16 +88,22 @@ const CartPage = () => {
               return (
                 <div key={`${productId}-${item.capacity || 'default'}`} className="cart-item">
                   {item.image && (
-                    <img src={item.image} alt={item.name} className="cart-item-image" style={{width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', marginRight: '12px'}} />
+                    <img src={item.image} alt={item.name} className="cart-item-image" />
                   )}
-                  <div style={{flex: 1}}>
+                  <div>
                     <Link to={`/products/${productId}`} className="cart-item-link">
                       {item.name}
-                      {item.capacity && <span style={{fontSize: '12px', color: '#666', marginLeft: '8px'}}>({item.capacity})</span>}
+                      {item.capacity && <span style={{fontSize: '12px', color: '#9ca3af', marginLeft: '6px'}}>({item.capacity})</span>}
                     </Link>
                     <div className="cart-price">{formatPrice(item.price)}</div>
                   </div>
-                  <input type="number" min={1} value={item.quantity} onChange={e=>updateQuantity(productId, e.target.value, itemCartId)} className="cart-qty" />
+                  <input 
+                    type="number" 
+                    min={1} 
+                    value={item.quantity} 
+                    onChange={e=>updateQuantity(productId, e.target.value, itemCartId)} 
+                    className="cart-qty" 
+                  />
                   <button onClick={()=>removeItem(productId, itemCartId)} className="cart-remove" title="Xóa">✕</button>
                 </div>
               );
@@ -102,14 +116,15 @@ const CartPage = () => {
           <aside className="cart-summary">
             <div className="summary-grid">
               <div className="summary-row">
-                <span>Tổng số lượng</span>
-                <strong>{totalCount}</strong>
+                <span>Tổng số lượng:</span>
+                <strong>{totalCount} sản phẩm</strong>
               </div>
-              <div className="summary-row">
-                <span>Tạm tính</span>
+              <hr style={{margin: '8px 0', border: 'none', borderTop: '1px solid #e5e7eb'}} />
+              <div className="summary-row" style={{fontSize: '16px'}}>
+                <span>Tạm tính:</span>
                 <strong className="summary-total">{formatPrice(totalPrice)}</strong>
               </div>
-              <button className="pay-btn" onClick={() => navigate('/checkout')}>Thanh toán</button>
+              <button className="pay-btn" onClick={() => navigate('/checkout')}>Thanh toán ngay</button>
               <button onClick={clearCart} className="clear-btn">Xóa giỏ hàng</button>
             </div>
           </aside>
