@@ -78,9 +78,9 @@ namespace ModernIssues.Services
         }
 
         // --- DELETE USER (Admin only) ---
-        public async Task<bool> DeleteUserAsync(int userId)
+        public async Task<bool> DeleteUserAsync(int userId, int adminId)
         {
-            return await _userRepository.DeleteUserAsync(userId, 1); // Giả lập adminId = 1
+            return await _userRepository.DeleteUserAsync(userId, adminId);
         }
 
         // --- GET USER BY ID (For both admin and customer) ---
@@ -96,9 +96,9 @@ namespace ModernIssues.Services
         }
 
         // --- ACTIVATE USER (Admin only) ---
-        public async Task<bool> ActivateUserAsync(int userId)
+        public async Task<bool> ActivateUserAsync(int userId, int adminId)
         {
-            return await _userRepository.ActivateUserAsync(userId, 1); // Giả lập adminId = 1
+            return await _userRepository.ActivateUserAsync(userId, adminId);
         }
     }
 }
