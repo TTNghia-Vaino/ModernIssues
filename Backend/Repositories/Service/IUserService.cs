@@ -11,8 +11,8 @@ namespace ModernIssues.Repositories.Service
         Task<UserDto> UpdateCustomerProfileAsync(int userId, UserUpdateProfileDto profile);
         Task<UserDto> UpdateCustomerAvatarAsync(int userId, string avatarUrl);
         Task<List<UserDto>> GetAllUsersAsync();
-        Task<bool> DeleteUserAsync(int userId);
-        Task<bool> ActivateUserAsync(int userId);
+        Task<bool> DeleteUserAsync(int userId, int adminId);
+        Task<bool> ActivateUserAsync(int userId, int adminId);
         Task<UserDto> GetUserByIdAsync(int userId);
         Task<UserDto> UpdateUserAvatarAsync(int userId, string avatarUrl);
         // Có thể thêm Validate Password, Login, v.v.
