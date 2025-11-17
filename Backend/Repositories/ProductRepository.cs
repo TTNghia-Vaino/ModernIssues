@@ -254,5 +254,21 @@ namespace ModernIssues.Repositories
                 return rowsAffected > 0; // Trả về true nếu có ít nhất một dòng bị ảnh hưởng
             }
         }
+
+        // --- REACTIVATE (Kích hoạt lại sản phẩm) ---
+        public async Task<bool> ReactivateAsync(int productId, int adminId)
+        {
+            var sql = @"
+                UPDATE products
+                SET is_disabled = FALSE, updated_at = CURRENT_TIMESTAMP, updated_by = @AdminId
+                WHERE product_id = @ProductId AND is_disabled = TRUE;
+            ";
+
+            using (var db = Connection)
+            {
+                var rowsAffected = await db.ExecuteAsync(sql, new { ProductId = productId, AdminId = adminId });
+                return rowsAffected > 0; // Trả về true nếu có ít nhất một dòng bị ảnh hưởng
+            }
+        }
     }
 }

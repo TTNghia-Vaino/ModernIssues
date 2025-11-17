@@ -357,7 +357,7 @@ namespace ModernIssues.Controllers
         }
 
         // ============================================
-        // 6. GET ALL LIST PRODUCTS (INCLUDING DISABLED): GET/POST api/v1/Product/GetAllListProducts
+        // 6. GET ALL LIST PRODUCTS (INCLUDING DISABLED): GET api/v1/Product/GetAllListProducts
         // ============================================
         /// <summary>
         /// Lấy danh sách tất cả sản phẩm (bao gồm cả vô hiệu hóa và không vô hiệu hóa). Chỉ dành cho Admin.
@@ -366,7 +366,6 @@ namespace ModernIssues.Controllers
         /// <response code="401">Chưa đăng nhập.</response>
         /// <response code="403">Không có quyền admin.</response>
         [HttpGet("GetAllListProducts")]
-        [HttpPost("GetAllListProducts")]
         [ProducesResponseType(typeof(ApiResponse<List<ProductDto>>), HttpStatusCodes.OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
         [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
@@ -470,6 +469,274 @@ namespace ModernIssues.Controllers
                 Console.WriteLine($"[CRITICAL ERROR] GetProductCountByCategory: {ex.Message}");
                 return StatusCode(HttpStatusCodes.InternalServerError,
                     ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy thống kê số lượng sản phẩm theo danh mục."));
+            }
+        }
+
+        // ============================================
+        // 8. REACTIVATE PRODUCT: PUT api/v1/Product/{id}/reactivate (Admin only)
+        // ============================================
+        /// <summary>
+        /// Kích hoạt lại sản phẩm đã ngưng bán. Chỉ dành cho Admin.
+        /// </summary>
+        /// <param name="id">ID của sản phẩm cần kích hoạt lại.</param>
+        /// <response code="200">Kích hoạt lại sản phẩm thành công.</response>
+        /// <response code="404">Không tìm thấy sản phẩm hoặc sản phẩm đã được kích hoạt.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpPut("{id}/reactivate")]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.NotFound)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
+        public async Task<IActionResult> ReactivateProduct(int id)
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(HttpStatusCodes.Forbidden, 
+                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được kích hoạt lại sản phẩm."));
+            }
+
+            try
+            {
+                var adminId = GetAdminId();
+                
+                // Kiểm tra xem sản phẩm tồn tại không
+                var product = await _productService.GetProductByIdAsync(id);
+                if (product == null)
+                {
+                    // Kiểm tra xem sản phẩm có tồn tại nhưng đã bị vô hiệu hóa không
+                    var allProducts = await (from p in _context.products
+                                            where p.product_id == id
+                                            select p).FirstOrDefaultAsync();
+                    
+                    if (allProducts == null)
+                    {
+                        return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy sản phẩm với ID: {id}."));
+                    }
+                }
+
+                // Thực hiện kích hoạt lại
+                var success = await _productService.ReactivateProductAsync(id, adminId);
+                if (!success)
+                {
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Sản phẩm với ID: {id} đã được kích hoạt hoặc không thể kích hoạt."));
+                }
+
+                // Lấy thông tin sản phẩm sau khi kích hoạt
+                var reactivatedProduct = await _productService.GetProductByIdAsync(id);
+
+                return Ok(ApiResponse<object>.SuccessResponse(
+                    new { 
+                        productId = id,
+                        productName = reactivatedProduct?.ProductName,
+                        reactivatedBy = adminId,
+                        reactivatedAt = DateTime.UtcNow
+                    }, 
+                    $"Sản phẩm {id} đã được kích hoạt lại thành công."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL DB ERROR] during REACTIVATE: {ex.Message}");
+                return StatusCode(HttpStatusCodes.InternalServerError,
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi kích hoạt lại sản phẩm.", new List<string> { ex.Message }));
+            }
+        }
+
+        // ============================================
+        // 9. GET PRODUCT REPORT: GET api/v1/Product/GetProductReport
+        // ============================================
+        /// <summary>
+        /// Lấy báo cáo thống kê số lượng sản phẩm được tạo theo ngày, tháng, quý, năm để vẽ biểu đồ cột. Chỉ dành cho Admin.
+        /// </summary>
+        /// <param name="period">Loại báo cáo: day, month, quarter, year</param>
+        /// <param name="startDate">Ngày bắt đầu (tùy chọn)</param>
+        /// <param name="endDate">Ngày kết thúc (tùy chọn)</param>
+        /// <response code="200">Trả về báo cáo sản phẩm.</response>
+        /// <response code="400">Tham số không hợp lệ.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpGet("GetProductReport")]
+        [ProducesResponseType(typeof(ApiResponse<ReportResponse>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
+        public async Task<IActionResult> GetProductReport(
+            [FromQuery] string period = "day",
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null)
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(HttpStatusCodes.Forbidden, 
+                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xem báo cáo sản phẩm."));
+            }
+
+            try
+            {
+                // Validate period
+                period = period.ToLower();
+                if (period != "day" && period != "month" && period != "quarter" && period != "year")
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Tham số period phải là: day, month, quarter, hoặc year."));
+                }
+
+                // Set default dates if not provided (convert to UTC)
+                if (!endDate.HasValue)
+                {
+                    endDate = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+                }
+                else
+                {
+                    // Ensure UTC
+                    if (endDate.Value.Kind != DateTimeKind.Utc)
+                    {
+                        endDate = DateTime.SpecifyKind(endDate.Value.ToUniversalTime().Date, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        endDate = DateTime.SpecifyKind(endDate.Value.Date, DateTimeKind.Utc);
+                    }
+                }
+
+                if (!startDate.HasValue)
+                {
+                    if (period == "day" || period == "month")
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddDays(-30), DateTimeKind.Utc);
+                    }
+                    else if (period == "quarter")
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddYears(-1), DateTimeKind.Utc);
+                    }
+                    else // year
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddYears(-5), DateTimeKind.Utc);
+                    }
+                }
+                else
+                {
+                    // Ensure UTC
+                    if (startDate.Value.Kind != DateTimeKind.Utc)
+                    {
+                        startDate = DateTime.SpecifyKind(startDate.Value.ToUniversalTime().Date, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        startDate = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+                    }
+                }
+
+                // Validate date range
+                if (startDate.Value > endDate.Value)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc."));
+                }
+
+                // Load data (use UTC dates)
+                var startDateUtc = startDate.Value;
+                var endDateUtc = endDate.Value.AddDays(1).AddTicks(-1); // End of day
+                
+                var products = await _context.products
+                    .Where(p => p.created_at.HasValue &&
+                                p.created_at.Value >= startDateUtc &&
+                                p.created_at.Value <= endDateUtc)
+                    .ToListAsync();
+
+                // Nhóm và tính toán theo period
+                List<ReportDto> reportData = new List<ReportDto>();
+
+                if (period == "day")
+                {
+                    reportData = products
+                        .GroupBy(p => p.created_at!.Value.Date)
+                        .Select(g => new ReportDto
+                        {
+                            Period = g.Key.ToString("yyyy-MM-dd"),
+                            Count = g.Count(),
+                            PeriodStart = g.Key
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+                else if (period == "month")
+                {
+                    reportData = products
+                        .GroupBy(p => new { Year = p.created_at!.Value.Year, Month = p.created_at!.Value.Month })
+                        .Select(g => new ReportDto
+                        {
+                            Period = $"{g.Key.Year}-{g.Key.Month:D2}",
+                            Count = g.Count(),
+                            PeriodStart = new DateTime(g.Key.Year, g.Key.Month, 1)
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+                else if (period == "quarter")
+                {
+                    reportData = products
+                        .GroupBy(p => new
+                        {
+                            Year = p.created_at!.Value.Year,
+                            Quarter = (p.created_at!.Value.Month - 1) / 3 + 1
+                        })
+                        .Select(g => new ReportDto
+                        {
+                            Period = $"Q{g.Key.Quarter} {g.Key.Year}",
+                            Count = g.Count(),
+                            PeriodStart = new DateTime(g.Key.Year, (g.Key.Quarter - 1) * 3 + 1, 1)
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+                else // year
+                {
+                    reportData = products
+                        .GroupBy(p => p.created_at!.Value.Year)
+                        .Select(g => new ReportDto
+                        {
+                            Period = g.Key.ToString(),
+                            Count = g.Count(),
+                            PeriodStart = new DateTime(g.Key, 1, 1)
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+
+                // Tạo response
+                var response = new ReportResponse
+                {
+                    PeriodType = period,
+                    TotalCount = reportData.Sum(x => x.Count),
+                    Data = reportData
+                };
+
+                return Ok(ApiResponse<ReportResponse>.SuccessResponse(
+                    response,
+                    $"Lấy báo cáo sản phẩm theo {period} thành công."));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] GetProductReport: {ex.Message}");
+                return StatusCode(HttpStatusCodes.InternalServerError,
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy báo cáo sản phẩm.", new List<string> { ex.Message }));
             }
         }
     }

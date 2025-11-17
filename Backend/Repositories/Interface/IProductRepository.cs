@@ -17,5 +17,8 @@ namespace ModernIssues.Repositories.Interface
         
         // DELETE (Soft Delete)
         Task<bool> SoftDeleteAsync(int productId, int adminId);
+        
+        // REACTIVATE (Kích hoạt lại sản phẩm)
+        Task<bool> ReactivateAsync(int productId, int adminId);
     }
 }

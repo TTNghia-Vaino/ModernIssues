@@ -80,5 +80,11 @@ namespace ModernIssues.Repositories
         {
             return await _productRepository.SoftDeleteAsync(productId, adminId);
         }
+
+        // === REACTIVATE (Kích hoạt lại sản phẩm) ===
+        public async Task<bool> ReactivateProductAsync(int productId, int adminId)
+        {
+            return await _productRepository.ReactivateAsync(productId, adminId);
+        }
     }
 }
