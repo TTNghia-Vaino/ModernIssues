@@ -392,7 +392,6 @@ namespace ModernIssues.Controllers
                 var products = await (from p in _context.products
                                      join c in _context.categories on p.category_id equals c.category_id into categoryGroup
                                      from c in categoryGroup.DefaultIfEmpty()
-
                                      orderby (p.is_disabled ?? false) ascending, p.product_id descending
                                      select new
                                      {
@@ -441,7 +440,6 @@ namespace ModernIssues.Controllers
                 }).ToList();
 
                 return Ok(ApiResponse<List<ProductDto>>.SuccessResponse(productDtos, "Lấy danh sách tất cả sản phẩm thành công."));
-
             }
             catch (Exception ex)
             {

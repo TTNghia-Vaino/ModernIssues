@@ -4,12 +4,71 @@ import { apiGet, apiPost, apiPut, apiDelete } from './api';
 import { getApiUrl } from '../config/api';
 
 /**
- * Get list of active products
+ * Get all products list (Admin - includes disabled products)
+ * Endpoint: GET /v1/Product/GetAllListProducts
+ * Response format: { success: boolean, message: string, data: array|string, errors: string[] }
+ * @returns {Promise} - List of all products (including disabled)
+ */
+export const getAllListProducts = async () => {
+  try {
+    const response = await apiGet('Product/GetAllListProducts');
+    
+    // Log response
+    if (import.meta.env.DEV) {
+      console.log('[ProductService.getAllListProducts] Response received:', response);
+      console.log('[ProductService.getAllListProducts] Response type:', typeof response);
+    }
+    
+    // Handle Swagger response format
+    if (response && typeof response === 'object') {
+      // Check for error
+      if (response.success === false) {
+        console.error('[ProductService.getAllListProducts] API returned error:', response.message, response.errors);
+        throw new Error(response.message || 'Failed to get all products list');
+      }
+      
+      // Handle nested pagination response: { data: { totalCount, currentPage, limit, data: [...] } }
+      if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      
+      // Handle pagination response: { data: { totalCount, currentPage, limit, data: [...] } }
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      }
+      
+      // If data is string, try to parse
+      if (response.data && typeof response.data === 'string') {
+        try {
+          const parsed = JSON.parse(response.data);
+          return Array.isArray(parsed) ? parsed : parsed.data || parsed;
+        } catch (e) {
+          console.warn('[ProductService.getAllListProducts] Failed to parse response.data as JSON:', e);
+          return [];
+        }
+      }
+      
+      // Return data if available
+      if (response.data) {
+        return Array.isArray(response.data) ? response.data : response.data;
+      }
+    }
+    
+    // Fallback: return response as is or empty array
+    return Array.isArray(response) ? response : [];
+  } catch (error) {
+    console.error('[ProductService.getAllListProducts] Error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get list of active products (only non-disabled)
  * Endpoint: POST /v1/Product/ListProducts
  * Query params: page (default: 1), limit (default: 10), categoryId (optional), search (optional)
  * Response format: { success: boolean, message: string, data: { totalCount, currentPage, limit, data: [...] }, errors: string[] }
  * @param {object} params - Query parameters { page, limit, categoryId, search }
- * @returns {Promise} - List of products with pagination info
+ * @returns {Promise} - List of products with pagination info (only active/non-disabled products)
  */
 export const listProducts = async (params = {}) => {
   // Build query string from params
@@ -331,8 +390,17 @@ export const updateProduct = async (id, productData, imageFile = null) => {
   if (productData.warrantyPeriod !== undefined) formData.append('warrantyPeriod', productData.warrantyPeriod);
   
   // Optional fields
+  if (productData.isDisabled !== undefined) {
+    // Convert boolean to string for FormData (API expects string "true" or "false")
+    formData.append('isDisabled', String(productData.isDisabled));
+  }
   if (productData.currentImageUrl) formData.append('currentImageUrl', productData.currentImageUrl);
   if (imageFile) formData.append('imageFile', imageFile);
+  
+  // Debug logging for isDisabled
+  if (import.meta.env.DEV && productData.isDisabled !== undefined) {
+    console.log('[ProductService.updateProduct] isDisabled value:', productData.isDisabled, 'as string:', String(productData.isDisabled));
+  }
   
   // Use custom fetch for FormData
   const { getApiUrl, getDefaultHeaders } = await import('../config/api');
@@ -341,11 +409,34 @@ export const updateProduct = async (id, productData, imageFile = null) => {
   // Remove Content-Type header to let browser set it with boundary
   delete headers['Content-Type'];
   
+  // Debug logging
+  if (import.meta.env.DEV) {
+    console.log('[ProductService.updateProduct] Request URL:', url);
+    console.log('[ProductService.updateProduct] Request Method: PUT');
+    console.log('[ProductService.updateProduct] Product Data:', productData);
+    console.log('[ProductService.updateProduct] Has Image File:', !!imageFile);
+    
+    // Log FormData contents
+    const formDataLog = {};
+    formData.forEach((value, key) => {
+      if (value instanceof File) {
+        formDataLog[key] = `File: ${value.name} (${value.size} bytes)`;
+      } else {
+        formDataLog[key] = value;
+      }
+    });
+    console.log('[ProductService.updateProduct] FormData Contents:', formDataLog);
+  }
+  
   const response = await fetch(url, {
     method: 'PUT',
     headers,
     body: formData
   });
+  
+  if (import.meta.env.DEV) {
+    console.log('[ProductService.updateProduct] Response Status:', response.status, response.statusText);
+  }
   
   const contentType = response.headers.get('content-type');
   const isJson = contentType && contentType.includes('application/json');
@@ -396,17 +487,35 @@ export const updateProduct = async (id, productData, imageFile = null) => {
 /**
  * Delete (soft delete) product
  * Endpoint: DELETE /v1/Product/{id}
- * Response format: { success: boolean, message: string, data: string, errors: string[] }
+ * Vô hiệu hóa (Soft Delete) một sản phẩm theo ProductId. Chỉ dành cho Admin.
+ * Thực hiện cập nhật cột 'is_disabled' thành TRUE thay vì xóa vật lý khỏi cơ sở dữ liệu.
+ * Response format: { success: boolean, message: string, data: null, errors: null }
  * @param {string|number} id - Product ID
  * @returns {Promise} - Response data
  */
 export const deleteProduct = async (id) => {
+  if (import.meta.env.DEV) {
+    console.log('[ProductService.deleteProduct] Soft deleting product:', id);
+  }
+  
   const response = await apiDelete(`Product/${id}`);
+  
+  if (import.meta.env.DEV) {
+    console.log('[ProductService.deleteProduct] Response received:', response);
+  }
   
   // Handle Swagger response format
   if (response && typeof response === 'object') {
     if (response.success === false) {
-      throw new Error(response.message || 'Failed to delete product');
+      const error = new Error(response.message || 'Failed to delete product');
+      if (import.meta.env.DEV) {
+        console.error('[ProductService.deleteProduct] ❌ API returned success: false', response);
+      }
+      throw error;
+    }
+    
+    if (import.meta.env.DEV) {
+      console.log('[ProductService.deleteProduct] ✅ Product soft deleted successfully:', response.message);
     }
     
     return response;

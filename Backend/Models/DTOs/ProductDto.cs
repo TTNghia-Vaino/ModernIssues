@@ -45,7 +45,6 @@ namespace ModernIssues.Models.DTOs
         // Màu sắc trạng thái (đỏ cho hết hàng, xám cho không hoạt động)
         public string StatusColor { get; set; }
         
-
         // Tùy chọn: Bạn có thể thêm các trường quản lý như CreatedAt, UpdatedAt
     }
 
