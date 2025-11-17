@@ -1,0 +1,63 @@
+name: Deploy 
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Setup .NET
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # 3️⃣ Restore & Publish Backend
+      - name: Publish Backend
+        run: |
+          cd Backend
+          dotnet restore
+          dotnet publish -c Release -o publish
+
+      # 4️⃣ Copy publish folder lên server
+      - name: Copy Backend to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: Backend/publish/*
+          target: /var/www/modernissues/
+          overwrite: true
+
+      # 5️⃣ Restart service bằng PM2
+      - name: Restart Backend Service via PM2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /var/www/modernissues/Backend/publish
+      
+            # Xoá process cũ để đảm bảo biến môi trường mới được nhận
+            pm2 delete modernissues_be || true
+      
+            # Export biến môi trường cho dotnet
+            export ASPNETCORE_URLS="http://0.0.0.0:5000"
+      
+            # Start lại service với PM2
+            pm2 start ModernIssues.dll --name modernissues_be --interpreter dotnet
+      
+            # Lưu cấu hình PM2 để tự start khi reboot
+            pm2 save
+      
+            # Kiểm tra trạng thái service
+            pm2 status modernissues_be

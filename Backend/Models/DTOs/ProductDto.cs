@@ -38,6 +38,7 @@ namespace ModernIssues.Models.DTOs
         // Trạng thái vô hiệu hóa
         public bool IsDisabled { get; set; }
         
+
         // Trạng thái hiển thị (hết hàng, không hoạt động, đang hoạt động)
         public string StatusText { get; set; }
         

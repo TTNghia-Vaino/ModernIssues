@@ -346,7 +346,9 @@ namespace ModernIssues.Controllers
                 }
 
                 // TRẢ VỀ THÀNH CÔNG: 200 OK (Data là null)
+
                 return Ok(ApiResponse<object>.SuccessResponse(null, $"Sản phẩm {id} đã được chuyển sang trạng thái không hoạt động."));
+
             }
             catch (Exception ex)
             {
