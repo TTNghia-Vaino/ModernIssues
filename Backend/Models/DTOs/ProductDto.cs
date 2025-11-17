@@ -35,6 +35,9 @@ namespace ModernIssues.Models.DTOs
         // Thông tin đọc thêm từ các bảng khác
         public string CategoryName { get; set; } 
         
+        // Trạng thái vô hiệu hóa
+        public bool IsDisabled { get; set; }
+        
         // Tùy chọn: Bạn có thể thêm các trường quản lý như CreatedAt, UpdatedAt
     }
 

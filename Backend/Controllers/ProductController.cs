@@ -11,6 +11,8 @@ using ModernIssues.Models.Common;
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Repositories.Service;
 using Microsoft.AspNetCore.Hosting;
+using ModernIssues.Models.Entities;
+using Microsoft.EntityFrameworkCore;
 
 // Loại bỏ các using không cần thiết ở Controller như Dapper, Npgsql, System.Data
 
@@ -22,11 +24,13 @@ namespace ModernIssues.Controllers
     {
         private readonly IProductService _productService;
         private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly WebDbContext _context;
 
-        public ProductController(IProductService productService, IWebHostEnvironment webHostEnvironment)
+        public ProductController(IProductService productService, IWebHostEnvironment webHostEnvironment, WebDbContext context)
         {
             _productService = productService;
             _webHostEnvironment = webHostEnvironment;
+            _context = context;
         }
 
         private int GetAdminId() => 1; // Giả lập lấy ID Admin
@@ -349,6 +353,66 @@ namespace ModernIssues.Controllers
                 Console.WriteLine($"[CRITICAL DB ERROR] during DELETE: {ex.Message}");
                 return StatusCode(HttpStatusCodes.InternalServerError,
                     ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi vô hiệu hóa sản phẩm.", new List<string> { ex.Message }));
+            }
+        }
+
+        // ============================================
+        // 6. GET ALL PRODUCTS (INCLUDING DISABLED): GET api/v1/Product/GetAllProducts
+        // ============================================
+        /// <summary>
+        /// Lấy danh sách tất cả sản phẩm (bao gồm cả vô hiệu hóa và không vô hiệu hóa). Chỉ dành cho Admin.
+        /// </summary>
+        /// <response code="200">Trả về danh sách tất cả sản phẩm.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpGet("GetAllProducts")]
+        [ProducesResponseType(typeof(ApiResponse<List<ProductDto>>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
+        public async Task<IActionResult> GetAllProducts()
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(HttpStatusCodes.Forbidden, 
+                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xem danh sách tất cả sản phẩm."));
+            }
+
+            try
+            {
+                var products = await (from p in _context.products
+                                     join c in _context.categories on p.category_id equals c.category_id into categoryGroup
+                                     from c in categoryGroup.DefaultIfEmpty()
+                                     orderby p.is_disabled, p.product_id descending
+                                     select new ProductDto
+                                     {
+                                         ProductId = p.product_id,
+                                         CategoryId = p.category_id ?? 0,
+                                         ProductName = p.product_name,
+                                         Description = p.description ?? string.Empty,
+                                         Price = p.price,
+                                         Stock = p.stock ?? 0,
+                                         WarrantyPeriod = p.warranty_period ?? 0,
+                                         ImageUrl = p.image_url ?? string.Empty,
+                                         OnPrices = p.on_prices ?? 0,
+                                         CategoryName = c != null ? c.category_name ?? "Chưa phân loại" : "Chưa phân loại",
+                                         IsDisabled = p.is_disabled ?? false
+                                     })
+                                     .ToListAsync();
+
+                return Ok(ApiResponse<List<ProductDto>>.SuccessResponse(products, "Lấy danh sách tất cả sản phẩm thành công."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] GetAllProducts: {ex.Message}");
+                return StatusCode(HttpStatusCodes.InternalServerError,
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy danh sách sản phẩm."));
             }
         }
     }
