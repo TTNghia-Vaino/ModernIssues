@@ -346,7 +346,7 @@ namespace ModernIssues.Controllers
                 }
 
                 // TRẢ VỀ THÀNH CÔNG: 200 OK (Data là null)
-                return Ok(ApiResponse<object>.SuccessResponse(null, $"Sản phẩm {id} đã được vô hiệu hóa thành công."));
+                return Ok(ApiResponse<object>.SuccessResponse(null, $"Sản phẩm {id} đã được chuyển sang trạng thái không hoạt động."));
             }
             catch (Exception ex)
             {
@@ -390,24 +390,54 @@ namespace ModernIssues.Controllers
                 var products = await (from p in _context.products
                                      join c in _context.categories on p.category_id equals c.category_id into categoryGroup
                                      from c in categoryGroup.DefaultIfEmpty()
-                                     orderby p.is_disabled, p.product_id descending
-                                     select new ProductDto
+                                     orderby (p.is_disabled ?? false) ascending, p.product_id descending
+                                     select new
                                      {
-                                         ProductId = p.product_id,
-                                         CategoryId = p.category_id ?? 0,
-                                         ProductName = p.product_name,
-                                         Description = p.description ?? string.Empty,
-                                         Price = p.price,
-                                         Stock = p.stock ?? 0,
-                                         WarrantyPeriod = p.warranty_period ?? 0,
-                                         ImageUrl = p.image_url ?? string.Empty,
-                                         OnPrices = p.on_prices ?? 0,
-                                         CategoryName = c != null ? c.category_name ?? "Chưa phân loại" : "Chưa phân loại",
-                                         IsDisabled = p.is_disabled ?? false
+                                         Product = p,
+                                         Category = c,
+                                         IsDisabledValue = p.is_disabled ?? false,
+                                         StockValue = p.stock ?? 0
                                      })
                                      .ToListAsync();
 
-                return Ok(ApiResponse<List<ProductDto>>.SuccessResponse(products, "Lấy danh sách tất cả sản phẩm thành công."));
+                var productDtos = products.Select(x =>
+                {
+                    var dto = new ProductDto
+                    {
+                        ProductId = x.Product.product_id,
+                        CategoryId = x.Product.category_id ?? 0,
+                        ProductName = x.Product.product_name,
+                        Description = x.Product.description ?? string.Empty,
+                        Price = x.Product.price,
+                        Stock = x.StockValue,
+                        WarrantyPeriod = x.Product.warranty_period ?? 0,
+                        ImageUrl = x.Product.image_url ?? string.Empty,
+                        OnPrices = x.Product.on_prices ?? 0,
+                        CategoryName = x.Category != null ? x.Category.category_name ?? "Chưa phân loại" : "Chưa phân loại",
+                        IsDisabled = x.IsDisabledValue
+                    };
+
+                    // Xác định trạng thái và màu sắc
+                    if (x.IsDisabledValue)
+                    {
+                        dto.StatusText = "Không hoạt động";
+                        dto.StatusColor = "#808080"; // Màu xám
+                    }
+                    else if (x.StockValue == 0)
+                    {
+                        dto.StatusText = "Hết hàng";
+                        dto.StatusColor = "#FF0000"; // Màu đỏ
+                    }
+                    else
+                    {
+                        dto.StatusText = "Đang hoạt động";
+                        dto.StatusColor = "#28A745"; // Màu xanh lá
+                    }
+
+                    return dto;
+                }).ToList();
+
+                return Ok(ApiResponse<List<ProductDto>>.SuccessResponse(productDtos, "Lấy danh sách tất cả sản phẩm thành công."));
             }
             catch (Exception ex)
             {
