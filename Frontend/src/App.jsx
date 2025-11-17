@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import HeroBanner from './components/HeroBanner';
+import ProductCategories from './components/ProductCategories';
 import ProductShowcase from './components/ProductShowcase';
 import BestSellingLaptops from './components/BestSellingLaptops';
 import MiniPCShowcase from './components/MiniPCShowcase';
@@ -44,6 +45,7 @@ function HomePage() {
   return (
     <div className="main-content">
       <HeroBanner />
+      <ProductCategories />
       <ProductShowcase />
       <BestSellingLaptops />
       <MiniPCShowcase />

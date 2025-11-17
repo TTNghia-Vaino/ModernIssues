@@ -18,6 +18,23 @@ const AdminCategories = () => {
     parentId: null
   });
   const [errors, setErrors] = useState({});
+  const [openDropdownId, setOpenDropdownId] = useState(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.actions-dropdown')) {
+        setOpenDropdownId(null);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Load categories from API, but delay if in grace period
   useEffect(() => {
@@ -47,26 +64,27 @@ const AdminCategories = () => {
     try {
       setLoading(true);
       const apiCategories = await getCategories();
-      // Flatten the tree structure for display
-      const flattenCategories = (cats, result = []) => {
-        if (!Array.isArray(cats)) return result;
-        cats.forEach(cat => {
-          result.push({
-            id: cat.id,
-            name: cat.name,
-            description: cat.description || '',
-            status: cat.status || 'active',
-            productCount: cat.productCount || 0,
-            parentId: cat.parentId || null
-          });
-          if (cat.children && Array.isArray(cat.children)) {
-            flattenCategories(cat.children, result);
-          }
-        });
-        return result;
-      };
-      const flattened = flattenCategories(apiCategories);
-      setCategories(flattened);
+      console.log('[AdminCategories] Raw API response:', apiCategories);
+      
+      // Map API response to component format
+      if (Array.isArray(apiCategories)) {
+        const mapped = apiCategories.map(cat => ({
+          id: cat.categoryId || cat.id,
+          name: cat.categoryName || cat.name || 'Chưa có tên',
+          description: cat.description || '',
+          status: cat.status || 'active',
+          productCount: cat.productCount || 0,
+          parentId: cat.parentId || null,
+          parentName: cat.parentName || null,
+          createdAt: cat.createdAt,
+          updatedAt: cat.updatedAt
+        }));
+        console.log('[AdminCategories] Mapped categories:', mapped);
+        setCategories(mapped);
+      } else {
+        console.warn('[AdminCategories] API response is not an array:', apiCategories);
+        setCategories([]);
+      }
     } catch (error) {
       console.error('[AdminCategories] Failed to load categories:', error);
       showNotification('Không thể tải danh sách danh mục. Vui lòng thử lại.', 'error');
@@ -92,6 +110,11 @@ const AdminCategories = () => {
     });
     setErrors({});
     setShowModal(true);
+    setOpenDropdownId(null); // Close dropdown
+  };
+
+  const toggleDropdown = (categoryId) => {
+    setOpenDropdownId(openDropdownId === categoryId ? null : categoryId);
   };
 
   const showNotification = (message, type = 'success') => {
@@ -102,6 +125,7 @@ const AdminCategories = () => {
   };
 
   const handleDelete = async (id) => {
+    setOpenDropdownId(null); // Close dropdown
     if (window.confirm('Bạn có chắc chắn muốn xóa danh mục này? (Soft delete)')) {
       try {
         await deleteCategory(id);
@@ -185,6 +209,17 @@ const AdminCategories = () => {
     return status === 'active' ? 'Hoạt động' : 'Không hoạt động';
   };
 
+  // Pagination calculation
+  const totalPages = Math.ceil(categories.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedCategories = categories.slice(startIndex, endIndex);
+
+  // Reset to page 1 when categories change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [categories.length]);
+
   if (loading) {
     return (
       <div className="admin-categories">
@@ -215,17 +250,45 @@ const AdminCategories = () => {
         <div className="table-header">
           <div className="col-id">ID</div>
           <div className="col-name">Tên danh mục</div>
+          <div className="col-parent">Danh mục cha</div>
           <div className="col-description">Mô tả</div>
           <div className="col-count">Số sản phẩm</div>
           <div className="col-status">Trạng thái</div>
           <div className="col-actions">Thao tác</div>
         </div>
 
-        {categories.map((category) => (
+        {paginatedCategories.map((category) => (
           <div key={category.id} className="table-row">
             <div className="col-id">{category.id}</div>
-            <div className="col-name">{category.name}</div>
-            <div className="col-description">{category.description}</div>
+            <div 
+              className="col-name"
+              data-full-name={category.name}
+              title={category.name}
+            >
+              {category.name}
+            </div>
+            <div 
+              className="col-parent"
+              data-full-parent={category.parentName || 'Danh mục gốc'}
+              title={category.parentName || 'Danh mục gốc'}
+            >
+              {category.parentName ? (
+                <span style={{ color: '#666', fontSize: '0.9em' }}>
+                  {category.parentName}
+                </span>
+              ) : (
+                <span style={{ color: '#999', fontSize: '0.85em', fontStyle: 'italic' }}>
+                  Danh mục gốc
+                </span>
+              )}
+            </div>
+            <div 
+              className="col-description"
+              data-full-description={category.description || '-'}
+              title={category.description || '-'}
+            >
+              {category.description || '-'}
+            </div>
             <div className="col-count">{category.productCount}</div>
             <div className="col-status">
               <span className={`status-badge ${getStatusClass(category.status)}`}>
@@ -233,22 +296,95 @@ const AdminCategories = () => {
               </span>
             </div>
             <div className="col-actions">
-              <button 
-                className="edit-btn"
-                onClick={() => handleEdit(category)}
-              >
-                ✏️
-              </button>
-              <button 
-                className="delete-btn"
-                onClick={() => handleDelete(category.id)}
-              >
-                🗑️
-              </button>
+              <div className="actions-dropdown">
+                <button 
+                  className="actions-toggle-btn"
+                  onClick={() => toggleDropdown(category.id)}
+                  aria-label="Thao tác"
+                >
+                  ⋮
+                </button>
+                
+                {openDropdownId === category.id && (
+                  <div className="dropdown-menu">
+                    <button 
+                      className="dropdown-item edit-item"
+                      onClick={() => handleEdit(category)}
+                    >
+                      <span className="item-icon">✏️</span>
+                      <span>Chỉnh sửa</span>
+                    </button>
+                    <button 
+                      className="dropdown-item delete-item"
+                      onClick={() => handleDelete(category.id)}
+                    >
+                      <span className="item-icon">🗑️</span>
+                      <span>Xóa</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Pagination Controls */}
+      {categories.length > 0 && (
+        <div className="pagination-controls">
+          <div className="pagination-info">
+            Hiển thị {startIndex + 1}-{Math.min(endIndex, categories.length)} / {categories.length} danh mục
+          </div>
+          
+          <div className="pagination-buttons">
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+            >
+              «
+            </button>
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              ‹
+            </button>
+            
+            <span className="page-indicator">
+              Trang {currentPage} / {totalPages}
+            </span>
+            
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              ›
+            </button>
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              »
+            </button>
+          </div>
+          
+          <div className="page-size-selector">
+            <label>Hiển thị: </label>
+            <select value={pageSize} onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (

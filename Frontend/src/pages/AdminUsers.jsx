@@ -15,9 +15,13 @@ const AdminUsers = () => {
     name: '',
     email: '',
     phone: '',
+    password: '',
+    address: '',
     role: 'customer',
     status: 'active'
   });
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
   const [errors, setErrors] = useState({});
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
 
@@ -118,7 +122,9 @@ const AdminUsers = () => {
 
   const handleAddNew = () => {
     setEditingUser(null);
-    setFormData({ name: '', email: '', phone: '', role: 'customer', status: 'active' });
+    setFormData({ name: '', email: '', phone: '', password: '', address: '', role: 'customer', status: 'active' });
+    setAvatarFile(null);
+    setAvatarPreview(null);
     setErrors({});
     setShowModal(true);
   };
@@ -211,6 +217,13 @@ const AdminUsers = () => {
       newErrors.phone = 'Số điện thoại phải có 10-11 chữ số';
     }
     
+    // Password required only when creating new user
+    if (!editingUser && !formData.password.trim()) {
+      newErrors.password = 'Vui lòng nhập mật khẩu';
+    } else if (!editingUser && formData.password.length < 6) {
+      newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -258,13 +271,46 @@ const AdminUsers = () => {
           showNotification('Lỗi khi cập nhật người dùng: ' + (apiError.message || 'Unknown error'), 'error');
         }
       } else {
-        // Note: Creating users should be done via register endpoint
-        // This is just for admin UI, might need to adjust based on API
-        showNotification('Vui lòng sử dụng chức năng đăng ký để tạo người dùng mới', 'error');
+        // Create new user via register endpoint with avatar upload
+        try {
+          const registerData = {
+            username: formData.name.trim(),
+            name: formData.name.trim(),
+            email: formData.email.trim(),
+            phone: formData.phone.trim().replace(/\s/g, ''),
+            password: formData.password,
+            ...(formData.address && { address: formData.address.trim() })
+          };
+          
+          const newUser = await userService.registerWithAvatar(registerData, avatarFile);
+          
+          // Map API response to local format
+          const mappedUser = {
+            id: newUser.userId || newUser.id,
+            userId: newUser.userId || newUser.id,
+            username: newUser.username || formData.name,
+            name: newUser.username || formData.name,
+            email: newUser.email || formData.email,
+            phone: newUser.phone || formData.phone,
+            address: newUser.address || formData.address || '',
+            avatar: newUser.avatarUrl || newUser.avatar || '',
+            role: newUser.role || formData.role,
+            isDisabled: newUser.isDisabled === true
+          };
+          
+          // Reload users list to get the latest data from server
+          await loadUsers();
+          showNotification('Thêm người dùng mới thành công!');
+        } catch (apiError) {
+          console.error('API register failed:', apiError);
+          showNotification('Lỗi khi thêm người dùng: ' + (apiError.message || 'Unknown error'), 'error');
+        }
       }
       
       setShowModal(false);
-      setFormData({ name: '', email: '', phone: '', role: 'customer', status: 'active' });
+      setFormData({ name: '', email: '', phone: '', password: '', address: '', role: 'customer', status: 'active' });
+      setAvatarFile(null);
+      setAvatarPreview(null);
       setErrors({});
     } catch (error) {
       console.error('Error saving user:', error);
@@ -279,6 +325,33 @@ const AdminUsers = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setErrors({ ...errors, avatar: 'Vui lòng chọn file ảnh hợp lệ' });
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors({ ...errors, avatar: 'Kích thước ảnh không được vượt quá 5MB' });
+        return;
+      }
+      
+      setAvatarFile(file);
+      setErrors({ ...errors, avatar: null });
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const getStatusClass = (status) => {
@@ -314,12 +387,16 @@ const AdminUsers = () => {
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     
     // Status filter: isDisabled true = vô hiệu hóa, false = hoạt động
+    // Khi filterStatus === 'all' thì hiển thị tất cả (cả true và false)
     let matchesStatus = true;
     if (filterStatus === 'active') {
+      // Chỉ hiển thị người dùng hoạt động (isDisabled = false)
       matchesStatus = user.isDisabled === false;
     } else if (filterStatus === 'inactive') {
+      // Chỉ hiển thị người dùng bị vô hiệu hóa (isDisabled = true)
       matchesStatus = user.isDisabled === true;
     }
+    // Nếu filterStatus === 'all' thì matchesStatus = true (hiển thị tất cả)
     
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -435,111 +512,93 @@ const AdminUsers = () => {
           </div>
         ) : filteredUsers.length > 0 ? (
           <div className="data-table">
-            <table className="users-table">
-              <thead>
-                <tr>
-                  <th className="col-checkbox">
-                    <input 
-                      type="checkbox" 
-                      checked={isAllSelected}
-                      ref={input => {
-                        if (input) input.indeterminate = isSomeSelected;
-                      }}
-                      onChange={handleSelectAll}
-                      aria-label="Select all users"
-                    />
-                  </th>
-                  <th className="col-id">ID</th>
-                  <th className="col-user">Người dùng</th>
-                  <th className="col-role">Vai trò</th>
-                  <th className="col-status">Trạng thái</th>
-                  <th className="col-date">Ngày tạo</th>
-                  <th className="col-actions">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedUsers.map((user) => (
-                  <tr key={user.userId || user.id}>
-                    <td className="col-checkbox">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedUsers.has(user.userId || user.id)}
-                        onChange={() => handleSelectOne(user.userId || user.id)}
-                        aria-label={`Select ${user.username || user.name}`}
-                      />
-                    </td>
-                    <td className="col-id">
-                      <span className="id-badge">{user.userId || user.id}</span>
-                    </td>
-                    <td className="col-user">
-                      <div className="user-cell">
-                        <div className="avatar-badge">
-                          {(user.username || user.name || 'U').charAt(0).toUpperCase()}
+            <div className="users-table">
+              <div className="table-header">
+                <div className="col-id">ID</div>
+                <div className="col-user">Người dùng</div>
+                <div className="col-role">Vai trò</div>
+                <div className="col-status">Trạng thái</div>
+                <div className="col-date">Ngày tạo</div>
+                <div className="col-actions">Thao tác</div>
+              </div>
+              {paginatedUsers.map((user) => (
+                <div key={user.userId || user.id} className="table-row">
+                  <div className="col-id">
+                    <span className="id-badge">{user.userId || user.id}</span>
+                  </div>
+                  <div 
+                    className="col-user"
+                    data-full-name={user.username || user.name}
+                    data-full-email={user.email}
+                    title={`${user.username || user.name} - ${user.email}`}
+                  >
+                    <div className="user-cell">
+                      <div className="avatar-badge">
+                        {(user.username || user.name || 'U').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="user-details">
+                        <p className="user-name">{user.username || user.name}</p>
+                        <p className="user-email">{user.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-role">
+                    <span className={`role-badge ${user.role === 'admin' ? 'role-admin' : 'role-customer'}`}>
+                      {getRoleText(user.role)}
+                    </span>
+                  </div>
+                  <div className="col-status">
+                    <div className={`status-indicator ${user.isDisabled ? 'status-inactive' : 'status-active'}`}>
+                      <span className={`status-dot ${user.isDisabled ? 'status-inactive' : 'status-active'}`}></span>
+                      <span className="status-text">{getStatusText(user.isDisabled ? 'inactive' : 'active')}</span>
+                    </div>
+                  </div>
+                  <div className="col-date">
+                    {new Date().toLocaleDateString('vi-VN')}
+                  </div>
+                  <div className="col-actions">
+                    <div style={{ position: 'relative' }}>
+                      <button
+                        className="btn-menu"
+                        title="Tùy chọn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDropdownOpen(dropdownOpen === (user.userId || user.id) ? null : (user.userId || user.id));
+                        }}
+                      >
+                        ⋮
+                      </button>
+                      {dropdownOpen === (user.userId || user.id) && (
+                        <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            className="dropdown-item edit"
+                            onClick={() => {
+                              handleEdit(user);
+                              setDropdownOpen(null);
+                            }}
+                          >
+                            ✏️ Chỉnh sửa
+                          </button>
+                          <button
+                            className="dropdown-item delete"
+                            onClick={() => {
+                              if (!user.isDisabled) {
+                                handleDelete(user.userId || user.id);
+                              } else {
+                                handleActivate(user.userId || user.id);
+                              }
+                              setDropdownOpen(null);
+                            }}
+                          >
+                            {!user.isDisabled ? '🗑️ Vô hiệu hóa' : '✅ Kích hoạt'}
+                          </button>
                         </div>
-                        <div className="user-details">
-                          <p className="user-name" title={user.username || user.name}>{user.username || user.name}</p>
-                          <p className="user-email" title={user.email}>{user.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="col-role">
-                      <span className={`role-badge ${user.role === 'admin' ? 'role-admin' : 'role-customer'}`}>
-                        {getRoleText(user.role)}
-                      </span>
-                    </td>
-                    <td className="col-status">
-                      <div className={`status-indicator ${user.isDisabled ? 'status-inactive' : 'status-active'}`}>
-                        <span className={`status-dot ${user.isDisabled ? 'status-inactive' : 'status-active'}`}></span>
-                        <span className="status-text">{getStatusText(user.isDisabled ? 'inactive' : 'active')}</span>
-                      </div>
-                    </td>
-                    <td className="col-date">
-                      {new Date().toLocaleDateString('vi-VN')}
-                    </td>
-                    <td className="col-actions">
-                      <div style={{ position: 'relative' }}>
-                        <button
-                          className="btn-menu"
-                          title="Tùy chọn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDropdownOpen(dropdownOpen === (user.userId || user.id) ? null : (user.userId || user.id));
-                          }}
-                        >
-                          ⋮
-                        </button>
-                        {dropdownOpen === (user.userId || user.id) && (
-                          <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              className="dropdown-item edit"
-                              onClick={() => {
-                                handleEdit(user);
-                                setDropdownOpen(null);
-                              }}
-                            >
-                              ✏️ Chỉnh sửa
-                            </button>
-                            <button
-                              className="dropdown-item delete"
-                              onClick={() => {
-                                if (!user.isDisabled) {
-                                  handleDelete(user.userId || user.id);
-                                } else {
-                                  handleActivate(user.userId || user.id);
-                                }
-                                setDropdownOpen(null);
-                              }}
-                            >
-                              {!user.isDisabled ? '🗑️ Vô hiệu hóa' : '✅ Kích hoạt'}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="no-results">
@@ -661,6 +720,64 @@ const AdminUsers = () => {
                 />
                 {errors.phone && <span className="error-message">{errors.phone}</span>}
               </div>
+              
+              {!editingUser && (
+                <div className="form-group">
+                  <label htmlFor="password">Mật khẩu: <span style={{ color: 'red' }}>*</span></label>
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
+                    className={errors.password ? 'error' : ''}
+                  />
+                  {errors.password && <span className="error-message">{errors.password}</span>}
+                </div>
+              )}
+              
+              <div className="form-group">
+                <label htmlFor="address">Địa chỉ:</label>
+                <input
+                  type="text"
+                  id="address"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  placeholder="Nhập địa chỉ (tùy chọn)"
+                />
+              </div>
+              
+              {!editingUser && (
+                <div className="form-group">
+                  <label htmlFor="avatar">Ảnh đại diện:</label>
+                  <input
+                    type="file"
+                    id="avatar"
+                    name="avatar"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className={errors.avatar ? 'error' : ''}
+                  />
+                  {errors.avatar && <span className="error-message">{errors.avatar}</span>}
+                  {avatarPreview && (
+                    <div style={{ marginTop: '10px' }}>
+                      <img 
+                        src={avatarPreview} 
+                        alt="Preview" 
+                        style={{ 
+                          width: '100px', 
+                          height: '100px', 
+                          objectFit: 'cover', 
+                          borderRadius: '8px',
+                          border: '2px solid #e0e0e0'
+                        }} 
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
               
               <div className="form-group">
                 <label htmlFor="role">Vai trò:</label>

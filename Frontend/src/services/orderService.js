@@ -45,38 +45,81 @@ const handleResponse = (response) => {
 
 /**
  * Get list of orders
+ * Endpoint: GET /v1/Order/GetOrders
  * Response format: { success: boolean, message: string, data: array|string, errors: string[] }
- * @param {object} params - Query parameters (optional)
+ * @param {object} params - Query parameters (optional: page, pageSize, status)
  * @returns {Promise} - List of orders
  */
 export const getOrders = async (params = {}) => {
-  const response = await apiGet('Order/GetOrders', params);
-  return handleResponse(response);
+  try {
+    const response = await apiGet('Order/GetOrders', params);
+    const data = handleResponse(response);
+    
+    // Ensure we return an array
+    if (Array.isArray(data)) {
+      return data;
+    } else if (data && typeof data === 'object' && Array.isArray(data.data)) {
+      return data.data;
+    } else if (data && typeof data === 'object' && Array.isArray(data.items)) {
+      return data.items;
+    } else if (data && typeof data === 'object' && Array.isArray(data.orders)) {
+      return data.orders;
+    }
+    
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('[OrderService] Error getting orders:', error);
+    throw error;
+  }
 };
 
 /**
  * Get order by ID
+ * Endpoint: GET /v1/Order/GetOrderById/{orderId}
  * Response format: { success: boolean, message: string, data: object|string, errors: string[] }
  * @param {string|number} orderId - Order ID
  * @returns {Promise} - Order data with order_details
  */
 export const getOrderById = async (orderId) => {
-  const response = await apiGet(`Order/GetOrderById/${orderId}`);
-  return handleResponse(response);
+  try {
+    const response = await apiGet(`Order/GetOrderById/${orderId}`);
+    return handleResponse(response);
+  } catch (error) {
+    console.error('[OrderService] Error getting order by ID:', error);
+    throw error;
+  }
 };
 
 /**
  * Get order details (products in an order)
+ * Endpoint: GET /v1/Order/GetOrderById/{orderId}
  * Response format: { 
- *   order: { order_id, order_date, status, total_amount, created_at, updated_at },
+ *   order: { order_id, user_id, customer_name, phone, address, email, order_date, status, total_amount, types, types_display },
  *   order_details: [{ product_id, product_name, price_at_purchase, quantity, image_url }]
  * }
  * @param {string|number} orderId - Order ID
  * @returns {Promise} - Order details with products
  */
 export const getOrderDetails = async (orderId) => {
-  const response = await apiGet(`Order/GetOrderById/${orderId}`);
-  return handleResponse(response);
+  try {
+    const response = await apiGet(`Order/GetOrderById/${orderId}`);
+    const data = handleResponse(response);
+    
+    // API returns: { order: {...}, order_details: [...] }
+    if (data && typeof data === 'object' && data.order && data.order_details) {
+      return data;
+    }
+    
+    // Fallback: if wrapped in data property
+    if (data && typeof data === 'object' && data.data) {
+      return data.data;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('[OrderService] Error getting order details:', error);
+    throw error;
+  }
 };
 
 /**
@@ -102,7 +145,12 @@ export const createOrder = async (orderData) => {
  * @returns {Promise} - Updated order data
  */
 export const updateOrderStatus = async (orderId, status) => {
-  const response = await apiPut(`Order/${orderId}/status`, { status });
-  return handleResponse(response);
+  try {
+    const response = await apiPut(`Order/${orderId}/status`, { status });
+    return handleResponse(response);
+  } catch (error) {
+    console.error('[OrderService] Error updating order status:', error);
+    throw error;
+  }
 };
 

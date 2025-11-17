@@ -50,76 +50,50 @@ const AdminOrders = () => {
       
       // Handle different response formats
       let ordersArray = [];
-      if (Array.isArray(ordersData)) {
-        // Check if it's array of strings (from Swagger example) or array of objects
-        if (ordersData.length > 0 && typeof ordersData[0] === 'string') {
-          // If backend returns array of strings (order IDs), we need to fetch each order
-          console.warn('[AdminOrders] API returned array of strings, expected array of order objects');
-          // For now, set empty array - backend should return full order objects
-          ordersArray = [];
-        } else {
-          // Map snake_case API fields to camelCase frontend format
-          ordersArray = ordersData.map(order => ({
-            id: order.order_id,
-            orderId: order.order_id,
-            orderDate: order.order_date,
-            date: order.order_date,
-            createdAt: order.created_at,
-            updatedAt: order.updated_at,
-            status: order.status,
-            total: order.total_amount,
-            totalPrice: order.total_amount,
-            amount: order.total_amount,
-            // Map customer info if available
-            customerName: order.customer_name || order.fullName || order.full_name,
-            fullName: order.customer_name || order.fullName || order.full_name,
-            customerEmail: order.customer_email || order.email,
-            email: order.customer_email || order.email,
-            customerPhone: order.customer_phone || order.phone,
-            phone: order.customer_phone || order.phone,
-            // Map address if available
-            shippingAddress: order.shipping_address || order.address,
-            address: order.shipping_address || order.address,
-            // Map items if available
-            items: order.items || order.order_items || order.orderItems || [],
-            orderItems: order.items || order.order_items || order.orderItems || [],
-            // Payment info
-            paymentMethod: order.payment_method || order.paymentMethod,
-            // Keep original data
-            ...order
-          }));
-        }
-      } else if (ordersData && typeof ordersData === 'object') {
-        // Handle wrapped response { success, data, ... }
-        const rawArray = ordersData.data || ordersData.items || ordersData.orders || [];
-        ordersArray = rawArray.map(order => ({
-          id: order.order_id,
-          orderId: order.order_id,
-          orderDate: order.order_date,
-          date: order.order_date,
-          createdAt: order.created_at,
-          updatedAt: order.updated_at,
-          status: order.status,
-          total: order.total_amount,
-          totalPrice: order.total_amount,
-          amount: order.total_amount,
-          customerName: order.customer_name || order.fullName || order.full_name,
-          fullName: order.customer_name || order.fullName || order.full_name,
-          customerEmail: order.customer_email || order.email,
-          email: order.customer_email || order.email,
-          customerPhone: order.customer_phone || order.phone,
-          phone: order.customer_phone || order.phone,
-          shippingAddress: order.shipping_address || order.address,
-          address: order.shipping_address || order.address,
-          items: order.items || order.order_items || order.orderItems || [],
-          orderItems: order.items || order.order_items || order.orderItems || [],
-          paymentMethod: order.payment_method || order.paymentMethod,
-          ...order
-        }));
-      }
+      
+      // Ensure we have an array
+      const rawArray = Array.isArray(ordersData) 
+        ? ordersData 
+        : (ordersData?.data || ordersData?.items || ordersData?.orders || []);
+      
+      // Map API response format to frontend format
+      // API format: { order_id, customer_name, order_date, status, total_amount, types, types_display }
+      ordersArray = rawArray.map(order => ({
+        // IDs
+        id: order.order_id,
+        orderId: order.order_id,
+        
+        // Dates
+        orderDate: order.order_date,
+        date: order.order_date,
+        createdAt: order.order_date,
+        
+        // Status
+        status: order.status || 'pending',
+        
+        // Amount
+        total: order.total_amount || 0,
+        totalPrice: order.total_amount || 0,
+        amount: order.total_amount || 0,
+        
+        // Customer info
+        customerName: order.customer_name || '',
+        fullName: order.customer_name || '',
+        
+        // Payment
+        paymentMethod: order.types || 'COD',
+        paymentMethodDisplay: order.types_display || 'Thanh toán khi nhận hàng',
+        types: order.types,
+        typesDisplay: order.types_display,
+        
+        // Keep original data for reference
+        ...order
+      }));
       
       console.log('[AdminOrders] Parsed orders array:', ordersArray.length, 'orders');
-      console.log('[AdminOrders] First order:', ordersArray[0]);
+      if (ordersArray.length > 0) {
+        console.log('[AdminOrders] First order sample:', ordersArray[0]);
+      }
       setOrders(ordersArray);
     } catch (error) {
       console.error('[AdminOrders] Error loading orders:', error);
@@ -147,33 +121,68 @@ const AdminOrders = () => {
   const handleViewDetails = async (order) => {
     try {
       setLoading(true);
-      console.log('[AdminOrders] Loading order details for order:', order.id || order.orderId);
+      const orderId = order.id || order.orderId;
+      console.log('[AdminOrders] Loading order details for order:', orderId);
       
       // Fetch full order details from API
-      const orderId = order.id || order.orderId;
       const orderDetails = await orderService.getOrderDetails(orderId);
       
       console.log('[AdminOrders] Order details response:', orderDetails);
       
-      // Map API response to component format
+      // Extract order and order_details from response
+      // API format: { order: {...}, order_details: [...] }
+      const orderInfo = orderDetails.order || {};
+      const orderDetailsArray = orderDetails.order_details || [];
+      
+      // Map order details items
+      // API format: { product_id, product_name, price_at_purchase, quantity, image_url }
+      const mappedItems = orderDetailsArray.map(item => ({
+        id: item.product_id,
+        productId: item.product_id,
+        name: item.product_name,
+        productName: item.product_name,
+        price: item.price_at_purchase || 0,
+        priceAtPurchase: item.price_at_purchase || 0,
+        quantity: item.quantity || 1,
+        image: item.image_url || '/placeholder.png',
+        imageUrl: item.image_url || '/placeholder.png'
+      }));
+      
+      // Merge order info with existing order data
       const mappedOrder = {
         ...order,
-        order: orderDetails.order || {},
-        orderDetails: orderDetails.order_details || [],
-        items: (orderDetails.order_details || []).map(item => ({
-          id: item.product_id,
-          productId: item.product_id,
-          name: item.product_name,
-          productName: item.product_name,
-          price: item.price_at_purchase,
-          priceAtPurchase: item.price_at_purchase,
-          quantity: item.quantity,
-          image: item.image_url,
-          imageUrl: item.image_url
-        }))
+        // Order info from API
+        order: orderInfo,
+        orderDetails: orderDetailsArray,
+        items: mappedItems,
+        orderItems: mappedItems,
+        
+        // Update fields from API
+        // API order format: { order_id, user_id, customer_name, phone, address, email, order_date, status, total_amount, types, types_display }
+        id: orderInfo.order_id || order.id,
+        orderId: orderInfo.order_id || order.orderId,
+        userId: orderInfo.user_id,
+        status: orderInfo.status || order.status,
+        total: orderInfo.total_amount || order.total,
+        totalPrice: orderInfo.total_amount || order.total,
+        amount: orderInfo.total_amount || order.total,
+        customerName: orderInfo.customer_name || order.customerName,
+        fullName: orderInfo.customer_name || order.fullName,
+        customerEmail: orderInfo.email || order.customerEmail,
+        email: orderInfo.email || order.email,
+        customerPhone: orderInfo.phone || order.customerPhone,
+        phone: orderInfo.phone || order.phone,
+        shippingAddress: orderInfo.address || order.shippingAddress,
+        address: orderInfo.address || order.address,
+        paymentMethod: orderInfo.types || order.paymentMethod,
+        paymentMethodDisplay: orderInfo.types_display || order.paymentMethodDisplay,
+        types: orderInfo.types,
+        typesDisplay: orderInfo.types_display,
+        orderDate: orderInfo.order_date || order.orderDate,
+        createdAt: orderInfo.order_date || order.createdAt
       };
       
-      console.log('[AdminOrders] Mapped order:', mappedOrder);
+      console.log('[AdminOrders] Mapped order details:', mappedOrder);
       setSelectedOrder(mappedOrder);
       setShowModal(true);
     } catch (error) {
@@ -234,7 +243,13 @@ const AdminOrders = () => {
   };
 
   const getPaymentMethodText = (method) => {
+    // Handle both types field and paymentMethod field
+    if (typeof method === 'object' && method !== null) {
+      return method.types_display || method.typesDisplay || method.types || 'N/A';
+    }
+    
     switch (method) {
+      case 'COD': return 'Thanh toán khi nhận hàng';
       case 'credit_card': return 'Thẻ tín dụng';
       case 'bank_transfer': return 'Chuyển khoản';
       case 'cash': return 'Tiền mặt';
@@ -286,21 +301,23 @@ const AdminOrders = () => {
       )}
       
       <div className="page-header">
-        <h2>Quản lý đơn hàng</h2>
+        <div className="page-titles">
+          <h2>Quản lý đơn hàng</h2>
+          <p className="page-sub">Quản lý và theo dõi đơn hàng</p>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="filters-section">
-        <div className="search-box">
+      {/* Thanh bộ lọc dạng bar */}
+      <div className="filters-bar">
+        <div className="filter-item search">
           <input
             type="text"
-            placeholder="Tìm kiếm theo mã đơn hàng, tên khách hàng hoặc email..."
+            placeholder="🔍 Tìm kiếm theo mã đơn hàng, tên khách hàng hoặc email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        
-        <div className="filter-controls">
+        <div className="filter-item">
           <select 
             value={filterStatus} 
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -314,79 +331,77 @@ const AdminOrders = () => {
         </div>
       </div>
 
-      <div className="orders-table">
-        <div className="table-header">
-          <div className="col-id">Mã đơn hàng</div>
-          <div className="col-customer">Khách hàng</div>
-          <div className="col-total">Tổng tiền</div>
-          <div className="col-status">Trạng thái</div>
-          <div className="col-date">Ngày đặt</div>
-          <div className="col-actions">Thao tác</div>
-        </div>
-
-        {loading && orders.length > 0 && (
+      <div className="data-table-container">
+        {loading && orders.length > 0 ? (
           <div className="loading-overlay-inline">
             <div className="spinner"></div>
             <p>Đang cập nhật...</p>
           </div>
-        )}
-
-        {!loading && filteredOrders.map((order) => {
-          const orderId = order.id || order.orderId || 'N/A';
-          const customerName = order.customerName || order.fullName || order.name || 'Khách hàng';
-          const customerEmail = order.customerEmail || order.email || 'N/A';
-          const items = order.items || order.orderItems || [];
-          const total = order.total || order.totalPrice || order.amount || 0;
-          const orderDate = formatDate(order.orderDate || order.createdAt || order.date);
-          const status = order.status || 'pending';
-          
-          return (
-            <div 
-              key={orderId} 
-              className="table-row"
-              onClick={() => handleViewDetails(order)}
-              style={{ cursor: 'pointer' }}
-            >
-              <div className="col-id">{orderId}</div>
-              <div className="col-customer">
-                <div className="customer-name">{customerName}</div>
-                <div className="customer-email">{customerEmail}</div>
+        ) : filteredOrders.length > 0 ? (
+          <div className="data-table">
+            <div className="orders-table">
+              <div className="table-header">
+                <div className="col-id">Mã đơn hàng</div>
+                <div className="col-customer">Khách hàng</div>
+                <div className="col-total">Tổng tiền</div>
+                <div className="col-payment">Phương thức thanh toán</div>
+                <div className="col-status">Trạng thái</div>
+                <div className="col-date">Ngày đặt</div>
+                <div className="col-actions">Thao tác</div>
               </div>
-              <div className="col-total">{typeof total === 'number' ? total.toLocaleString() : total} VNĐ</div>
-              <div className="col-status">
-                <span className={`status-badge ${getStatusClass(status)}`}>
-                  {getStatusText(status)}
-                </span>
-              </div>
-              <div className="col-date">{orderDate}</div>
-              <div className="col-actions" onClick={(e) => e.stopPropagation()}>
-                <select 
-                  className="status-select"
-                  value={status}
-                  onChange={(e) => handleStatusChange(orderId, e.target.value)}
-                >
-                  <option value="pending">Chờ xác nhận</option>
-                  <option value="processing">Đang xử lý</option>
-                  <option value="delivered">Đã giao</option>
-                  <option value="cancelled">Đã hủy</option>
-                </select>
-              </div>
+              {filteredOrders.map((order) => {
+                const orderId = order.id || order.orderId || 'N/A';
+                const customerName = order.customerName || order.fullName || order.name || 'Khách hàng';
+                const total = order.total || order.totalPrice || order.amount || 0;
+                const orderDate = formatDate(order.orderDate || order.createdAt || order.date);
+                const status = order.status || 'pending';
+                
+                return (
+                  <div 
+                    key={orderId} 
+                    className="table-row"
+                    onClick={() => handleViewDetails(order)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="col-id">
+                      <span className="id-badge">{orderId}</span>
+                    </div>
+                    <div className="col-customer">
+                      <div className="customer-name">{customerName}</div>
+                    </div>
+                    <div className="col-total">{typeof total === 'number' ? total.toLocaleString() : total} VNĐ</div>
+                    <div className="col-payment">
+                      {getPaymentMethodText(order.paymentMethodDisplay || order.typesDisplay || order.paymentMethod || order.types)}
+                    </div>
+                    <div className="col-status">
+                      <span className={`status-badge ${getStatusClass(status)}`}>
+                        {getStatusText(status)}
+                      </span>
+                    </div>
+                    <div className="col-date">{orderDate}</div>
+                    <div className="col-actions" onClick={(e) => e.stopPropagation()}>
+                      <select 
+                        className="status-select"
+                        value={status}
+                        onChange={(e) => handleStatusChange(orderId, e.target.value)}
+                      >
+                        <option value="pending">Chờ xác nhận</option>
+                        <option value="processing">Đang xử lý</option>
+                        <option value="delivered">Đã giao</option>
+                        <option value="cancelled">Đã hủy</option>
+                      </select>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ) : (
+          <div className="no-results">
+            <p>{orders.length === 0 ? 'Chưa có đơn hàng nào.' : 'Không tìm thấy đơn hàng nào phù hợp với bộ lọc.'}</p>
+          </div>
+        )}
       </div>
-
-      {!loading && filteredOrders.length === 0 && orders.length === 0 && (
-        <div className="no-results">
-          <p>Chưa có đơn hàng nào.</p>
-        </div>
-      )}
-      
-      {!loading && filteredOrders.length === 0 && orders.length > 0 && (
-        <div className="no-results">
-          <p>Không tìm thấy đơn hàng nào phù hợp với bộ lọc.</p>
-        </div>
-      )}
 
       {/* Modal */}
       {showModal && selectedOrder && (
@@ -445,9 +460,6 @@ const AdminOrders = () => {
                         <div className="item-name">{item.name || item.productName || 'Sản phẩm'}</div>
                         <div className="item-meta">
                           <span className="item-quantity">SL: {item.quantity || 1}</span>
-                          <span className="item-price">
-                            {(item.price || item.priceAtPurchase || 0).toLocaleString()} VNĐ
-                          </span>
                         </div>
                       </div>
                       <div className="item-total">
@@ -479,7 +491,7 @@ const AdminOrders = () => {
                   </div>
                   <div className="detail-item">
                     <label>Phương thức thanh toán:</label>
-                    <span>{getPaymentMethodText(selectedOrder.paymentMethod || selectedOrder.paymentMethod)}</span>
+                    <span>{getPaymentMethodText(selectedOrder.paymentMethodDisplay || selectedOrder.typesDisplay || selectedOrder.paymentMethod || selectedOrder.types)}</span>
                   </div>
                   <div className="detail-item">
                     <label>Ngày đặt hàng:</label>

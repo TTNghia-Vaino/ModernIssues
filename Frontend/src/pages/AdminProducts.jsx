@@ -35,6 +35,8 @@ const AdminProducts = () => {
     featured: false
   });
   const [errors, setErrors] = useState({});
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -58,8 +60,8 @@ const AdminProducts = () => {
       }
       
       if (!cancelled) {
+        loadCategories(); // Load categories first
         loadProducts();
-        loadCategories();
       }
     };
     
@@ -88,25 +90,38 @@ const AdminProducts = () => {
   const loadCategories = async () => {
     try {
       const apiCategories = await getCategories();
+      console.log('[AdminProducts] Raw categories from API:', apiCategories);
+      
       // Flatten the tree structure for dropdown
-      const flattenCategories = (cats, result = []) => {
+      const flattenCategories = (cats, result = [], level = 0) => {
         if (!Array.isArray(cats)) return result;
         cats.forEach(cat => {
+          // Map API response format to component format
+          const categoryId = cat.categoryId || cat.id;
+          const categoryName = cat.categoryName || cat.name || 'Chưa có tên';
+          
           result.push({
-            id: cat.id,
-            name: cat.name,
-            description: cat.description || ''
+            id: categoryId,
+            name: level > 0 ? '  '.repeat(level) + '└─ ' + categoryName : categoryName,
+            categoryId: categoryId,
+            categoryName: categoryName,
+            description: cat.description || '',
+            parentId: cat.parentId || null
           });
+          
           if (cat.children && Array.isArray(cat.children)) {
-            flattenCategories(cat.children, result);
+            flattenCategories(cat.children, result, level + 1);
           }
         });
         return result;
       };
+      
       const flattened = flattenCategories(apiCategories);
+      console.log('[AdminProducts] Flattened categories:', flattened);
       setCategories(flattened);
     } catch (error) {
       console.error('[AdminProducts] Failed to load categories:', error);
+      setCategories([]);
       // Keep empty array, show error notification if needed
     }
   };
@@ -114,54 +129,33 @@ const AdminProducts = () => {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      // Use listProducts to get ALL products (admin view)
-      const response = await productService.listProducts({ page: 1, limit: 1000 });
+      // Use getAllListProducts to get ALL products including disabled (admin view)
+      const productsArray = await productService.getAllListProducts();
       
-      console.log('[AdminProducts] API Response:', response);
-      
-      // Handle different response formats
-      let productsArray = [];
-      if (response && typeof response === 'object') {
-        // Handle nested pagination response: { data: { totalCount, currentPage, limit, data: [...] } }
-        if (response.data && response.data.data && Array.isArray(response.data.data)) {
-          productsArray = response.data.data;
-          console.log('[AdminProducts] Found nested data.data array:', productsArray.length);
-        } 
-        // Handle pagination response: { totalCount, currentPage, limit, data: [...] }
-        else if (response.data && Array.isArray(response.data)) {
-          productsArray = response.data;
-          console.log('[AdminProducts] Found data array:', productsArray.length);
-        } 
-        else if (Array.isArray(response)) {
-          productsArray = response;
-        } 
-        else if (response.items) {
-          productsArray = response.items;
-        }
-      } else if (Array.isArray(response)) {
-        productsArray = response;
-      }
-      
-      console.log('[AdminProducts] Raw products array:', productsArray);
+      console.log('[AdminProducts] API Response (GetAllListProducts):', productsArray);
+      console.log('[AdminProducts] Products count:', productsArray.length);
       
       // Map API fields to component format
       const mappedProducts = productsArray.map(product => ({
-        id: product.productId,
-        name: product.productName,
-        productName: product.productName,
-        category: product.categoryId,
-        categoryId: product.categoryId,
-        categoryName: product.categoryName,
-        price: product.price,
-        originalPrice: product.onPrices || product.price,
-        onPrice: product.onPrices,
-        discount: product.onPrices > 0 ? Math.round(((product.onPrices - product.price) / product.onPrices) * 100) : 0,
-        image: product.imageUrl,
-        imageUrl: product.imageUrl,
-        description: product.description,
-        stock: product.stock,
-        warrantyPeriod: product.warrantyPeriod,
-        status: product.stock > 0 ? 'active' : 'inactive',
+        id: product.productId || product.id,
+        name: product.productName || product.name,
+        productName: product.productName || product.name,
+        category: product.categoryId || product.category,
+        categoryId: product.categoryId || product.category,
+        categoryName: product.categoryName || product.categoryName,
+        price: product.price || 0,
+        originalPrice: product.onPrices || product.onPrice || product.price || 0,
+        onPrice: product.onPrices || product.onPrice,
+        discount: (product.onPrices || product.onPrice) > 0 && product.price 
+          ? Math.round((((product.onPrices || product.onPrice) - product.price) / (product.onPrices || product.onPrice)) * 100) 
+          : 0,
+        image: product.imageUrl || product.image,
+        imageUrl: product.imageUrl || product.image,
+        description: product.description || '',
+        stock: product.stock || 0,
+        warrantyPeriod: product.warrantyPeriod || 12,
+        status: (product.stock || 0) > 0 ? 'active' : 'inactive',
+        isDisabled: product.isDisabled === true || product.isDisabled === 'true' || product.is_disabled === true,
         badge: product.badge || '',
         featured: product.featured || false,
         specs: product.specs || {}
@@ -223,6 +217,8 @@ const AdminProducts = () => {
       badge: '',
       featured: false
     });
+    setImageFile(null);
+    setImagePreview(null);
     setErrors({});
     setShowModal(true);
   };
@@ -243,21 +239,33 @@ const AdminProducts = () => {
       badge: product.badge || '',
       featured: product.featured || false
     });
+    setImageFile(null);
+    setImagePreview(product.imageUrl || product.image || null);
     setErrors({});
     setShowModal(true);
   };
 
   const handleDisable = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn vô hiệu hóa sản phẩm này?')) {
+    if (window.confirm('Bạn có chắc chắn muốn ngừng bán sản phẩm này?')) {
       try {
         setLoading(true);
+        const product = products.find(p => p.id === id);
+        if (!product) {
+          throw new Error('Không tìm thấy sản phẩm');
+        }
+        
+        // Use DELETE API to soft delete (set is_disabled = true)
+        // DELETE /v1/Product/{id} - Vô hiệu hóa sản phẩm (soft delete)
+        console.log('[AdminProducts.handleDisable] Soft deleting product:', id);
         await productService.deleteProduct(id);
+        console.log('[AdminProducts.handleDisable] Product soft deleted successfully');
+        
         // Reload products to sync with backend
         await loadProducts();
-        showNotification('Vô hiệu hóa sản phẩm thành công!');
+        showNotification('Ngừng bán sản phẩm thành công!');
       } catch (error) {
-        console.error('Error disabling product:', error);
-        showNotification('Lỗi khi vô hiệu hóa sản phẩm: ' + error.message, 'error');
+        console.error('[AdminProducts.handleDisable] Error disabling product:', error);
+        showNotification('Lỗi khi ngừng bán sản phẩm: ' + error.message, 'error');
       } finally {
         setLoading(false);
       }
@@ -268,12 +276,32 @@ const AdminProducts = () => {
     if (window.confirm('Bạn có chắc chắn muốn kích hoạt lại sản phẩm này?')) {
       try {
         setLoading(true);
-        // Assuming there's an activate endpoint, otherwise handle differently
-        // await productService.activateProduct(id);
+        const product = products.find(p => p.id === id);
+        if (!product) {
+          throw new Error('Không tìm thấy sản phẩm');
+        }
+        
+        // Update product with isDisabled = false
+        const updateData = {
+          productName: product.productName || product.name,
+          description: product.description || '',
+          price: product.price || 0,
+          categoryId: product.categoryId || product.category,
+          stock: product.stock || 0,
+          warrantyPeriod: product.warrantyPeriod || 12,
+          isDisabled: false, // Set to false to activate product
+          currentImageUrl: product.imageUrl || product.image
+        };
+        
+        console.log('[AdminProducts.handleActivate] Updating product:', id, 'with data:', updateData);
+        await productService.updateProduct(id, updateData, null);
+        console.log('[AdminProducts.handleActivate] Product updated successfully');
+        
+        // Reload products to sync with backend
         await loadProducts();
         showNotification('Kích hoạt sản phẩm thành công!');
       } catch (error) {
-        console.error('Error activating product:', error);
+        console.error('[AdminProducts.handleActivate] Error activating product:', error);
         showNotification('Lỗi khi kích hoạt sản phẩm: ' + error.message, 'error');
       } finally {
         setLoading(false);
@@ -329,25 +357,29 @@ const AdminProducts = () => {
       };
       
       // Map formData to API format - chỉ gửi các field API yêu cầu
+      const categoryId = Number(productData.category);
+      if (!categoryId || categoryId <= 0) {
+        showNotification('Vui lòng chọn danh mục sản phẩm', 'error');
+        return;
+      }
+      
       const apiProductData = {
         productName: productData.name || 'Untitled Product',
         description: productData.description || 'No description',
         price: Number(productData.price) || 0,
-        categoryId: Number(productData.category) || 1,
+        categoryId: categoryId,
         stock: Number(productData.stock) || 0,
         warrantyPeriod: Number(productData.warrantyPeriod) || 12
       };
       
-      // Handle image file if provided
-      let imageFile = null;
-      if (productData.imageFile instanceof File) {
-        imageFile = productData.imageFile;
-      }
-
       if (editingProduct) {
         // Update product via API
         try {
-          const updatedProduct = await productService.updateProduct(editingProduct.id, apiProductData, imageFile);
+          // Include current image URL if not uploading new image
+          if (!imageFile && formData.image) {
+            apiProductData.currentImageUrl = formData.image;
+          }
+          const updatedProduct = await productService.updateProduct(editingProduct.id, apiProductData, imageFile || null);
           
           // Map API response back to local format
           const mappedProduct = {
@@ -362,15 +394,9 @@ const AdminProducts = () => {
             ...updatedProduct
           };
           
-          setProducts(products.map(prod => 
-            prod.id === editingProduct.id ? mappedProduct : prod
-          ));
+          // Reload products list to get the latest data from server
+          await loadProducts();
           showNotification('Cập nhật sản phẩm thành công!');
-          // Update localStorage
-          const updatedProducts = products.map(prod => 
-            prod.id === editingProduct.id ? mappedProduct : prod
-          );
-          localStorage.setItem('adminProducts', JSON.stringify(updatedProducts));
         } catch (apiError) {
           console.error('[AdminProducts] API update failed:', apiError);
           // Fallback to local update
@@ -388,7 +414,7 @@ const AdminProducts = () => {
         console.log('[AdminProducts] Has Image File:', !!imageFile);
         
         try {
-          const newProduct = await productService.createProduct(apiProductData, imageFile);
+          const newProduct = await productService.createProduct(apiProductData, imageFile || null);
           
           console.log('[AdminProducts] ✅ API create product SUCCESS!');
           console.log('[AdminProducts] API Response:', newProduct);
@@ -407,12 +433,9 @@ const AdminProducts = () => {
           };
           
           console.log('[AdminProducts] Mapped Product:', mappedProduct);
-          setProducts([...products, mappedProduct]);
-          showNotification('Thêm sản phẩm mới thành công! (Đã lưu vào database)');
-          
-          // Update localStorage
-          const updatedProducts = [...products, mappedProduct];
-          localStorage.setItem('adminProducts', JSON.stringify(updatedProducts));
+          // Reload products list to get the latest data from server
+          await loadProducts();
+          showNotification('Thêm sản phẩm mới thành công!');
         } catch (apiError) {
           console.error('[AdminProducts] ❌ API create product FAILED!');
           console.error('[AdminProducts] Error Details:', {
@@ -455,6 +478,8 @@ const AdminProducts = () => {
         badge: '',
         featured: false
       });
+      setImageFile(null);
+      setImagePreview(null);
       setErrors({});
     } catch (error) {
       console.error('Error saving product:', error);
@@ -484,6 +509,33 @@ const AdminProducts = () => {
     }
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setErrors({ ...errors, image: 'Vui lòng chọn file ảnh hợp lệ' });
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors({ ...errors, image: 'Kích thước ảnh không được vượt quá 5MB' });
+        return;
+      }
+      
+      setImageFile(file);
+      setErrors({ ...errors, image: null });
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
@@ -494,12 +546,24 @@ const AdminProducts = () => {
   // Filter products
   const filteredProducts = products.filter(product => {
     const matchesSearch = (product.name || product.productName || '').toLowerCase().includes(searchTerm.toLowerCase());
+    
     // Handle category matching - can be id or name
     const productCategoryId = product.categoryId || product.category;
-    const matchesCategory = filterCategory === 'all' || 
-      (typeof productCategoryId === 'number' && productCategoryId === parseInt(filterCategory)) ||
-      (productCategoryId && productCategoryId.toString() === filterCategory);
-    const matchesStatus = filterStatus === 'all' || (product.status === filterStatus);
+    let matchesCategory = true;
+    if (filterCategory !== 'all') {
+      const filterCategoryId = parseInt(filterCategory);
+      matchesCategory = 
+        (typeof productCategoryId === 'number' && productCategoryId === filterCategoryId) ||
+        (productCategoryId && productCategoryId.toString() === filterCategory);
+    }
+    
+    // Filter by is_disable: active = false, inactive = true
+    let matchesStatus = true;
+    if (filterStatus === 'active') {
+      matchesStatus = !product.isDisabled;
+    } else if (filterStatus === 'inactive') {
+      matchesStatus = product.isDisabled === true;
+    }
     
     return matchesSearch && matchesCategory && matchesStatus;
   });
@@ -545,11 +609,18 @@ const AdminProducts = () => {
           <select 
             value={filterCategory} 
             onChange={(e) => setFilterCategory(e.target.value)}
+            disabled={categories.length === 0}
           >
             <option value="all">Tất cả danh mục</option>
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
+            {categories.length > 0 ? (
+              categories.map(cat => (
+                <option key={cat.id || cat.categoryId} value={cat.id || cat.categoryId}>
+                  {cat.categoryName || cat.name || 'Chưa có tên'}
+                </option>
+              ))
+            ) : (
+              <option value="">Đang tải danh mục...</option>
+            )}
           </select>
           
           <select 
@@ -558,7 +629,7 @@ const AdminProducts = () => {
           >
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Hoạt động</option>
-            <option value="inactive">Không hoạt động</option>
+            <option value="inactive">Ngừng hoạt động</option>
           </select>
         </div>
       </div>
@@ -580,11 +651,21 @@ const AdminProducts = () => {
               <img src={product.image} alt={product.name} />
             </div>
             <div className="col-name">
-              <div className="product-name">{product.name}</div>
+              <div 
+                className="product-name" 
+                data-full-name={product.name}
+                title={product.name}
+              >
+                {product.name}
+              </div>
               {product.badge && <span className="product-badge">{product.badge}</span>}
               {product.featured && <span className="featured-badge">⭐ Nổi bật</span>}
             </div>
-            <div className="col-category">
+            <div 
+              className="col-category"
+              data-full-category={product.categoryName || 'Chưa phân loại'}
+              title={product.categoryName || 'Chưa phân loại'}
+            >
               {product.categoryName || 'Chưa phân loại'}
             </div>
             <div className="col-price">
@@ -602,9 +683,16 @@ const AdminProducts = () => {
               </span>
             </div>
             <div className="col-status">
-              <span className={`status-badge ${product.status === 'active' ? 'status-active' : 'status-inactive'}`}>
-                {product.status === 'active' ? 'Hoạt động' : 'Không hoạt động'}
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                <span className={`status-badge ${product.isDisabled ? 'status-disabled' : 'status-active'}`}>
+                  {product.isDisabled ? 'Ngừng bán' : 'Hoạt động'}
+                </span>
+                {product.stock === 0 && (
+                  <span className="status-badge status-out-of-stock">
+                    Hết hàng
+                  </span>
+                )}
+              </div>
             </div>
             <div className="col-actions">
               <div style={{ position: 'relative' }}>
@@ -632,15 +720,15 @@ const AdminProducts = () => {
                     <button
                       className="dropdown-item delete"
                       onClick={() => {
-                        if (product.status === 'active') {
-                          handleDisable(product.id);
-                        } else {
+                        if (product.isDisabled) {
                           handleActivate(product.id);
+                        } else {
+                          handleDisable(product.id);
                         }
                         setDropdownOpen(null);
                       }}
                     >
-                      {product.status === 'active' ? '🗑️ Vô hiệu hóa' : '✅ Kích hoạt'}
+                      {product.isDisabled ? '✅ Kích hoạt' : '🗑️ Ngừng bán'}
                     </button>
                   </div>
                 )}
@@ -694,13 +782,21 @@ const AdminProducts = () => {
                     value={formData.category}
                     onChange={handleInputChange}
                     className={errors.category ? 'error' : ''}
+                    disabled={categories.length === 0}
                   >
-                    <option value="">Chọn danh mục</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    <option value="">{categories.length > 0 ? 'Chọn danh mục' : 'Đang tải danh mục...'}</option>
+                    {categories.length > 0 && categories.map(cat => (
+                      <option key={cat.id || cat.categoryId} value={cat.id || cat.categoryId}>
+                        {cat.categoryName || cat.name || 'Chưa có tên'}
+                      </option>
                     ))}
                   </select>
                   {errors.category && <span className="error-message">{errors.category}</span>}
+                  {categories.length === 0 && (
+                    <span style={{ fontSize: '12px', color: '#666', marginTop: '4px', display: 'block' }}>
+                      Đang tải danh sách danh mục...
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -749,15 +845,53 @@ const AdminProducts = () => {
               </div>
 
               <div className="form-group">
-                <label htmlFor="image">URL Hình ảnh:</label>
+                <label htmlFor="image">Hình ảnh sản phẩm:</label>
                 <input
-                  type="text"
+                  type="file"
                   id="image"
                   name="image"
-                  value={formData.image}
-                  onChange={handleInputChange}
-                  placeholder="https://example.com/image.jpg"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className={errors.image ? 'error' : ''}
                 />
+                {errors.image && <span className="error-message">{errors.image}</span>}
+                {imagePreview && (
+                  <div style={{ marginTop: '10px' }}>
+                    <img 
+                      src={imagePreview} 
+                      alt="Preview" 
+                      style={{ 
+                        width: '150px', 
+                        height: '150px', 
+                        objectFit: 'cover', 
+                        borderRadius: '8px',
+                        border: '2px solid #e0e0e0'
+                      }} 
+                    />
+                  </div>
+                )}
+                {!imagePreview && editingProduct && formData.image && (
+                  <div style={{ marginTop: '10px' }}>
+                    <p style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Ảnh hiện tại:</p>
+                    <img 
+                      src={formData.image} 
+                      alt="Current" 
+                      style={{ 
+                        width: '150px', 
+                        height: '150px', 
+                        objectFit: 'cover', 
+                        borderRadius: '8px',
+                        border: '2px solid #e0e0e0'
+                      }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+                <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                  {editingProduct ? 'Chọn ảnh mới để thay thế ảnh hiện tại (tùy chọn)' : 'Chọn ảnh từ máy tính (tối đa 5MB)'}
+                </p>
               </div>
 
               <div className="form-group">

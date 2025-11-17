@@ -28,6 +28,92 @@ export const register = async (userData) => {
 };
 
 /**
+ * Register new user with avatar file upload
+ * Endpoint: POST /v1/User/register
+ * Response format: { success: boolean, message: string, data: object, errors: string[] }
+ * @param {object} userData - { username, email, phone, address, password }
+ * @param {File} avatarFile - Avatar image file (optional)
+ * @returns {Promise} - User data
+ */
+export const registerWithAvatar = async (userData, avatarFile = null) => {
+  const { getApiUrl, getDefaultHeaders } = await import('../config/api');
+  const url = getApiUrl('User/register');
+  const headers = getDefaultHeaders();
+  
+  let body;
+  
+  if (avatarFile) {
+    // Use FormData for file upload
+    const formData = new FormData();
+    formData.append('username', userData.username || userData.name || '');
+    formData.append('email', userData.email || '');
+    formData.append('phone', userData.phone || '');
+    formData.append('password', userData.password || '');
+    if (userData.address) {
+      formData.append('address', userData.address);
+    }
+    formData.append('avatar', avatarFile);
+    
+    // Remove Content-Type header to let browser set it with boundary
+    delete headers['Content-Type'];
+    body = formData;
+  } else {
+    // Use JSON for regular registration
+    body = JSON.stringify({
+      username: userData.username || userData.name || '',
+      email: userData.email || '',
+      phone: userData.phone || '',
+      password: userData.password || '',
+      ...(userData.address && { address: userData.address })
+    });
+  }
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body
+  });
+  
+  const contentType = response.headers.get('content-type');
+  const isJson = contentType && contentType.includes('application/json');
+  
+  let data;
+  if (isJson) {
+    data = await response.json();
+  } else {
+    const text = await response.text();
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { message: text };
+    }
+  }
+  
+  if (!response.ok) {
+    const error = new Error(data.message || `HTTP error! status: ${response.status}`);
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+  
+  // Handle Swagger response format
+  if (data && typeof data === 'object') {
+    if (data.success === false) {
+      throw new Error(data.message || 'Registration failed');
+    }
+    
+    // Return data if available
+    if (data.data) {
+      return typeof data.data === 'string' ? (() => {
+        try { return JSON.parse(data.data); } catch { return data.data; }
+      })() : data.data;
+    }
+  }
+  
+  return data;
+};
+
+/**
  * Get current user information
  * Endpoint: GET /v1/User/CurrentUser
  * Response format: { success: boolean, message: string, data: string|object, errors: string[] }
