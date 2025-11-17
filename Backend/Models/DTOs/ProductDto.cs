@@ -38,6 +38,14 @@ namespace ModernIssues.Models.DTOs
         // Trạng thái vô hiệu hóa
         public bool IsDisabled { get; set; }
         
+
+        // Trạng thái hiển thị (hết hàng, không hoạt động, đang hoạt động)
+        public string StatusText { get; set; }
+        
+        // Màu sắc trạng thái (đỏ cho hết hàng, xám cho không hoạt động)
+        public string StatusColor { get; set; }
+        
+
         // Tùy chọn: Bạn có thể thêm các trường quản lý như CreatedAt, UpdatedAt
     }
 
