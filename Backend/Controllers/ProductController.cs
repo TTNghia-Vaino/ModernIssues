@@ -357,133 +357,10 @@ namespace ModernIssues.Controllers
         }
 
         // ============================================
-        // 6. GET ALL PRODUCTS (INCLUDING DISABLED): GET api/v1/Product/GetAllProducts
+        // 6. GET ALL LIST PRODUCTS (INCLUDING DISABLED): GET/POST api/v1/Product/GetAllListProducts
         // ============================================
         /// <summary>
         /// Lấy danh sách tất cả sản phẩm (bao gồm cả vô hiệu hóa và không vô hiệu hóa). Chỉ dành cho Admin.
-        /// </summary>
-        /// <response code="200">Trả về danh sách tất cả sản phẩm.</response>
-        /// <response code="401">Chưa đăng nhập.</response>
-        /// <response code="403">Không có quyền admin.</response>
-        [HttpGet("GetAllProducts")]
-        [ProducesResponseType(typeof(ApiResponse<List<ProductDto>>), HttpStatusCodes.OK)]
-        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
-        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
-        public async Task<IActionResult> GetAllProducts()
-        {
-            // Kiểm tra đăng nhập
-            if (!AuthHelper.IsLoggedIn(HttpContext))
-            {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
-            }
-
-            // Kiểm tra quyền admin
-            if (!AuthHelper.IsAdmin(HttpContext))
-            {
-                return StatusCode(HttpStatusCodes.Forbidden, 
-                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xem danh sách tất cả sản phẩm."));
-            }
-
-            try
-            {
-                var products = await (from p in _context.products
-                                     join c in _context.categories on p.category_id equals c.category_id into categoryGroup
-                                     from c in categoryGroup.DefaultIfEmpty()
-                                     orderby p.is_disabled, p.product_id descending
-                                     select new ProductDto
-                                     {
-                                         ProductId = p.product_id,
-                                         CategoryId = p.category_id ?? 0,
-                                         ProductName = p.product_name,
-                                         Description = p.description ?? string.Empty,
-                                         Price = p.price,
-                                         Stock = p.stock ?? 0,
-                                         WarrantyPeriod = p.warranty_period ?? 0,
-                                         ImageUrl = p.image_url ?? string.Empty,
-                                         OnPrices = p.on_prices ?? 0,
-                                         CategoryName = c != null ? c.category_name ?? "Chưa phân loại" : "Chưa phân loại",
-                                         IsDisabled = p.is_disabled ?? false
-                                     })
-                                     .ToListAsync();
-
-                return Ok(ApiResponse<List<ProductDto>>.SuccessResponse(products, "Lấy danh sách tất cả sản phẩm thành công."));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[CRITICAL ERROR] GetAllProducts: {ex.Message}");
-                return StatusCode(HttpStatusCodes.InternalServerError,
-                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy danh sách sản phẩm."));
-            }
-        }
-
-        // ============================================
-        // 7. GET ALL LIST PRODUCTS (INCLUDING DISABLED): GET/POST api/v1/Product/GetAllListProduct
-        // ============================================
-        /// <summary>
-        /// Lấy danh sách tất cả sản phẩm (bao gồm cả vô hiệu hóa và không vô hiệu hóa). Chỉ dành cho Admin.
-        /// Alias của GetAllProducts để tương thích với frontend.
-        /// </summary>
-        /// <response code="200">Trả về danh sách tất cả sản phẩm.</response>
-        /// <response code="401">Chưa đăng nhập.</response>
-        /// <response code="403">Không có quyền admin.</response>
-        [HttpGet("GetAllListProduct")]
-        [HttpPost("GetAllListProduct")]
-        [ProducesResponseType(typeof(ApiResponse<List<ProductDto>>), HttpStatusCodes.OK)]
-        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
-        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
-        public async Task<IActionResult> GetAllListProduct()
-        {
-            // Kiểm tra đăng nhập
-            if (!AuthHelper.IsLoggedIn(HttpContext))
-            {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
-            }
-
-            // Kiểm tra quyền admin
-            if (!AuthHelper.IsAdmin(HttpContext))
-            {
-                return StatusCode(HttpStatusCodes.Forbidden, 
-                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xem danh sách tất cả sản phẩm."));
-            }
-
-            try
-            {
-                var products = await (from p in _context.products
-                                     join c in _context.categories on p.category_id equals c.category_id into categoryGroup
-                                     from c in categoryGroup.DefaultIfEmpty()
-                                     orderby p.is_disabled, p.product_id descending
-                                     select new ProductDto
-                                     {
-                                         ProductId = p.product_id,
-                                         CategoryId = p.category_id ?? 0,
-                                         ProductName = p.product_name,
-                                         Description = p.description ?? string.Empty,
-                                         Price = p.price,
-                                         Stock = p.stock ?? 0,
-                                         WarrantyPeriod = p.warranty_period ?? 0,
-                                         ImageUrl = p.image_url ?? string.Empty,
-                                         OnPrices = p.on_prices ?? 0,
-                                         CategoryName = c != null ? c.category_name ?? "Chưa phân loại" : "Chưa phân loại",
-                                         IsDisabled = p.is_disabled ?? false
-                                     })
-                                     .ToListAsync();
-
-                return Ok(ApiResponse<List<ProductDto>>.SuccessResponse(products, "Lấy danh sách tất cả sản phẩm thành công."));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[CRITICAL ERROR] GetAllListProduct: {ex.Message}");
-                return StatusCode(HttpStatusCodes.InternalServerError,
-                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy danh sách sản phẩm."));
-            }
-        }
-
-        // ============================================
-        // 8. GET ALL LIST PRODUCTS (INCLUDING DISABLED): GET/POST api/v1/Product/GetAllListProducts
-        // ============================================
-        /// <summary>
-        /// Lấy danh sách tất cả sản phẩm (bao gồm cả vô hiệu hóa và không vô hiệu hóa). Chỉ dành cho Admin.
-        /// Alias của GetAllProducts để tương thích với frontend (có "s" ở cuối).
         /// </summary>
         /// <response code="200">Trả về danh sách tất cả sản phẩm.</response>
         /// <response code="401">Chưa đăng nhập.</response>
@@ -541,7 +418,7 @@ namespace ModernIssues.Controllers
         }
 
         // ============================================
-        // 9. GET PRODUCT COUNT BY CATEGORY: GET api/v1/Product/GetProductCountByCategory
+        // 7. GET PRODUCT COUNT BY CATEGORY: GET api/v1/Product/GetProductCountByCategory
         // ============================================
         /// <summary>
         /// Đếm số lượng sản phẩm của từng danh mục. Trả về danh sách các danh mục kèm số lượng sản phẩm. Chỉ dành cho Admin.
