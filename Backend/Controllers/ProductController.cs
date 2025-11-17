@@ -771,5 +771,105 @@ namespace ModernIssues.Controllers
                     ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy báo cáo sản phẩm.", new List<string> { ex.Message }));
             }
         }
+
+        // ============================================
+        // 10. GET BEST SELLING PRODUCTS: GET api/v1/Product/GetBestSellingProducts
+        // ============================================
+        /// <summary>
+        /// Lấy danh sách sản phẩm bán chạy, sắp xếp từ nhiều đến ít.
+        /// </summary>
+        /// <param name="limit">Số lượng sản phẩm cần lấy (mặc định: 10, tối đa: 100)</param>
+        /// <response code="200">Trả về danh sách sản phẩm bán chạy.</response>
+        /// <response code="500">Lỗi hệ thống.</response>
+        [HttpGet("GetBestSellingProducts")]
+        [ProducesResponseType(typeof(ApiResponse<List<BestSellingProductDto>>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.InternalServerError)]
+        public async Task<IActionResult> GetBestSellingProducts([FromQuery] int limit = 10)
+        {
+            try
+            {
+                // Giới hạn limit hợp lý
+                limit = Math.Clamp(limit, 1, 100);
+
+                // Lấy các đơn hàng đã hoàn thành (filter trong memory để tránh lỗi LINQ to Entities)
+                var completedStatuses = new[] { "completed", "delivered", "paid", "shipped" };
+                
+                // Lấy tất cả orders có status không null
+                var allOrders = await _context.orders
+                    .Where(o => !string.IsNullOrEmpty(o.status))
+                    .ToListAsync();
+
+                // Filter completed orders in memory
+                var completedOrderIds = allOrders
+                    .Where(o => completedStatuses.Contains(o.status!.ToLower()))
+                    .Select(o => o.order_id)
+                    .ToList();
+
+                // Query để lấy sản phẩm bán chạy
+                var bestSellingProducts = await (from od in _context.order_details
+                                                 join p in _context.products on od.product_id equals p.product_id
+                                                 join c in _context.categories on p.category_id equals c.category_id into categoryGroup
+                                                 from c in categoryGroup.DefaultIfEmpty()
+                                                 where completedOrderIds.Contains(od.order_id) &&
+                                                       (p.is_disabled == null || p.is_disabled == false)
+                                                 group new { od, p, c } by new
+                                                 {
+                                                     p.product_id,
+                                                     p.product_name,
+                                                     p.description,
+                                                     p.price,
+                                                     p.stock,
+                                                     p.warranty_period,
+                                                     p.image_url,
+                                                     p.category_id,
+                                                     p.on_prices,
+                                                     CategoryName = c != null ? c.category_name : null
+                                                 } into g
+                                                 select new
+                                                 {
+                                                     ProductId = g.Key.product_id,
+                                                     CategoryId = g.Key.category_id ?? 0,
+                                                     ProductName = g.Key.product_name,
+                                                     Description = g.Key.description ?? string.Empty,
+                                                     Price = g.Key.price,
+                                                     Stock = g.Key.stock ?? 0,
+                                                     WarrantyPeriod = g.Key.warranty_period ?? 0,
+                                                     ImageUrl = g.Key.image_url ?? string.Empty,
+                                                     OnPrices = g.Key.on_prices ?? 0,
+                                                     CategoryName = g.Key.CategoryName ?? "Chưa phân loại",
+                                                     TotalSold = g.Sum(x => x.od.quantity)
+                                                 })
+                                                 .OrderByDescending(x => x.TotalSold)
+                                                 .ThenByDescending(x => x.ProductId)
+                                                 .Take(limit)
+                                                 .ToListAsync();
+
+                // Chuyển đổi sang DTO
+                var result = bestSellingProducts.Select(x => new BestSellingProductDto
+                {
+                    ProductId = x.ProductId,
+                    CategoryId = x.CategoryId,
+                    ProductName = x.ProductName,
+                    Description = x.Description,
+                    Price = x.Price,
+                    Stock = x.Stock,
+                    WarrantyPeriod = x.WarrantyPeriod,
+                    ImageUrl = x.ImageUrl,
+                    OnPrices = x.OnPrices,
+                    CategoryName = x.CategoryName,
+                    TotalSold = x.TotalSold
+                }).ToList();
+
+                return Ok(ApiResponse<List<BestSellingProductDto>>.SuccessResponse(
+                    result,
+                    $"Lấy danh sách {result.Count} sản phẩm bán chạy thành công."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] GetBestSellingProducts: {ex.Message}");
+                return StatusCode(HttpStatusCodes.InternalServerError,
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy danh sách sản phẩm bán chạy.", new List<string> { ex.Message }));
+            }
+        }
     }
 }

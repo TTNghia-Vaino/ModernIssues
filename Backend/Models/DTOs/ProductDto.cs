@@ -58,4 +58,15 @@ namespace ModernIssues.Models.DTOs
         public int Limit { get; set; } // Số lượng tối đa trên 1 trang
         public IEnumerable<ProductDto> Data { get; set; } // Dữ liệu sản phẩm trên trang này
     }
+
+    // ============================================
+    // 4. DTO cho Sản phẩm bán chạy
+    // ============================================
+    public class BestSellingProductDto : ProductDto
+    {
+        /// <summary>
+        /// Tổng số lượng đã bán (từ các đơn hàng đã hoàn thành)
+        /// </summary>
+        public int TotalSold { get; set; }
+    }
 }

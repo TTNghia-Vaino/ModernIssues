@@ -574,5 +574,664 @@ namespace ModernIssues.Controllers
                     new List<string> { ex.Message }));
             }
         }
+
+        // ============================================
+        // GET PAYMENT METHOD REPORT: GET api/v1/Order/GetPaymentMethodReport
+        // ============================================
+        /// <summary>
+        /// Lấy báo cáo tỷ lệ phương thức thanh toán để vẽ biểu đồ Pie/Donut/Column. Chỉ dành cho Admin.
+        /// </summary>
+        /// <param name="period">Loại báo cáo: day, month, quarter, year (mặc định: không nhóm theo kỳ)</param>
+        /// <param name="startDate">Ngày bắt đầu (tùy chọn)</param>
+        /// <param name="endDate">Ngày kết thúc (tùy chọn)</param>
+        /// <response code="200">Trả về báo cáo tỷ lệ phương thức thanh toán.</response>
+        /// <response code="400">Tham số không hợp lệ.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpGet("GetPaymentMethodReport")]
+        [ProducesResponseType(typeof(ApiResponse<PaymentMethodReportResponse>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        public async Task<IActionResult> GetPaymentMethodReport(
+            [FromQuery] string period = "",
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null)
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xem báo cáo phương thức thanh toán."));
+            }
+
+            try
+            {
+                // Validate period
+                period = period.ToLower();
+                bool hasPeriod = !string.IsNullOrEmpty(period) && (period == "day" || period == "month" || period == "quarter" || period == "year");
+                
+                if (!string.IsNullOrEmpty(period) && !hasPeriod)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Tham số period phải là: day, month, quarter, hoặc year."));
+                }
+
+                // Set default dates if not provided (convert to UTC)
+                if (!endDate.HasValue)
+                {
+                    endDate = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+                }
+                else
+                {
+                    if (endDate.Value.Kind != DateTimeKind.Utc)
+                    {
+                        endDate = DateTime.SpecifyKind(endDate.Value.ToUniversalTime().Date, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        endDate = DateTime.SpecifyKind(endDate.Value.Date, DateTimeKind.Utc);
+                    }
+                }
+
+                if (!startDate.HasValue)
+                {
+                    if (hasPeriod)
+                    {
+                        if (period == "day" || period == "month")
+                        {
+                            startDate = DateTime.SpecifyKind(endDate.Value.AddDays(-30), DateTimeKind.Utc);
+                        }
+                        else if (period == "quarter")
+                        {
+                            startDate = DateTime.SpecifyKind(endDate.Value.AddYears(-1), DateTimeKind.Utc);
+                        }
+                        else // year
+                        {
+                            startDate = DateTime.SpecifyKind(endDate.Value.AddYears(-5), DateTimeKind.Utc);
+                        }
+                    }
+                    else
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddMonths(-1), DateTimeKind.Utc);
+                    }
+                }
+                else
+                {
+                    if (startDate.Value.Kind != DateTimeKind.Utc)
+                    {
+                        startDate = DateTime.SpecifyKind(startDate.Value.ToUniversalTime().Date, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        startDate = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+                    }
+                }
+
+                // Validate date range
+                if (startDate.Value > endDate.Value)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc."));
+                }
+
+                // Lấy các đơn hàng trong khoảng thời gian
+                var startDateUtc = startDate.Value;
+                var endDateUtc = endDate.Value.AddDays(1).AddTicks(-1); // End of day
+
+                var orders = await _context.orders
+                    .Where(o => o.order_date.HasValue &&
+                                o.order_date.Value >= startDateUtc &&
+                                o.order_date.Value <= endDateUtc &&
+                                !string.IsNullOrEmpty(o.types))
+                    .ToListAsync();
+
+                var totalOrders = orders.Count;
+                List<PaymentMethodReportDto> reportData = new List<PaymentMethodReportDto>();
+
+                if (hasPeriod)
+                {
+                    // Nhóm theo period và payment method
+                    if (period == "day")
+                    {
+                        reportData = orders
+                            .GroupBy(o => new { Date = o.order_date!.Value.Date, PaymentMethod = o.types!.ToUpper() })
+                            .Select(g => new
+                            {
+                                Period = g.Key.Date.ToString("yyyy-MM-dd"),
+                                PeriodStart = g.Key.Date,
+                                PaymentMethod = g.Key.PaymentMethod,
+                                OrderCount = g.Count()
+                            })
+                            .GroupBy(x => new { x.Period, x.PeriodStart })
+                            .SelectMany(periodGroup =>
+                            {
+                                var periodTotal = periodGroup.Sum(x => x.OrderCount);
+                                return periodGroup.Select(x => new PaymentMethodReportDto
+                                {
+                                    Period = x.Period,
+                                    PeriodStart = x.PeriodStart,
+                                    PaymentMethod = x.PaymentMethod,
+                                    PaymentMethodDisplay = x.PaymentMethod switch
+                                    {
+                                        "COD" => "Thanh toán khi nhận hàng",
+                                        "TRANSFER" => "Chuyển khoản",
+                                        "ATM" => "Thẻ ATM",
+                                        "VNPAY" => "VNPay",
+                                        _ => x.PaymentMethod
+                                    },
+                                    OrderCount = x.OrderCount,
+                                    Percentage = periodTotal > 0 ? Math.Round((decimal)x.OrderCount / periodTotal * 100, 2) : 0
+                                });
+                            })
+                            .OrderBy(x => x.PeriodStart)
+                            .ThenByDescending(x => x.OrderCount)
+                            .ToList();
+                    }
+                    else if (period == "month")
+                    {
+                        reportData = orders
+                            .GroupBy(o => new { Year = o.order_date!.Value.Year, Month = o.order_date!.Value.Month, PaymentMethod = o.types!.ToUpper() })
+                            .Select(g => new
+                            {
+                                Period = $"{g.Key.Year}-{g.Key.Month:D2}",
+                                PeriodStart = new DateTime(g.Key.Year, g.Key.Month, 1),
+                                PaymentMethod = g.Key.PaymentMethod,
+                                OrderCount = g.Count()
+                            })
+                            .GroupBy(x => new { x.Period, x.PeriodStart })
+                            .SelectMany(periodGroup =>
+                            {
+                                var periodTotal = periodGroup.Sum(x => x.OrderCount);
+                                return periodGroup.Select(x => new PaymentMethodReportDto
+                                {
+                                    Period = x.Period,
+                                    PeriodStart = x.PeriodStart,
+                                    PaymentMethod = x.PaymentMethod,
+                                    PaymentMethodDisplay = x.PaymentMethod switch
+                                    {
+                                        "COD" => "Thanh toán khi nhận hàng",
+                                        "TRANSFER" => "Chuyển khoản",
+                                        "ATM" => "Thẻ ATM",
+                                        "VNPAY" => "VNPay",
+                                        _ => x.PaymentMethod
+                                    },
+                                    OrderCount = x.OrderCount,
+                                    Percentage = periodTotal > 0 ? Math.Round((decimal)x.OrderCount / periodTotal * 100, 2) : 0
+                                });
+                            })
+                            .OrderBy(x => x.PeriodStart)
+                            .ThenByDescending(x => x.OrderCount)
+                            .ToList();
+                    }
+                    else if (period == "quarter")
+                    {
+                        reportData = orders
+                            .GroupBy(o => new
+                            {
+                                Year = o.order_date!.Value.Year,
+                                Quarter = (o.order_date!.Value.Month - 1) / 3 + 1,
+                                PaymentMethod = o.types!.ToUpper()
+                            })
+                            .Select(g => new
+                            {
+                                Period = $"Q{g.Key.Quarter} {g.Key.Year}",
+                                PeriodStart = new DateTime(g.Key.Year, (g.Key.Quarter - 1) * 3 + 1, 1),
+                                PaymentMethod = g.Key.PaymentMethod,
+                                OrderCount = g.Count()
+                            })
+                            .GroupBy(x => new { x.Period, x.PeriodStart })
+                            .SelectMany(periodGroup =>
+                            {
+                                var periodTotal = periodGroup.Sum(x => x.OrderCount);
+                                return periodGroup.Select(x => new PaymentMethodReportDto
+                                {
+                                    Period = x.Period,
+                                    PeriodStart = x.PeriodStart,
+                                    PaymentMethod = x.PaymentMethod,
+                                    PaymentMethodDisplay = x.PaymentMethod switch
+                                    {
+                                        "COD" => "Thanh toán khi nhận hàng",
+                                        "TRANSFER" => "Chuyển khoản",
+                                        "ATM" => "Thẻ ATM",
+                                        "VNPAY" => "VNPay",
+                                        _ => x.PaymentMethod
+                                    },
+                                    OrderCount = x.OrderCount,
+                                    Percentage = periodTotal > 0 ? Math.Round((decimal)x.OrderCount / periodTotal * 100, 2) : 0
+                                });
+                            })
+                            .OrderBy(x => x.PeriodStart)
+                            .ThenByDescending(x => x.OrderCount)
+                            .ToList();
+                    }
+                    else // year
+                    {
+                        reportData = orders
+                            .GroupBy(o => new { Year = o.order_date!.Value.Year, PaymentMethod = o.types!.ToUpper() })
+                            .Select(g => new
+                            {
+                                Period = g.Key.Year.ToString(),
+                                PeriodStart = new DateTime(g.Key.Year, 1, 1),
+                                PaymentMethod = g.Key.PaymentMethod,
+                                OrderCount = g.Count()
+                            })
+                            .GroupBy(x => new { x.Period, x.PeriodStart })
+                            .SelectMany(periodGroup =>
+                            {
+                                var periodTotal = periodGroup.Sum(x => x.OrderCount);
+                                return periodGroup.Select(x => new PaymentMethodReportDto
+                                {
+                                    Period = x.Period,
+                                    PeriodStart = x.PeriodStart,
+                                    PaymentMethod = x.PaymentMethod,
+                                    PaymentMethodDisplay = x.PaymentMethod switch
+                                    {
+                                        "COD" => "Thanh toán khi nhận hàng",
+                                        "TRANSFER" => "Chuyển khoản",
+                                        "ATM" => "Thẻ ATM",
+                                        "VNPAY" => "VNPay",
+                                        _ => x.PaymentMethod
+                                    },
+                                    OrderCount = x.OrderCount,
+                                    Percentage = periodTotal > 0 ? Math.Round((decimal)x.OrderCount / periodTotal * 100, 2) : 0
+                                });
+                            })
+                            .OrderBy(x => x.PeriodStart)
+                            .ThenByDescending(x => x.OrderCount)
+                            .ToList();
+                    }
+                }
+                else
+                {
+                    // Không nhóm theo period, chỉ nhóm theo payment method
+                    var paymentMethodGroups = orders
+                        .GroupBy(o => o.types!.ToUpper())
+                        .Select(g => new
+                        {
+                            PaymentMethod = g.Key,
+                            OrderCount = g.Count()
+                        })
+                        .ToList();
+
+                    reportData = paymentMethodGroups.Select(g => new PaymentMethodReportDto
+                    {
+                        Period = "",
+                        PeriodStart = DateTime.MinValue,
+                        PaymentMethod = g.PaymentMethod,
+                        PaymentMethodDisplay = g.PaymentMethod switch
+                        {
+                            "COD" => "Thanh toán khi nhận hàng",
+                            "TRANSFER" => "Chuyển khoản",
+                            "ATM" => "Thẻ ATM",
+                            "VNPAY" => "VNPay",
+                            _ => g.PaymentMethod
+                        },
+                        OrderCount = g.OrderCount,
+                        Percentage = totalOrders > 0 ? Math.Round((decimal)g.OrderCount / totalOrders * 100, 2) : 0
+                    })
+                    .OrderByDescending(x => x.OrderCount)
+                    .ToList();
+                }
+
+                var response = new PaymentMethodReportResponse
+                {
+                    PeriodType = hasPeriod ? period : "",
+                    TotalOrders = totalOrders,
+                    Data = reportData
+                };
+
+                return Ok(ApiResponse<PaymentMethodReportResponse>.SuccessResponse(
+                    response,
+                    "Lấy báo cáo tỷ lệ phương thức thanh toán thành công."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] GetPaymentMethodReport: {ex.Message}");
+                return StatusCode(500, ApiResponse<object>.ErrorResponse(
+                    "Lỗi hệ thống khi lấy báo cáo phương thức thanh toán.",
+                    new List<string> { ex.Message }));
+            }
+        }
+
+        // ============================================
+        // GET ORDER STATUS REPORT: GET api/v1/Order/GetOrderStatusReport
+        // ============================================
+        /// <summary>
+        /// Lấy báo cáo số lượng đơn theo trạng thái để vẽ biểu đồ Pie/Radial bar/Column. Chỉ dành cho Admin.
+        /// </summary>
+        /// <param name="period">Loại báo cáo: day, month, quarter, year (mặc định: không nhóm theo kỳ)</param>
+        /// <param name="startDate">Ngày bắt đầu (tùy chọn)</param>
+        /// <param name="endDate">Ngày kết thúc (tùy chọn)</param>
+        /// <response code="200">Trả về báo cáo số lượng đơn theo trạng thái.</response>
+        /// <response code="400">Tham số không hợp lệ.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpGet("GetOrderStatusReport")]
+        [ProducesResponseType(typeof(ApiResponse<OrderStatusReportResponse>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        public async Task<IActionResult> GetOrderStatusReport(
+            [FromQuery] string period = "",
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null)
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xem báo cáo trạng thái đơn hàng."));
+            }
+
+            try
+            {
+                // Validate period
+                period = period.ToLower();
+                bool hasPeriod = !string.IsNullOrEmpty(period) && (period == "day" || period == "month" || period == "quarter" || period == "year");
+                
+                if (!string.IsNullOrEmpty(period) && !hasPeriod)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Tham số period phải là: day, month, quarter, hoặc year."));
+                }
+
+                // Set default dates if not provided (convert to UTC)
+                if (!endDate.HasValue)
+                {
+                    endDate = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+                }
+                else
+                {
+                    if (endDate.Value.Kind != DateTimeKind.Utc)
+                    {
+                        endDate = DateTime.SpecifyKind(endDate.Value.ToUniversalTime().Date, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        endDate = DateTime.SpecifyKind(endDate.Value.Date, DateTimeKind.Utc);
+                    }
+                }
+
+                if (!startDate.HasValue)
+                {
+                    if (hasPeriod)
+                    {
+                        if (period == "day" || period == "month")
+                        {
+                            startDate = DateTime.SpecifyKind(endDate.Value.AddDays(-30), DateTimeKind.Utc);
+                        }
+                        else if (period == "quarter")
+                        {
+                            startDate = DateTime.SpecifyKind(endDate.Value.AddYears(-1), DateTimeKind.Utc);
+                        }
+                        else // year
+                        {
+                            startDate = DateTime.SpecifyKind(endDate.Value.AddYears(-5), DateTimeKind.Utc);
+                        }
+                    }
+                    else
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddMonths(-1), DateTimeKind.Utc);
+                    }
+                }
+                else
+                {
+                    if (startDate.Value.Kind != DateTimeKind.Utc)
+                    {
+                        startDate = DateTime.SpecifyKind(startDate.Value.ToUniversalTime().Date, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        startDate = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+                    }
+                }
+
+                // Validate date range
+                if (startDate.Value > endDate.Value)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc."));
+                }
+
+                // Lấy các đơn hàng trong khoảng thời gian
+                var startDateUtc = startDate.Value;
+                var endDateUtc = endDate.Value.AddDays(1).AddTicks(-1); // End of day
+
+                var orders = await _context.orders
+                    .Where(o => o.order_date.HasValue &&
+                                o.order_date.Value >= startDateUtc &&
+                                o.order_date.Value <= endDateUtc &&
+                                !string.IsNullOrEmpty(o.status))
+                    .ToListAsync();
+
+                var totalOrders = orders.Count;
+                List<OrderStatusReportDto> reportData = new List<OrderStatusReportDto>();
+
+                if (hasPeriod)
+                {
+                    // Nhóm theo period và status
+                    if (period == "day")
+                    {
+                        reportData = orders
+                            .GroupBy(o => new { Date = o.order_date!.Value.Date, Status = o.status!.ToLower() })
+                            .Select(g => new
+                            {
+                                Period = g.Key.Date.ToString("yyyy-MM-dd"),
+                                PeriodStart = g.Key.Date,
+                                Status = g.Key.Status,
+                                OrderCount = g.Count()
+                            })
+                            .GroupBy(x => new { x.Period, x.PeriodStart })
+                            .SelectMany(periodGroup =>
+                            {
+                                var periodTotal = periodGroup.Sum(x => x.OrderCount);
+                                return periodGroup.Select(x => new OrderStatusReportDto
+                                {
+                                    Period = x.Period,
+                                    PeriodStart = x.PeriodStart,
+                                    Status = x.Status,
+                                    StatusDisplay = x.Status switch
+                                    {
+                                        "pending" => "Đang chờ xử lý",
+                                        "processing" => "Đang xử lý",
+                                        "shipped" => "Đang giao hàng",
+                                        "delivered" => "Đã giao hàng",
+                                        "completed" => "Đã hoàn thành",
+                                        "cancelled" => "Đã hủy",
+                                        "paid" => "Đã thanh toán",
+                                        _ => x.Status
+                                    },
+                                    OrderCount = x.OrderCount,
+                                    Percentage = periodTotal > 0 ? Math.Round((decimal)x.OrderCount / periodTotal * 100, 2) : 0
+                                });
+                            })
+                            .OrderBy(x => x.PeriodStart)
+                            .ThenByDescending(x => x.OrderCount)
+                            .ToList();
+                    }
+                    else if (period == "month")
+                    {
+                        reportData = orders
+                            .GroupBy(o => new { Year = o.order_date!.Value.Year, Month = o.order_date!.Value.Month, Status = o.status!.ToLower() })
+                            .Select(g => new
+                            {
+                                Period = $"{g.Key.Year}-{g.Key.Month:D2}",
+                                PeriodStart = new DateTime(g.Key.Year, g.Key.Month, 1),
+                                Status = g.Key.Status,
+                                OrderCount = g.Count()
+                            })
+                            .GroupBy(x => new { x.Period, x.PeriodStart })
+                            .SelectMany(periodGroup =>
+                            {
+                                var periodTotal = periodGroup.Sum(x => x.OrderCount);
+                                return periodGroup.Select(x => new OrderStatusReportDto
+                                {
+                                    Period = x.Period,
+                                    PeriodStart = x.PeriodStart,
+                                    Status = x.Status,
+                                    StatusDisplay = x.Status switch
+                                    {
+                                        "pending" => "Đang chờ xử lý",
+                                        "processing" => "Đang xử lý",
+                                        "shipped" => "Đang giao hàng",
+                                        "delivered" => "Đã giao hàng",
+                                        "completed" => "Đã hoàn thành",
+                                        "cancelled" => "Đã hủy",
+                                        "paid" => "Đã thanh toán",
+                                        _ => x.Status
+                                    },
+                                    OrderCount = x.OrderCount,
+                                    Percentage = periodTotal > 0 ? Math.Round((decimal)x.OrderCount / periodTotal * 100, 2) : 0
+                                });
+                            })
+                            .OrderBy(x => x.PeriodStart)
+                            .ThenByDescending(x => x.OrderCount)
+                            .ToList();
+                    }
+                    else if (period == "quarter")
+                    {
+                        reportData = orders
+                            .GroupBy(o => new
+                            {
+                                Year = o.order_date!.Value.Year,
+                                Quarter = (o.order_date!.Value.Month - 1) / 3 + 1,
+                                Status = o.status!.ToLower()
+                            })
+                            .Select(g => new
+                            {
+                                Period = $"Q{g.Key.Quarter} {g.Key.Year}",
+                                PeriodStart = new DateTime(g.Key.Year, (g.Key.Quarter - 1) * 3 + 1, 1),
+                                Status = g.Key.Status,
+                                OrderCount = g.Count()
+                            })
+                            .GroupBy(x => new { x.Period, x.PeriodStart })
+                            .SelectMany(periodGroup =>
+                            {
+                                var periodTotal = periodGroup.Sum(x => x.OrderCount);
+                                return periodGroup.Select(x => new OrderStatusReportDto
+                                {
+                                    Period = x.Period,
+                                    PeriodStart = x.PeriodStart,
+                                    Status = x.Status,
+                                    StatusDisplay = x.Status switch
+                                    {
+                                        "pending" => "Đang chờ xử lý",
+                                        "processing" => "Đang xử lý",
+                                        "shipped" => "Đang giao hàng",
+                                        "delivered" => "Đã giao hàng",
+                                        "completed" => "Đã hoàn thành",
+                                        "cancelled" => "Đã hủy",
+                                        "paid" => "Đã thanh toán",
+                                        _ => x.Status
+                                    },
+                                    OrderCount = x.OrderCount,
+                                    Percentage = periodTotal > 0 ? Math.Round((decimal)x.OrderCount / periodTotal * 100, 2) : 0
+                                });
+                            })
+                            .OrderBy(x => x.PeriodStart)
+                            .ThenByDescending(x => x.OrderCount)
+                            .ToList();
+                    }
+                    else // year
+                    {
+                        reportData = orders
+                            .GroupBy(o => new { Year = o.order_date!.Value.Year, Status = o.status!.ToLower() })
+                            .Select(g => new
+                            {
+                                Period = g.Key.Year.ToString(),
+                                PeriodStart = new DateTime(g.Key.Year, 1, 1),
+                                Status = g.Key.Status,
+                                OrderCount = g.Count()
+                            })
+                            .GroupBy(x => new { x.Period, x.PeriodStart })
+                            .SelectMany(periodGroup =>
+                            {
+                                var periodTotal = periodGroup.Sum(x => x.OrderCount);
+                                return periodGroup.Select(x => new OrderStatusReportDto
+                                {
+                                    Period = x.Period,
+                                    PeriodStart = x.PeriodStart,
+                                    Status = x.Status,
+                                    StatusDisplay = x.Status switch
+                                    {
+                                        "pending" => "Đang chờ xử lý",
+                                        "processing" => "Đang xử lý",
+                                        "shipped" => "Đang giao hàng",
+                                        "delivered" => "Đã giao hàng",
+                                        "completed" => "Đã hoàn thành",
+                                        "cancelled" => "Đã hủy",
+                                        "paid" => "Đã thanh toán",
+                                        _ => x.Status
+                                    },
+                                    OrderCount = x.OrderCount,
+                                    Percentage = periodTotal > 0 ? Math.Round((decimal)x.OrderCount / periodTotal * 100, 2) : 0
+                                });
+                            })
+                            .OrderBy(x => x.PeriodStart)
+                            .ThenByDescending(x => x.OrderCount)
+                            .ToList();
+                    }
+                }
+                else
+                {
+                    // Không nhóm theo period, chỉ nhóm theo status
+                    var statusGroups = orders
+                        .GroupBy(o => o.status!.ToLower())
+                        .Select(g => new
+                        {
+                            Status = g.Key,
+                            OrderCount = g.Count()
+                        })
+                        .ToList();
+
+                    reportData = statusGroups.Select(g => new OrderStatusReportDto
+                    {
+                        Period = "",
+                        PeriodStart = DateTime.MinValue,
+                        Status = g.Status,
+                        StatusDisplay = g.Status switch
+                        {
+                            "pending" => "Đang chờ xử lý",
+                            "processing" => "Đang xử lý",
+                            "shipped" => "Đang giao hàng",
+                            "delivered" => "Đã giao hàng",
+                            "completed" => "Đã hoàn thành",
+                            "cancelled" => "Đã hủy",
+                            "paid" => "Đã thanh toán",
+                            _ => g.Status
+                        },
+                        OrderCount = g.OrderCount,
+                        Percentage = totalOrders > 0 ? Math.Round((decimal)g.OrderCount / totalOrders * 100, 2) : 0
+                    })
+                    .OrderByDescending(x => x.OrderCount)
+                    .ToList();
+                }
+
+                var response = new OrderStatusReportResponse
+                {
+                    PeriodType = hasPeriod ? period : "",
+                    TotalOrders = totalOrders,
+                    Data = reportData
+                };
+
+                return Ok(ApiResponse<OrderStatusReportResponse>.SuccessResponse(
+                    response,
+                    "Lấy báo cáo số lượng đơn theo trạng thái thành công."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] GetOrderStatusReport: {ex.Message}");
+                return StatusCode(500, ApiResponse<object>.ErrorResponse(
+                    "Lỗi hệ thống khi lấy báo cáo trạng thái đơn hàng.",
+                    new List<string> { ex.Message }));
+            }
+        }
     }
 }
