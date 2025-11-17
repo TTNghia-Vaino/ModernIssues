@@ -8,6 +8,7 @@ using System;
 using System.Threading.Tasks;
 using ModernIssues.Services;
 using Microsoft.Extensions.Caching.Memory;
+using System.Linq;
 
 namespace ModernIssues.Controllers
 {
@@ -23,15 +24,6 @@ namespace ModernIssues.Controllers
             _emailService = emailService;
         }
 
-        // viết hàm orders lay het don hang theo username với 
-        // session đã được set up HttpContext.Session.SetString("username", user.username);
-        //các thuộc t ính của order cần lấy: order_id, order_date, status, total_amount, created_at, updated_at
-        // sau đó return lại list of orders
-
-
-        /// viết hàm getorder by order_id 
-        /// trả lại order_id với list order_details bao gồm (product_id, product_name, price_at_purchase, quantity, image_url)
-
         // GET: /v1/Order/GetOrders
         [HttpGet("GetOrders")]
         public async Task<ActionResult<IEnumerable<object>>> GetOrders()
@@ -45,29 +37,44 @@ namespace ModernIssues.Controllers
                 {
                     return Unauthorized(new { message = "Vui lòng đăng nhập" });
                 }
+                
                 // từ username lấy ngược user_id
                 var user = await _context.users
                     .Where(u => u.username == username)
                     .FirstOrDefaultAsync();
-                // Lấy danh sách đơn hàng theo username
-                var orders = await _context.orders
-                    .Where(o => o.user_id == user.user_id)
-                    .OrderByDescending(o => o.created_at)
-                    .Select(o => new
-                    {
-                        order_id = o.order_id,
-                        order_date = o.order_date,
-                        status = o.status,
-                        total_amount = o.total_amount,
-                        created_at = o.created_at,
-                        updated_at = o.updated_at
-                    })
-                    .ToListAsync();
-                // nếu orders không có gì thì returl text "Người dùng chưa có đơn hàng"
+                
+                if (user == null)
+                {
+                    return Unauthorized(new { message = "Không tìm thấy người dùng" });
+                }
+                
+                // Lấy danh sách đơn hàng theo username với thông tin khách hàng
+                var orders = await (from o in _context.orders
+                                   join u in _context.users on o.user_id equals u.user_id
+                                   where o.user_id == user.user_id
+                                   orderby o.created_at descending
+                                   select new
+                                   {
+                                       order_id = o.order_id,
+                                       customer_name = u.username,
+                                       order_date = o.order_date,
+                                       status = o.status,
+                                       total_amount = o.total_amount,
+                                       types = o.types,
+                                       types_display = o.types == "COD" ? "Thanh toán khi nhận hàng" :
+                                                      o.types == "Transfer" ? "Chuyển khoản" :
+                                                      o.types == "ATM" ? "Thẻ ATM" : o.types ?? "COD",
+                                       created_at = o.created_at,
+                                       updated_at = o.updated_at
+                                   })
+                                   .ToListAsync();
+                
+                // nếu orders không có gì thì return text "Người dùng chưa có đơn hàng"
                 if (orders == null || !orders.Any())
                 {
                     return Ok(new { message = "Người dùng chưa có đơn hàng" });
                 }
+                
                 return Ok(orders);
             }
             catch (Exception ex)
@@ -89,23 +96,34 @@ namespace ModernIssues.Controllers
                 {
                     return Unauthorized(new { message = "Vui lòng đăng nhập" });
                 }
+                
                 var user = await _context.users
                     .Where(u => u.username == username)
                     .FirstOrDefaultAsync();
-                // Lấy thông tin order
-                var order = await _context.orders
-                    .Where(o => o.order_id == order_id && o.user_id == user.user_id)
-                    .FirstOrDefaultAsync();
+                
+                if (user == null)
+                {
+                    return Unauthorized(new { message = "Không tìm thấy người dùng" });
+                }
 
-                // test code
-                //var order = await _context.orders
-                //    .Where(o => o.order_id == order_id)
-                //    .FirstOrDefaultAsync();
+                // Lấy thông tin order kèm user bằng join để đảm bảo load đầy đủ
+                var orderWithUser = await (from o in _context.orders
+                                          join u in _context.users on o.user_id equals u.user_id
+                                          where o.order_id == order_id && o.user_id == user.user_id
+                                          select new
+                                          {
+                                              order = o,
+                                              user = u
+                                          })
+                                          .FirstOrDefaultAsync();
 
-                if (order == null)
+                if (orderWithUser == null)
                 {
                     return NotFound(new { message = "Không tìm thấy đơn hàng" });
                 }
+
+                var order = orderWithUser.order;
+                var orderUser = orderWithUser.user;
 
                 // Lấy chi tiết đơn hàng kèm thông tin sản phẩm
                 var orderDetails = await _context.order_details
@@ -125,16 +143,31 @@ namespace ModernIssues.Controllers
                     )
                     .ToListAsync();
 
-                // tạo ra 1 biến return_order = order(order_id, order_date, status, total_amount, created_at, updated_at)
+                // Tạo TypesDisplay từ types
+                var typesDisplay = order.types == "COD" ? "Thanh toán khi nhận hàng" :
+                                  order.types == "Transfer" ? "Chuyển khoản" :
+                                  order.types == "ATM" ? "Thẻ ATM" : order.types ?? "COD";
+                
+                // tạo ra 1 biến return_order với đầy đủ thông tin khách hàng
                 var return_order = new
                 {
                     order_id = order.order_id,
+                    user_id = order.user_id,
+                    // Thông tin khách hàng
+                    customer_name = orderUser.username,
+                    phone = orderUser.phone,
+                    address = orderUser.address,
+                    email = orderUser.email,
+                    // Thông tin đơn hàng
                     order_date = order.order_date,
                     status = order.status,
                     total_amount = order.total_amount,
+                    types = order.types,
+                    types_display = typesDisplay,
                     created_at = order.created_at,
                     updated_at = order.updated_at
                 };
+                
                 // Trả về kết quả
                 var result = new
                 {
@@ -149,9 +182,6 @@ namespace ModernIssues.Controllers
             {
                 return StatusCode(500, new { message = "Lỗi server", error = ex.Message });
             }
-
         }
     }
 }
-
-

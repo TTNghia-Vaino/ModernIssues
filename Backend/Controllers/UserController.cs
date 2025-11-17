@@ -249,7 +249,7 @@ namespace ModernIssues.Controllers
         // 4. GET ALL USERS: GET api/v1/User/ListUsers (Admin only)
         // ============================================
         /// <summary>
-        /// Lấy danh sách tất cả người dùng. Chỉ dành cho Admin.
+        /// Lấy danh sách tất cả người dùng (bao gồm cả hoạt động và không hoạt động). Chỉ dành cho Admin.
         /// </summary>
         /// <response code="200">Trả về danh sách người dùng.</response>
         /// <response code="401">Chưa đăng nhập.</response>

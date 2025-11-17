@@ -1,0 +1,43 @@
+/* ===== SIDE BANNERS ===== */
+.side-banner {
+  position: fixed;
+  top: 150px;
+  width: 180px;
+  height: 500px;
+  z-index: 50;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  overflow: hidden;
+}
+
+.left-banner {
+  left: 20px;
+}
+
+.right-banner {
+  right: 20px;
+}
+
+/* ===== BANNER IMAGES ===== */
+.banner-full-image {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.banner-full-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+/* Tablet and below - Hide side banners */
+@media (max-width: 1023px) {
+  .side-banner {
+    display: none;
+  }
+}

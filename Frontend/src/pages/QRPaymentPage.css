@@ -1,0 +1,609 @@
+/* ========================================
+   QR PAYMENT PAGE STYLES
+   ======================================== */
+
+.qr-payment-container {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding: 30px 0;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+  font-size: 18px;
+  color: #666;
+}
+
+/* ========================================
+   HEADER
+   ======================================== */
+
+.qr-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.qr-header .logo {
+  font-size: 28px;
+  font-weight: bold;
+  color: #0a804a;
+  margin-bottom: 10px;
+}
+
+.qr-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+/* ========================================
+   MAIN CONTENT
+   ======================================== */
+
+.qr-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px;
+  margin-bottom: 30px;
+}
+
+/* ========================================
+   QR CODE SECTION
+   ======================================== */
+
+.qr-section {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.qr-code-wrapper {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.qr-code-box {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  border: 2px solid #f0f0f0;
+  display: inline-block;
+  margin-bottom: 15px;
+}
+
+.qr-code-image {
+  width: 300px;
+  height: 300px;
+  display: block;
+  margin: 0 auto;
+  object-fit: contain;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  background: white;
+  border-radius: 8px;
+  /* Ensure QR code is not stretched or distorted */
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.qr-placeholder {
+  width: 300px;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f8f8;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  color: #999;
+  font-size: 14px;
+  margin: 0 auto;
+}
+
+/* Loading state */
+.qr-loading {
+  width: 300px;
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f8f8f8;
+  border-radius: 8px;
+  margin: 0 auto;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f0f0f0;
+  border-top: 4px solid #0a804a;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.qr-loading p {
+  color: #666;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Error state */
+.qr-error {
+  width: 300px;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fff5f5;
+  border: 2px solid #feb2b2;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.qr-error p {
+  color: #c53030;
+  font-size: 14px;
+  margin: 0 0 15px 0;
+}
+
+.btn-retry {
+  padding: 10px 20px;
+  background: #0a804a;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-retry:hover {
+  background: #086f3e;
+}
+
+/* Warning state */
+.qr-warning {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  padding: 10px 15px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.qr-warning p {
+  margin: 0;
+  font-size: 13px;
+  color: #856404;
+}
+
+.qr-instruction {
+  font-size: 16px;
+  color: #666;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ========================================
+   PAYMENT STATUS CHECKER
+   ======================================== */
+
+.payment-status-checker {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.checking-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.spinner-small {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #e0f2fe;
+  border-top: 3px solid #0a804a;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.checking-indicator span {
+  font-size: 14px;
+  color: #0369a1;
+  font-weight: 500;
+}
+
+.status-note {
+  font-size: 12px;
+  color: #0284c7;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.payment-success-message {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.success-icon {
+  width: 24px;
+  height: 24px;
+  background: #0a804a;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.payment-success-message span:not(.success-icon) {
+  font-size: 14px;
+  color: #166534;
+  font-weight: 500;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.payment-instructions {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  border-left: 4px solid #0a804a;
+}
+
+.payment-instructions h3 {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.payment-instructions ol {
+  margin: 0;
+  padding-left: 20px;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.payment-instructions li {
+  margin-bottom: 8px;
+}
+
+/* ========================================
+   ORDER INFO SECTION
+   ======================================== */
+
+.order-info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.order-info-box,
+.bank-info-box,
+.order-items-box {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.order-info-box h3,
+.bank-info-box h3,
+.order-items-box h3 {
+  margin: 0 0 15px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.info-row:last-child {
+  margin-bottom: 0;
+}
+
+.info-row .label {
+  color: #666;
+  font-weight: 500;
+}
+
+.info-row .value {
+  color: #333;
+  font-weight: 500;
+}
+
+.info-row .value.amount {
+  color: #0a804a;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* ========================================
+   BANK INFO
+   ======================================== */
+
+.bank-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bank-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.bank-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.bank-label {
+  font-size: 12px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bank-value {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+/* ========================================
+   ORDER ITEMS
+   ======================================== */
+
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #666;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.item-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.item-row .item-name {
+  flex: 1;
+}
+
+.item-row .item-quantity {
+  color: #0a804a;
+  font-weight: 500;
+}
+
+.item-row.more-items {
+  color: #999;
+  font-style: italic;
+}
+
+/* ========================================
+   ACTIONS
+   ======================================== */
+
+.qr-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: 14px 32px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 180px;
+}
+
+.btn-primary {
+  background: #0a804a;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #086f3e;
+}
+
+.btn-secondary {
+  background: white;
+  color: #333;
+  border: 2px solid #ddd;
+}
+
+.btn-secondary:hover {
+  background: #f8f8f8;
+  border-color: #bbb;
+}
+
+/* ========================================
+   NOTICE BOX
+   ======================================== */
+
+.notice-box {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 15px 20px;
+  text-align: center;
+}
+
+.notice-box p {
+  margin: 0;
+  font-size: 14px;
+  color: #856404;
+  line-height: 1.6;
+}
+
+.notice-box strong {
+  color: #533f03;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+@media (max-width: 1024px) {
+  .qr-content {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .qr-payment-container {
+    padding: 20px 0;
+  }
+
+  .qr-header h1 {
+    font-size: 20px;
+  }
+
+  .qr-section,
+  .order-info-box,
+  .bank-info-box,
+  .order-items-box {
+    padding: 20px;
+  }
+
+  .qr-code-image,
+  .qr-placeholder {
+    width: 250px;
+    height: 250px;
+  }
+
+  .qr-actions {
+    flex-direction: column;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 576px) {
+  .container {
+    padding: 0 15px;
+  }
+
+  .qr-header .logo {
+    font-size: 24px;
+  }
+
+  .qr-header h1 {
+    font-size: 18px;
+  }
+
+  .qr-section,
+  .order-info-box,
+  .bank-info-box,
+  .order-items-box {
+    padding: 15px;
+  }
+
+  .qr-code-image,
+  .qr-placeholder {
+    width: 200px;
+    height: 200px;
+  }
+
+  .payment-instructions {
+    padding: 15px;
+  }
+
+  .payment-instructions ol {
+    font-size: 13px;
+  }
+
+  .info-row,
+  .bank-value {
+    font-size: 13px;
+  }
+
+  .info-row .value.amount {
+    font-size: 16px;
+  }
+
+  .item-row {
+    font-size: 13px;
+  }
+}
+
