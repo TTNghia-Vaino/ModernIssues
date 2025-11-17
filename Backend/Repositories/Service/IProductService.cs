@@ -13,5 +13,7 @@ namespace ModernIssues.Repositories.Service
     Task<ProductDto> UpdateProductAsync(int productId, ProductCreateUpdateDto product, int adminId); 
     
     Task<bool> SoftDeleteProductAsync(int productId, int adminId);
+    
+    Task<bool> ReactivateProductAsync(int productId, int adminId);
 }
 }

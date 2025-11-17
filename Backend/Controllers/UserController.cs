@@ -4,6 +4,7 @@ using ModernIssues.Models.DTOs;
 using ModernIssues.Services;
 using ModernIssues.Helpers;
 using ModernIssues.Models.Common;
+using ModernIssues.Models.Entities;
 using System.Collections.Generic;
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Repositories.Service;
@@ -11,6 +12,8 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using System.IO;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace ModernIssues.Controllers
 {
@@ -21,11 +24,13 @@ namespace ModernIssues.Controllers
     {
         private readonly IUserService _userService;
         private readonly IWebHostEnvironment _webHostEnvironment;
+        private readonly WebDbContext _context;
 
-        public UserController(IUserService userService, IWebHostEnvironment webHostEnvironment)
+        public UserController(IUserService userService, IWebHostEnvironment webHostEnvironment, WebDbContext context)
         {
             _userService = userService;
             _webHostEnvironment = webHostEnvironment;
+            _context = context;
         }
 
         // ============================================
@@ -778,6 +783,193 @@ namespace ModernIssues.Controllers
                 Console.WriteLine($"[CRITICAL ERROR] DeleteAvatar: {ex.Message}");
                 return StatusCode(HttpStatusCodes.InternalServerError,
                     ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi xóa avatar."));
+            }
+        }
+
+        // ============================================
+        // 11. GET USER REPORT: GET api/v1/User/GetUserReport
+        // ============================================
+        /// <summary>
+        /// Lấy báo cáo thống kê số lượng người dùng đăng ký theo ngày, tháng, quý, năm để vẽ biểu đồ cột. Chỉ dành cho Admin.
+        /// </summary>
+        /// <param name="period">Loại báo cáo: day, month, quarter, year</param>
+        /// <param name="startDate">Ngày bắt đầu (tùy chọn)</param>
+        /// <param name="endDate">Ngày kết thúc (tùy chọn)</param>
+        /// <response code="200">Trả về báo cáo người dùng.</response>
+        /// <response code="400">Tham số không hợp lệ.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpGet("GetUserReport")]
+        [ProducesResponseType(typeof(ApiResponse<ReportResponse>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
+        public async Task<IActionResult> GetUserReport(
+            [FromQuery] string period = "day",
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null)
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(HttpStatusCodes.Forbidden, 
+                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xem báo cáo người dùng."));
+            }
+
+            try
+            {
+                // Validate period
+                period = period.ToLower();
+                if (period != "day" && period != "month" && period != "quarter" && period != "year")
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Tham số period phải là: day, month, quarter, hoặc year."));
+                }
+
+                // Set default dates if not provided (convert to UTC)
+                if (!endDate.HasValue)
+                {
+                    endDate = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+                }
+                else
+                {
+                    // Ensure UTC
+                    if (endDate.Value.Kind != DateTimeKind.Utc)
+                    {
+                        endDate = DateTime.SpecifyKind(endDate.Value.ToUniversalTime().Date, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        endDate = DateTime.SpecifyKind(endDate.Value.Date, DateTimeKind.Utc);
+                    }
+                }
+
+                if (!startDate.HasValue)
+                {
+                    if (period == "day" || period == "month")
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddDays(-30), DateTimeKind.Utc);
+                    }
+                    else if (period == "quarter")
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddYears(-1), DateTimeKind.Utc);
+                    }
+                    else // year
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddYears(-5), DateTimeKind.Utc);
+                    }
+                }
+                else
+                {
+                    // Ensure UTC
+                    if (startDate.Value.Kind != DateTimeKind.Utc)
+                    {
+                        startDate = DateTime.SpecifyKind(startDate.Value.ToUniversalTime().Date, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        startDate = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+                    }
+                }
+
+                // Validate date range
+                if (startDate.Value > endDate.Value)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc."));
+                }
+
+                // Lấy các người dùng (use UTC dates)
+                var startDateUtc = startDate.Value;
+                var endDateUtc = endDate.Value.AddDays(1).AddTicks(-1); // End of day
+                
+                var users = await _context.users
+                    .Where(u => u.created_at.HasValue &&
+                                u.created_at.Value >= startDateUtc &&
+                                u.created_at.Value <= endDateUtc)
+                    .ToListAsync();
+
+                // Nhóm và tính toán theo period
+                List<ReportDto> reportData = new List<ReportDto>();
+
+                if (period == "day")
+                {
+                    reportData = users
+                        .GroupBy(u => u.created_at!.Value.Date)
+                        .Select(g => new ReportDto
+                        {
+                            Period = g.Key.ToString("yyyy-MM-dd"),
+                            Count = g.Count(),
+                            PeriodStart = g.Key
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+                else if (period == "month")
+                {
+                    reportData = users
+                        .GroupBy(u => new { Year = u.created_at!.Value.Year, Month = u.created_at!.Value.Month })
+                        .Select(g => new ReportDto
+                        {
+                            Period = $"{g.Key.Year}-{g.Key.Month:D2}",
+                            Count = g.Count(),
+                            PeriodStart = new DateTime(g.Key.Year, g.Key.Month, 1)
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+                else if (period == "quarter")
+                {
+                    reportData = users
+                        .GroupBy(u => new
+                        {
+                            Year = u.created_at!.Value.Year,
+                            Quarter = (u.created_at!.Value.Month - 1) / 3 + 1
+                        })
+                        .Select(g => new ReportDto
+                        {
+                            Period = $"Q{g.Key.Quarter} {g.Key.Year}",
+                            Count = g.Count(),
+                            PeriodStart = new DateTime(g.Key.Year, (g.Key.Quarter - 1) * 3 + 1, 1)
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+                else // year
+                {
+                    reportData = users
+                        .GroupBy(u => u.created_at!.Value.Year)
+                        .Select(g => new ReportDto
+                        {
+                            Period = g.Key.ToString(),
+                            Count = g.Count(),
+                            PeriodStart = new DateTime(g.Key, 1, 1)
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+
+                // Tạo response
+                var response = new ReportResponse
+                {
+                    PeriodType = period,
+                    TotalCount = reportData.Sum(x => x.Count),
+                    Data = reportData
+                };
+
+                return Ok(ApiResponse<ReportResponse>.SuccessResponse(
+                    response,
+                    $"Lấy báo cáo người dùng theo {period} thành công."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] GetUserReport: {ex.Message}");
+                return StatusCode(HttpStatusCodes.InternalServerError,
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy báo cáo người dùng.", new List<string> { ex.Message }));
             }
         }
     }

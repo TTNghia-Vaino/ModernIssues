@@ -4,11 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using ModernIssues.Models.Configurations;
 using ModernIssues.Models.DTOs;
 using ModernIssues.Models.Entities;
+using ModernIssues.Models.Common;
+using ModernIssues.Helpers;
 using System;
 using System.Threading.Tasks;
 using ModernIssues.Services;
 using Microsoft.Extensions.Caching.Memory;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace ModernIssues.Controllers
 {
@@ -181,6 +184,394 @@ namespace ModernIssues.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "Lỗi server", error = ex.Message });
+            }
+        }
+
+        // ============================================
+        // GET REVENUE REPORT: GET api/v1/Order/GetRevenueReport
+        // ============================================
+        /// <summary>
+        /// Lấy báo cáo thống kê doanh thu theo ngày, tháng, quý, năm để vẽ biểu đồ cột. Chỉ dành cho Admin.
+        /// </summary>
+        /// <param name="period">Loại báo cáo: day, month, quarter, year</param>
+        /// <param name="startDate">Ngày bắt đầu (tùy chọn, mặc định là 30 ngày trước)</param>
+        /// <param name="endDate">Ngày kết thúc (tùy chọn, mặc định là hôm nay)</param>
+        /// <response code="200">Trả về báo cáo doanh thu.</response>
+        /// <response code="400">Tham số không hợp lệ.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpGet("GetRevenueReport")]
+        [ProducesResponseType(typeof(ApiResponse<RevenueReportResponse>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        public async Task<IActionResult> GetRevenueReport(
+            [FromQuery] string period = "day",
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null)
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xem báo cáo doanh thu."));
+            }
+
+            try
+            {
+                // Validate period
+                period = period.ToLower();
+                if (period != "day" && period != "month" && period != "quarter" && period != "year")
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Tham số period phải là: day, month, quarter, hoặc year."));
+                }
+
+                // Set default dates if not provided (convert to UTC)
+                if (!endDate.HasValue)
+                {
+                    endDate = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+                }
+                else
+                {
+                    // Ensure UTC
+                    if (endDate.Value.Kind != DateTimeKind.Utc)
+                    {
+                        endDate = DateTime.SpecifyKind(endDate.Value.ToUniversalTime().Date, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        endDate = DateTime.SpecifyKind(endDate.Value.Date, DateTimeKind.Utc);
+                    }
+                }
+
+                if (!startDate.HasValue)
+                {
+                    // Default: 30 days for day/month, 1 year for quarter/year
+                    if (period == "day" || period == "month")
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddDays(-30), DateTimeKind.Utc);
+                    }
+                    else if (period == "quarter")
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddYears(-1), DateTimeKind.Utc);
+                    }
+                    else // year
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddYears(-5), DateTimeKind.Utc);
+                    }
+                }
+                else
+                {
+                    // Ensure UTC
+                    if (startDate.Value.Kind != DateTimeKind.Utc)
+                    {
+                        startDate = DateTime.SpecifyKind(startDate.Value.ToUniversalTime().Date, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        startDate = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+                    }
+                }
+
+                // Validate date range
+                if (startDate.Value > endDate.Value)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc."));
+                }
+
+                // Lấy các đơn hàng đã hoàn thành (không phải cancelled hoặc pending)
+                var completedStatuses = new[] { "completed", "delivered", "paid", "shipped" };
+                var startDateUtc = startDate.Value;
+                var endDateUtc = endDate.Value.AddDays(1).AddTicks(-1); // End of day
+                
+                var allOrders = await _context.orders
+                    .Where(o => o.order_date.HasValue &&
+                                o.order_date.Value >= startDateUtc &&
+                                o.order_date.Value <= endDateUtc &&
+                                o.total_amount.HasValue &&
+                                !string.IsNullOrEmpty(o.status))
+                    .ToListAsync();
+
+                // Filter completed orders in memory
+                var orders = allOrders
+                    .Where(o => completedStatuses.Contains(o.status!.ToLower()))
+                    .ToList();
+
+                // Nhóm và tính toán theo period
+                List<RevenueReportDto> reportData = new List<RevenueReportDto>();
+
+                if (period == "day")
+                {
+                    reportData = orders
+                        .GroupBy(o => o.order_date.Value.Date)
+                        .Select(g => new RevenueReportDto
+                        {
+                            Period = g.Key.ToString("yyyy-MM-dd"),
+                            Revenue = g.Sum(o => o.total_amount ?? 0),
+                            OrderCount = g.Count(),
+                            PeriodStart = g.Key
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+                else if (period == "month")
+                {
+                    reportData = orders
+                        .GroupBy(o => new { Year = o.order_date.Value.Year, Month = o.order_date.Value.Month })
+                        .Select(g => new RevenueReportDto
+                        {
+                            Period = $"{g.Key.Year}-{g.Key.Month:D2}",
+                            Revenue = g.Sum(o => o.total_amount ?? 0),
+                            OrderCount = g.Count(),
+                            PeriodStart = new DateTime(g.Key.Year, g.Key.Month, 1)
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+                else if (period == "quarter")
+                {
+                    reportData = orders
+                        .GroupBy(o => new
+                        {
+                            Year = o.order_date.Value.Year,
+                            Quarter = (o.order_date.Value.Month - 1) / 3 + 1
+                        })
+                        .Select(g => new RevenueReportDto
+                        {
+                            Period = $"Q{g.Key.Quarter} {g.Key.Year}",
+                            Revenue = g.Sum(o => o.total_amount ?? 0),
+                            OrderCount = g.Count(),
+                            PeriodStart = new DateTime(g.Key.Year, (g.Key.Quarter - 1) * 3 + 1, 1)
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+                else // year
+                {
+                    reportData = orders
+                        .GroupBy(o => o.order_date.Value.Year)
+                        .Select(g => new RevenueReportDto
+                        {
+                            Period = g.Key.ToString(),
+                            Revenue = g.Sum(o => o.total_amount ?? 0),
+                            OrderCount = g.Count(),
+                            PeriodStart = new DateTime(g.Key, 1, 1)
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+
+                // Tạo response
+                var response = new RevenueReportResponse
+                {
+                    PeriodType = period,
+                    TotalRevenue = reportData.Sum(x => x.Revenue),
+                    TotalOrders = reportData.Sum(x => x.OrderCount),
+                    Data = reportData
+                };
+
+                return Ok(ApiResponse<RevenueReportResponse>.SuccessResponse(
+                    response,
+                    $"Lấy báo cáo doanh thu theo {period} thành công."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] GetRevenueReport: {ex.Message}");
+                return StatusCode(500, ApiResponse<object>.ErrorResponse(
+                    "Lỗi hệ thống khi lấy báo cáo doanh thu.",
+                    new List<string> { ex.Message }));
+            }
+        }
+
+        // ============================================
+        // GET ORDER REPORT: GET api/v1/Order/GetOrderReport
+        // ============================================
+        /// <summary>
+        /// Lấy báo cáo thống kê số lượng đơn hàng theo ngày, tháng, quý, năm để vẽ biểu đồ cột. Chỉ dành cho Admin.
+        /// </summary>
+        /// <param name="period">Loại báo cáo: day, month, quarter, year</param>
+        /// <param name="startDate">Ngày bắt đầu (tùy chọn)</param>
+        /// <param name="endDate">Ngày kết thúc (tùy chọn)</param>
+        /// <response code="200">Trả về báo cáo đơn hàng.</response>
+        /// <response code="400">Tham số không hợp lệ.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpGet("GetOrderReport")]
+        [ProducesResponseType(typeof(ApiResponse<ReportResponse>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        public async Task<IActionResult> GetOrderReport(
+            [FromQuery] string period = "day",
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null)
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xem báo cáo đơn hàng."));
+            }
+
+            try
+            {
+                // Validate period
+                period = period.ToLower();
+                if (period != "day" && period != "month" && period != "quarter" && period != "year")
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Tham số period phải là: day, month, quarter, hoặc year."));
+                }
+
+                // Set default dates if not provided (convert to UTC)
+                if (!endDate.HasValue)
+                {
+                    endDate = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+                }
+                else
+                {
+                    // Ensure UTC
+                    if (endDate.Value.Kind != DateTimeKind.Utc)
+                    {
+                        endDate = DateTime.SpecifyKind(endDate.Value.ToUniversalTime().Date, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        endDate = DateTime.SpecifyKind(endDate.Value.Date, DateTimeKind.Utc);
+                    }
+                }
+
+                if (!startDate.HasValue)
+                {
+                    if (period == "day" || period == "month")
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddDays(-30), DateTimeKind.Utc);
+                    }
+                    else if (period == "quarter")
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddYears(-1), DateTimeKind.Utc);
+                    }
+                    else // year
+                    {
+                        startDate = DateTime.SpecifyKind(endDate.Value.AddYears(-5), DateTimeKind.Utc);
+                    }
+                }
+                else
+                {
+                    // Ensure UTC
+                    if (startDate.Value.Kind != DateTimeKind.Utc)
+                    {
+                        startDate = DateTime.SpecifyKind(startDate.Value.ToUniversalTime().Date, DateTimeKind.Utc);
+                    }
+                    else
+                    {
+                        startDate = DateTime.SpecifyKind(startDate.Value.Date, DateTimeKind.Utc);
+                    }
+                }
+
+                // Validate date range
+                if (startDate.Value > endDate.Value)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc."));
+                }
+
+                // Lấy các đơn hàng
+                var startDateUtc = startDate.Value;
+                var endDateUtc = endDate.Value.AddDays(1).AddTicks(-1); // End of day
+                
+                var orders = await _context.orders
+                    .Where(o => o.order_date.HasValue &&
+                                o.order_date.Value >= startDateUtc &&
+                                o.order_date.Value <= endDateUtc)
+                    .ToListAsync();
+
+                // Nhóm và tính toán theo period
+                List<ReportDto> reportData = new List<ReportDto>();
+
+                if (period == "day")
+                {
+                    reportData = orders
+                        .GroupBy(o => o.order_date!.Value.Date)
+                        .Select(g => new ReportDto
+                        {
+                            Period = g.Key.ToString("yyyy-MM-dd"),
+                            Count = g.Count(),
+                            PeriodStart = g.Key
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+                else if (period == "month")
+                {
+                    reportData = orders
+                        .GroupBy(o => new { Year = o.order_date!.Value.Year, Month = o.order_date!.Value.Month })
+                        .Select(g => new ReportDto
+                        {
+                            Period = $"{g.Key.Year}-{g.Key.Month:D2}",
+                            Count = g.Count(),
+                            PeriodStart = new DateTime(g.Key.Year, g.Key.Month, 1)
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+                else if (period == "quarter")
+                {
+                    reportData = orders
+                        .GroupBy(o => new
+                        {
+                            Year = o.order_date!.Value.Year,
+                            Quarter = (o.order_date!.Value.Month - 1) / 3 + 1
+                        })
+                        .Select(g => new ReportDto
+                        {
+                            Period = $"Q{g.Key.Quarter} {g.Key.Year}",
+                            Count = g.Count(),
+                            PeriodStart = new DateTime(g.Key.Year, (g.Key.Quarter - 1) * 3 + 1, 1)
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+                else // year
+                {
+                    reportData = orders
+                        .GroupBy(o => o.order_date!.Value.Year)
+                        .Select(g => new ReportDto
+                        {
+                            Period = g.Key.ToString(),
+                            Count = g.Count(),
+                            PeriodStart = new DateTime(g.Key, 1, 1)
+                        })
+                        .OrderBy(x => x.PeriodStart)
+                        .ToList();
+                }
+
+                // Tạo response
+                var response = new ReportResponse
+                {
+                    PeriodType = period,
+                    TotalCount = reportData.Sum(x => x.Count),
+                    Data = reportData
+                };
+
+                return Ok(ApiResponse<ReportResponse>.SuccessResponse(
+                    response,
+                    $"Lấy báo cáo đơn hàng theo {period} thành công."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] GetOrderReport: {ex.Message}");
+                return StatusCode(500, ApiResponse<object>.ErrorResponse(
+                    "Lỗi hệ thống khi lấy báo cáo đơn hàng.",
+                    new List<string> { ex.Message }));
             }
         }
     }
