@@ -136,30 +136,44 @@ const AdminProducts = () => {
       console.log('[AdminProducts] Products count:', productsArray.length);
       
       // Map API fields to component format
-      const mappedProducts = productsArray.map(product => ({
-        id: product.productId || product.id,
-        name: product.productName || product.name,
-        productName: product.productName || product.name,
-        category: product.categoryId || product.category,
-        categoryId: product.categoryId || product.category,
-        categoryName: product.categoryName || product.categoryName,
-        price: product.price || 0,
-        originalPrice: product.onPrices || product.onPrice || product.price || 0,
-        onPrice: product.onPrices || product.onPrice,
-        discount: (product.onPrices || product.onPrice) > 0 && product.price 
-          ? Math.round((((product.onPrices || product.onPrice) - product.price) / (product.onPrices || product.onPrice)) * 100) 
-          : 0,
-        image: product.imageUrl || product.image,
-        imageUrl: product.imageUrl || product.image,
-        description: product.description || '',
-        stock: product.stock || 0,
-        warrantyPeriod: product.warrantyPeriod || 12,
-        status: (product.stock || 0) > 0 ? 'active' : 'inactive',
-        isDisabled: product.isDisabled === true || product.isDisabled === 'true' || product.is_disabled === true,
-        badge: product.badge || '',
-        featured: product.featured || false,
-        specs: product.specs || {}
-      }));
+      const { getBaseURL } = await import('../config/api');
+      const baseUrl = getBaseURL() || 'http://35.232.61.38:5000'; // Fallback to server URL if using proxy
+      // Remove v1 from base URL if present
+      const cleanBaseUrl = baseUrl.replace(/\/v1$/, '');
+      
+      const mappedProducts = productsArray.map(product => {
+        // Build full image URL if imageUrl is just filename
+        let fullImageUrl = product.imageUrl || product.image;
+        if (fullImageUrl && !fullImageUrl.startsWith('http') && !fullImageUrl.startsWith('data:') && !fullImageUrl.startsWith('/')) {
+          // If imageUrl is just filename, construct full URL from wwwroot/Uploads/Images
+          fullImageUrl = `${cleanBaseUrl}/Uploads/Images/${fullImageUrl}`;
+        }
+        
+        return {
+          id: product.productId || product.id,
+          name: product.productName || product.name,
+          productName: product.productName || product.name,
+          category: product.categoryId || product.category,
+          categoryId: product.categoryId || product.category,
+          categoryName: product.categoryName || product.categoryName,
+          price: product.price || 0,
+          originalPrice: product.onPrices || product.onPrice || product.price || 0,
+          onPrice: product.onPrices || product.onPrice,
+          discount: (product.onPrices || product.onPrice) > 0 && product.price 
+            ? Math.round((((product.onPrices || product.onPrice) - product.price) / (product.onPrices || product.onPrice)) * 100) 
+            : 0,
+          image: fullImageUrl,
+          imageUrl: fullImageUrl,
+          description: product.description || '',
+          stock: product.stock || 0,
+          warrantyPeriod: product.warrantyPeriod || 12,
+          status: (product.stock || 0) > 0 ? 'active' : 'inactive',
+          isDisabled: product.isDisabled === true || product.isDisabled === 'true' || product.is_disabled === true,
+          badge: product.badge || '',
+          featured: product.featured || false,
+          specs: product.specs || {}
+        };
+      });
       
       console.log('[AdminProducts] Mapped products:', mappedProducts);
       setProducts(mappedProducts);
@@ -223,24 +237,35 @@ const AdminProducts = () => {
     setShowModal(true);
   };
 
-  const handleEdit = (product) => {
+  const handleEdit = async (product) => {
     setEditingProduct(product);
+    
+    // Build full image URL for preview
+    let previewImageUrl = product.imageUrl || product.image || null;
+    if (previewImageUrl && !previewImageUrl.startsWith('http') && !previewImageUrl.startsWith('data:') && !previewImageUrl.startsWith('/')) {
+      const { getBaseURL } = await import('../config/api');
+      const baseUrl = getBaseURL() || 'http://35.232.61.38:5000';
+      const cleanBaseUrl = baseUrl.replace(/\/v1$/, '');
+      previewImageUrl = `${cleanBaseUrl}/Uploads/Images/${previewImageUrl}`;
+    }
+    
     setFormData({
       ...product,
       name: product.name || product.productName || '',
       category: product.categoryId || product.category || '',
       price: product.price || '',
-      originalPrice: product.onPrice || product.originalPrice || product.price || '',
-      image: product.imageUrl || product.image || '',
+      originalPrice: product.onPrices || product.onPrice || product.originalPrice || product.price || '',
+      image: previewImageUrl || '',
       description: product.description || '',
       stock: product.stock || 0,
+      warrantyPeriod: product.warrantyPeriod || 12,
       specs: { ...product.specs } || {},
       status: product.status || 'active',
       badge: product.badge || '',
       featured: product.featured || false
     });
     setImageFile(null);
-    setImagePreview(product.imageUrl || product.image || null);
+    setImagePreview(previewImageUrl);
     setErrors({});
     setShowModal(true);
   };
@@ -381,18 +406,55 @@ const AdminProducts = () => {
           }
           const updatedProduct = await productService.updateProduct(editingProduct.id, apiProductData, imageFile || null);
           
+          console.log('[AdminProducts] ✅ API update product SUCCESS!');
+          console.log('[AdminProducts] API Response:', updatedProduct);
+          
           // Map API response back to local format
+          // Response format: { productId, onPrices, categoryName, isDisabled, categoryId, productName, description, price, stock, warrantyPeriod, imageUrl }
+          
+          // Build full image URL if imageUrl is just filename
+          let fullImageUrl = updatedProduct.imageUrl || updatedProduct.image || productData.image;
+          if (fullImageUrl && !fullImageUrl.startsWith('http') && !fullImageUrl.startsWith('data:') && !fullImageUrl.startsWith('/')) {
+            // If imageUrl is just filename, construct full URL from wwwroot/Uploads/Images
+            const { getBaseURL } = await import('../config/api');
+            const baseUrl = getBaseURL() || 'http://35.232.61.38:5000'; // Fallback to server URL if using proxy
+            // Remove v1 from base URL if present, then add Uploads/Images path
+            const cleanBaseUrl = baseUrl.replace(/\/v1$/, '');
+            fullImageUrl = `${cleanBaseUrl}/Uploads/Images/${fullImageUrl}`;
+          }
+          
           const mappedProduct = {
             id: updatedProduct.productId || updatedProduct.id || editingProduct.id,
+            productId: updatedProduct.productId || updatedProduct.id,
             name: updatedProduct.productName || updatedProduct.name,
+            productName: updatedProduct.productName || updatedProduct.name,
             category: updatedProduct.categoryId || updatedProduct.category,
+            categoryId: updatedProduct.categoryId,
+            categoryName: updatedProduct.categoryName,
             price: updatedProduct.price,
-            originalPrice: updatedProduct.onPrice || updatedProduct.originalPrice || updatedProduct.price,
-            image: updatedProduct.imageUrl || updatedProduct.image || productData.image,
+            originalPrice: updatedProduct.onPrices || updatedProduct.onPrice || updatedProduct.originalPrice || updatedProduct.price,
+            onPrices: updatedProduct.onPrices || 0,
+            image: fullImageUrl,
+            imageUrl: fullImageUrl,
             description: updatedProduct.description,
             stock: updatedProduct.stock,
+            warrantyPeriod: updatedProduct.warrantyPeriod || 12,
+            isDisabled: updatedProduct.isDisabled || false,
+            statusText: updatedProduct.statusText,
+            statusColor: updatedProduct.statusColor,
             ...updatedProduct
           };
+          
+          console.log('[AdminProducts] Mapped Product:', mappedProduct);
+          console.log('[AdminProducts] Image URL:', fullImageUrl);
+          
+          // Update formData and imagePreview with new image
+          setFormData(prev => ({
+            ...prev,
+            image: fullImageUrl
+          }));
+          setImagePreview(fullImageUrl);
+          setImageFile(null); // Clear uploaded file after success
           
           // Reload products list to get the latest data from server
           await loadProducts();
@@ -420,22 +482,63 @@ const AdminProducts = () => {
           console.log('[AdminProducts] API Response:', newProduct);
           
           // Map API response back to local format
+          // Build full image URL if imageUrl is just filename
+          let fullImageUrl = newProduct.imageUrl || newProduct.image || productData.image;
+          if (fullImageUrl && !fullImageUrl.startsWith('http') && !fullImageUrl.startsWith('data:') && !fullImageUrl.startsWith('/')) {
+            // If imageUrl is just filename, construct full URL from wwwroot/Uploads/Images
+            const { getBaseURL } = await import('../config/api');
+            const baseUrl = getBaseURL() || 'http://35.232.61.38:5000'; // Fallback to server URL if using proxy
+            // Remove v1 from base URL if present, then add Uploads/Images path
+            const cleanBaseUrl = baseUrl.replace(/\/v1$/, '');
+            fullImageUrl = `${cleanBaseUrl}/Uploads/Images/${fullImageUrl}`;
+          }
+          
           const mappedProduct = {
             id: newProduct.productId || newProduct.id || (products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1),
             name: newProduct.productName || newProduct.name,
             category: newProduct.categoryId || newProduct.category,
             price: newProduct.price,
-            originalPrice: newProduct.onPrice || newProduct.originalPrice || newProduct.price,
-            image: newProduct.imageUrl || newProduct.image || productData.image,
+            originalPrice: newProduct.onPrices || newProduct.onPrice || newProduct.originalPrice || newProduct.price,
+            image: fullImageUrl,
+            imageUrl: fullImageUrl,
             description: newProduct.description,
             stock: newProduct.stock,
             ...newProduct
           };
           
           console.log('[AdminProducts] Mapped Product:', mappedProduct);
+          console.log('[AdminProducts] Image URL:', fullImageUrl);
+          
+          // Clear form after successful create
+          setFormData({
+            name: '',
+            category: '',
+            price: '',
+            originalPrice: '',
+            discount: 0,
+            image: '',
+            description: '',
+            specs: {
+              cpu: '',
+              ram: '',
+              storage: '',
+              display: '',
+              gpu: '',
+              os: ''
+            },
+            stock: 0,
+            warrantyPeriod: 12,
+            status: 'active',
+            badge: '',
+            featured: false
+          });
+          setImageFile(null);
+          setImagePreview(null);
+          
           // Reload products list to get the latest data from server
           await loadProducts();
           showNotification('Thêm sản phẩm mới thành công!');
+          setShowModal(false);
         } catch (apiError) {
           console.error('[AdminProducts] ❌ API create product FAILED!');
           console.error('[AdminProducts] Error Details:', {
