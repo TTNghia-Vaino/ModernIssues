@@ -21,6 +21,10 @@ const AdminCategories = () => {
   const [errors, setErrors] = useState({});
   const [openDropdownId, setOpenDropdownId] = useState(null);
   
+  // Search and filter state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -233,16 +237,32 @@ const AdminCategories = () => {
     return status === 'active' ? 'Hoạt động' : 'Không hoạt động';
   };
 
+  // Filter categories
+  const filteredCategories = categories.filter(category => {
+    if (!category) return false;
+    
+    // Search filter
+    const matchesSearch = !searchTerm || 
+      (category.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (category.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(category.id || '').includes(searchTerm);
+    
+    // Status filter
+    const matchesStatus = filterStatus === 'all' || category.status === filterStatus;
+    
+    return matchesSearch && matchesStatus;
+  });
+
   // Pagination calculation
-  const totalPages = Math.ceil(categories.length / pageSize);
+  const totalPages = Math.ceil(filteredCategories.length / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const paginatedCategories = categories.slice(startIndex, endIndex);
+  const paginatedCategories = filteredCategories.slice(startIndex, endIndex);
 
-  // Reset to page 1 when categories change
+  // Reset to page 1 when filters or categories change
   useEffect(() => {
     setCurrentPage(1);
-  }, [categories.length]);
+  }, [searchTerm, filterStatus, filteredCategories.length]);
 
   if (loading) {
     return (
@@ -268,6 +288,25 @@ const AdminCategories = () => {
         <button className="add-btn" onClick={handleAddNew}>
           ➕ Thêm danh mục mới
         </button>
+      </div>
+
+      {/* Thanh bộ lọc dạng bar */}
+      <div className="filters-bar">
+        <div className="filter-item search">
+          <input
+            type="text"
+            placeholder="🔍 Tìm kiếm theo tên, mô tả hoặc ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="filter-item">
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <option value="all">Tất cả trạng thái</option>
+            <option value="active">Hoạt động</option>
+            <option value="inactive">Không hoạt động</option>
+          </select>
+        </div>
       </div>
 
       <div className="categories-table">
@@ -354,10 +393,10 @@ const AdminCategories = () => {
       </div>
 
       {/* Pagination Controls */}
-      {categories.length > 0 && (
+      {filteredCategories.length > 0 && (
         <div className="pagination-controls">
           <div className="pagination-info">
-            Hiển thị {startIndex + 1}-{Math.min(endIndex, categories.length)} / {categories.length} danh mục
+            Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredCategories.length)} / {filteredCategories.length} danh mục
           </div>
           
           <div className="pagination-buttons">
@@ -413,9 +452,14 @@ const AdminCategories = () => {
       {/* Modal */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>{editingCategory ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới'}</h3>
+          <div className="modal-content category-form-modal">
+            <div className="modal-header category-form-header">
+              <div>
+                <h3 className="category-form-title">{editingCategory ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới'}</h3>
+                <p className="category-form-description">
+                  {editingCategory ? 'Cập nhật thông tin danh mục' : 'Điền thông tin danh mục mới'}
+                </p>
+              </div>
               <button 
                 className="close-btn"
                 onClick={() => setShowModal(false)}
@@ -424,71 +468,85 @@ const AdminCategories = () => {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="modal-form">
-              <div className="form-group">
-                <label htmlFor="name">Tên danh mục: <span style={{ color: 'red' }}>*</span></label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Nhập tên danh mục"
-                  className={errors.name ? 'error' : ''}
-                />
-                {errors.name && <span className="error-message">{errors.name}</span>}
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="description">Mô tả: <span style={{ color: 'red' }}>*</span></label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows="3"
-                  placeholder="Nhập mô tả danh mục"
-                  className={errors.description ? 'error' : ''}
-                />
-                {errors.description && <span className="error-message">{errors.description}</span>}
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="status">Trạng thái:</label>
-                <select
-                  id="status"
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                >
-                  <option value="active">Hoạt động</option>
-                  <option value="inactive">Không hoạt động</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="parentId">Danh mục cha (tùy chọn):</label>
-                <select
-                  id="parentId"
-                  name="parentId"
-                  value={formData.parentId || ''}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setFormData({
-                      ...formData,
-                      parentId: value === '' ? null : parseInt(value)
-                    });
-                  }}
-                >
-                  <option value="">Không có (danh mục gốc)</option>
-                  {categories
-                    .filter(cat => !editingCategory || cat.id !== editingCategory.id)
-                    .map(cat => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                </select>
+            <form onSubmit={handleSubmit} className="modal-form category-form-content">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Thông tin danh mục */}
+                <div className="form-section">
+                  <h3 className="form-section-title">Thông tin danh mục</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label htmlFor="name">Tên danh mục: <span style={{ color: 'red' }}>*</span></label>
+                      <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        placeholder="Nhập tên danh mục"
+                        className={errors.name ? 'error' : ''}
+                      />
+                      {errors.name && <span className="error-message">{errors.name}</span>}
+                    </div>
+                    
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label htmlFor="description">Mô tả: <span style={{ color: 'red' }}>*</span></label>
+                      <textarea
+                        id="description"
+                        name="description"
+                        value={formData.description}
+                        onChange={handleInputChange}
+                        rows="3"
+                        placeholder="Nhập mô tả danh mục"
+                        className={errors.description ? 'error' : ''}
+                      />
+                      {errors.description && <span className="error-message">{errors.description}</span>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cấu hình danh mục */}
+                <div className="form-section">
+                  <h3 className="form-section-title">Cấu hình danh mục</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                    <div className="form-group">
+                      <label htmlFor="status">Trạng thái:</label>
+                      <select
+                        id="status"
+                        name="status"
+                        value={formData.status}
+                        onChange={handleInputChange}
+                      >
+                        <option value="active">Hoạt động</option>
+                        <option value="inactive">Không hoạt động</option>
+                      </select>
+                    </div>
+                    
+                    <div className="form-group">
+                      <label htmlFor="parentId">Danh mục cha (tùy chọn):</label>
+                      <select
+                        id="parentId"
+                        name="parentId"
+                        value={formData.parentId || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData({
+                            ...formData,
+                            parentId: value === '' ? null : parseInt(value)
+                          });
+                        }}
+                      >
+                        <option value="">Không có (danh mục gốc)</option>
+                        {categories
+                          .filter(cat => !editingCategory || cat.id !== editingCategory.id)
+                          .map(cat => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
               </div>
               
               <div className="modal-actions">

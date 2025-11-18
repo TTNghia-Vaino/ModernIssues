@@ -27,6 +27,8 @@ import AdminCategories from './pages/AdminCategories';
 import AdminProducts from './pages/AdminProducts';
 import AdminUsers from './pages/AdminUsers';
 import AdminOrders from './pages/AdminOrders';
+import AdminWarranty from './pages/AdminWarranty';
+import AdminPromotions from './pages/AdminPromotions';
 import CareersPage from './pages/CareersPage';
 import InstallmentPage from './pages/InstallmentPage';
 import ContactPage from './pages/ContactPage';
@@ -135,6 +137,8 @@ function App() {
                 <Route path="/admin/products" element={<AdminRoute><AdminLayout><AdminProducts /></AdminLayout></AdminRoute>} />
                 <Route path="/admin/users" element={<AdminRoute><AdminLayout><AdminUsers /></AdminLayout></AdminRoute>} />
                 <Route path="/admin/orders" element={<AdminRoute><AdminLayout><AdminOrders /></AdminLayout></AdminRoute>} />
+                <Route path="/admin/warranty" element={<AdminRoute><AdminLayout><AdminWarranty /></AdminLayout></AdminRoute>} />
+                <Route path="/admin/promotions" element={<AdminRoute><AdminLayout><AdminPromotions /></AdminLayout></AdminRoute>} />
                     </Routes>
                   </Layout>
                 </div>

@@ -45,6 +45,18 @@ const AdminLayout = ({ children }) => {
       icon: '🛒',
       description: 'Quản lý đơn hàng và giao dịch'
     },
+    { 
+      path: '/admin/warranty', 
+      label: 'Bảo hành', 
+      icon: '🔧',
+      description: 'Quản lý yêu cầu bảo hành'
+    },
+    { 
+      path: '/admin/promotions', 
+      label: 'Khuyến mãi', 
+      icon: '🎁',
+      description: 'Quản lý chương trình khuyến mãi'
+    },
   ];
 
   const isActiveRoute = (path) => {

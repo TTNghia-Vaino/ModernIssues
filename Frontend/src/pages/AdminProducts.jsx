@@ -850,9 +850,14 @@ const AdminProducts = () => {
       {/* Modal */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content modal-large">
-            <div className="modal-header">
-              <h3>{editingProduct ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}</h3>
+          <div className="modal-content modal-large product-form-modal">
+            <div className="modal-header product-form-header">
+              <div>
+                <h3 className="product-form-title">{editingProduct ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}</h3>
+                <p className="product-form-description">
+                  {editingProduct ? 'Cập nhật thông tin sản phẩm' : 'Điền thông tin sản phẩm mới'}
+                </p>
+              </div>
               <button 
                 className="close-btn"
                 onClick={() => setShowModal(false)}
@@ -861,8 +866,12 @@ const AdminProducts = () => {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="modal-form">
-              <div className="form-row">
+            <form onSubmit={handleSubmit} className="modal-form product-form-content">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Thông tin sản phẩm */}
+                <div className="form-section">
+                  <h3 className="form-section-title">Thông tin sản phẩm</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
                 <div className="form-group">
                   <label htmlFor="name">Tên sản phẩm: <span className="required">*</span></label>
                   <input
@@ -946,73 +955,81 @@ const AdminProducts = () => {
                   {errors.stock && <span className="error-message">{errors.stock}</span>}
                 </div>
               </div>
+                </div>
 
-              <div className="form-group">
-                <label htmlFor="image">Hình ảnh sản phẩm:</label>
-                <input
-                  type="file"
-                  id="image"
-                  name="image"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className={errors.image ? 'error' : ''}
-                />
-                {errors.image && <span className="error-message">{errors.image}</span>}
-                {imagePreview && (
-                  <div style={{ marginTop: '10px' }}>
-                    <img 
-                      src={imagePreview} 
-                      alt="Preview" 
-                      style={{ 
-                        width: '150px', 
-                        height: '150px', 
-                        objectFit: 'cover', 
-                        borderRadius: '8px',
-                        border: '2px solid #e0e0e0'
-                      }} 
-                    />
+                {/* Hình ảnh và mô tả */}
+                <div className="form-section">
+                  <h3 className="form-section-title">Hình ảnh và mô tả</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label htmlFor="image">Hình ảnh sản phẩm:</label>
+                      <input
+                        type="file"
+                        id="image"
+                        name="image"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className={errors.image ? 'error' : ''}
+                      />
+                      {errors.image && <span className="error-message">{errors.image}</span>}
+                      {imagePreview && (
+                        <div style={{ marginTop: '10px' }}>
+                          <img 
+                            src={imagePreview} 
+                            alt="Preview" 
+                            style={{ 
+                              width: '150px', 
+                              height: '150px', 
+                              objectFit: 'cover', 
+                              borderRadius: '8px',
+                              border: '2px solid #e0e0e0'
+                            }} 
+                          />
+                        </div>
+                      )}
+                      {!imagePreview && editingProduct && formData.image && (
+                        <div style={{ marginTop: '10px' }}>
+                          <p style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Ảnh hiện tại:</p>
+                          <img 
+                            src={formData.image} 
+                            alt="Current" 
+                            style={{ 
+                              width: '150px', 
+                              height: '150px', 
+                              objectFit: 'cover', 
+                              borderRadius: '8px',
+                              border: '2px solid #e0e0e0'
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                      <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                        {editingProduct ? 'Chọn ảnh mới để thay thế ảnh hiện tại (tùy chọn)' : 'Chọn ảnh từ máy tính (tối đa 5MB)'}
+                      </p>
+                    </div>
+
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label htmlFor="description">Mô tả:</label>
+                      <textarea
+                        id="description"
+                        name="description"
+                        value={formData.description}
+                        onChange={handleInputChange}
+                        rows="3"
+                        placeholder="Nhập mô tả sản phẩm"
+                      />
+                    </div>
                   </div>
-                )}
-                {!imagePreview && editingProduct && formData.image && (
-                  <div style={{ marginTop: '10px' }}>
-                    <p style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Ảnh hiện tại:</p>
-                    <img 
-                      src={formData.image} 
-                      alt="Current" 
-                      style={{ 
-                        width: '150px', 
-                        height: '150px', 
-                        objectFit: 'cover', 
-                        borderRadius: '8px',
-                        border: '2px solid #e0e0e0'
-                      }}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
-                <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                  {editingProduct ? 'Chọn ảnh mới để thay thế ảnh hiện tại (tùy chọn)' : 'Chọn ảnh từ máy tính (tối đa 5MB)'}
-                </p>
-              </div>
+                </div>
 
-              <div className="form-group">
-                <label htmlFor="description">Mô tả:</label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows="3"
-                  placeholder="Nhập mô tả sản phẩm"
-                />
-              </div>
-
-              <div className="specs-section">
-                <h4>Thông số kỹ thuật</h4>
-                <div className="form-row">
-                  <div className="form-group">
+                {/* Thông số kỹ thuật */}
+                <div className="form-section">
+                  <h3 className="form-section-title">Thông số kỹ thuật</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                    <div className="form-group">
                     <label htmlFor="specs.cpu">CPU:</label>
                     <input
                       type="text"
@@ -1084,13 +1101,16 @@ const AdminProducts = () => {
                       onChange={handleInputChange}
                       placeholder="Windows 11, macOS..."
                     />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="badge">Badge:</label>
+                {/* Cấu hình khác */}
+                <div className="form-section">
+                  <h3 className="form-section-title">Cấu hình khác</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                    <div className="form-group">
+                      <label htmlFor="badge">Badge:</label>
                   <input
                     type="text"
                     id="badge"
@@ -1112,19 +1132,21 @@ const AdminProducts = () => {
                     <option value="active">Hoạt động</option>
                     <option value="inactive">Không hoạt động</option>
                   </select>
+                    </div>
+                    
+                    <div className="form-group checkbox-group">
+                      <label>
+                        <input
+                          type="checkbox"
+                          name="featured"
+                          checked={formData.featured}
+                          onChange={handleInputChange}
+                        />
+                        <span>Sản phẩm nổi bật</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <div className="form-group checkbox-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    name="featured"
-                    checked={formData.featured}
-                    onChange={handleInputChange}
-                  />
-                  <span>Sản phẩm nổi bật</span>
-                </label>
               </div>
               
               <div className="modal-actions">
