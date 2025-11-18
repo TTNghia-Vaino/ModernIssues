@@ -10,6 +10,7 @@ namespace ModernIssues.Controllers
     public class HooksController : Controller
     {
         private readonly IHooksService _hooksService;
+        private const string ApiKey = "Acer-Aspire7-Vaino";
 
         public HooksController(IHooksService hooksService)
         {
@@ -19,6 +20,25 @@ namespace ModernIssues.Controllers
         [HttpPost("transaction")]
         public async Task<IActionResult> ReceiveTransaction(BankTransaction dto)
         {
+            // 1️⃣ Kiểm tra API key trong header
+            if (!Request.Headers.TryGetValue("Authorization", out var authHeader))
+            {
+                return Unauthorized("Authorization header missing");
+            }
+
+            const string prefix = "Apikey ";
+            if (!authHeader.ToString().StartsWith(prefix))
+            {
+                return Unauthorized("Invalid Authorization format");
+            }
+
+            var incomingApiKey = authHeader.ToString().Substring(prefix.Length).Trim();
+
+            if (!string.Equals(incomingApiKey, ApiKey))
+            {
+                return Unauthorized("Invalid API key");
+            }
+
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
