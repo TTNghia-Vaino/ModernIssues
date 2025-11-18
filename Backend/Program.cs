@@ -24,7 +24,7 @@ builder.Services.AddDbContext<WebDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
-
+builder.Services.AddScoped<IHooksService, HooksService>();
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
     {
