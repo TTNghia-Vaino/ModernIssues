@@ -6,7 +6,7 @@ using ModernIssues.Models.Entities;
 namespace ModernIssues.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     public class HooksController : Controller
     {
         private readonly IHooksService _hooksService;
