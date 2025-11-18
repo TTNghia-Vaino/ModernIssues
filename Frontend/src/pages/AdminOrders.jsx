@@ -14,6 +14,10 @@ const AdminOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Load orders from API on mount, but delay if in grace period
   useEffect(() => {
@@ -289,6 +293,17 @@ const AdminOrders = () => {
     return matchesSearch && matchesStatus;
   });
 
+  // Pagination calculation
+  const totalPages = Math.ceil(filteredOrders.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatus, filteredOrders.length]);
+
   return (
     <div className="admin-orders">
       {loading && orders.length === 0 && (
@@ -337,7 +352,7 @@ const AdminOrders = () => {
             <div className="spinner"></div>
             <p>Đang cập nhật...</p>
           </div>
-        ) : filteredOrders.length > 0 ? (
+        ) : paginatedOrders.length > 0 ? (
           <div className="data-table">
             <div className="orders-table">
               <div className="table-header">
@@ -349,7 +364,7 @@ const AdminOrders = () => {
                 <div className="col-date">Ngày đặt</div>
                 <div className="col-actions">Thao tác</div>
               </div>
-              {filteredOrders.map((order) => {
+              {paginatedOrders.map((order) => {
                 const orderId = order.id || order.orderId || 'N/A';
                 const customerName = order.customerName || order.fullName || order.name || 'Khách hàng';
                 const total = order.total || order.totalPrice || order.amount || 0;
@@ -402,6 +417,63 @@ const AdminOrders = () => {
           </div>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {filteredOrders.length > 0 && (
+        <div className="pagination-controls">
+          <div className="pagination-info">
+            Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)} / {filteredOrders.length} đơn hàng
+          </div>
+          
+          <div className="pagination-buttons">
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+            >
+              «
+            </button>
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              ‹
+            </button>
+            
+            <span className="page-indicator">
+              Trang {currentPage} / {totalPages || 1}
+            </span>
+            
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+            >
+              ›
+            </button>
+            <button 
+              className="pg-btn"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage >= totalPages}
+            >
+              »
+            </button>
+          </div>
+          
+          <div className="page-size-selector">
+            <label>Hiển thị: </label>
+            <select value={pageSize} onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && selectedOrder && (
