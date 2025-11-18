@@ -524,3 +524,142 @@ export const deleteProduct = async (id) => {
   return response;
 };
 
+/**
+ * Get product count by category
+ * Endpoint: GET /v1/Product/GetProductCountByCategory
+ * Response format: { success: boolean, message: string, data: [{ category_id, category_name, product_count }], errors: string[] }
+ * @returns {Promise} - Array of category product counts
+ */
+export const getProductCountByCategory = async () => {
+  try {
+    const response = await apiGet('Product/GetProductCountByCategory');
+    
+    if (import.meta.env.DEV) {
+      console.log('[ProductService.getProductCountByCategory] Response received:', response);
+    }
+    
+    // Handle Swagger response format
+    if (response && typeof response === 'object') {
+      // Check for error
+      if (response.success === false) {
+        console.error('[ProductService.getProductCountByCategory] API returned error:', response.message, response.errors);
+        throw new Error(response.message || 'Failed to get product count by category');
+      }
+      
+      // Return data if available
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      }
+      
+      // If data is string, try to parse
+      if (response.data && typeof response.data === 'string') {
+        try {
+          const parsed = JSON.parse(response.data);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          console.warn('[ProductService.getProductCountByCategory] Failed to parse response.data as JSON:', e);
+          return [];
+        }
+      }
+    }
+    
+    // Fallback: return empty array
+    return Array.isArray(response) ? response : [];
+  } catch (error) {
+    console.error('[ProductService.getProductCountByCategory] Error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get best selling products
+ * Endpoint: GET /v1/Product/GetBestSellingProducts
+ * Query params: limit (optional), period (optional), startDate (optional), endDate (optional)
+ * @param {object} params - Query parameters { limit, period, startDate, endDate }
+ * @returns {Promise} - Best selling products data
+ */
+export const getBestSellingProducts = async (params = {}) => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params.limit) queryParams.append('limit', params.limit);
+    if (params.period) queryParams.append('period', params.period);
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+    
+    const queryString = queryParams.toString();
+    const endpoint = queryString ? `Product/GetBestSellingProducts?${queryString}` : 'Product/GetBestSellingProducts';
+    
+    const response = await apiGet(endpoint);
+    
+    if (import.meta.env.DEV) {
+      console.log('[ProductService.getBestSellingProducts] Response received:', response);
+    }
+    
+    const data = handleResponse(response);
+    
+    // Extract data array if nested
+    if (data && typeof data === 'object' && Array.isArray(data.data)) {
+      return data.data;
+    } else if (Array.isArray(data)) {
+      return data;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('[ProductService.getBestSellingProducts] Error:', error);
+    throw error;
+  }
+};
+
+export const getProductReport = async (params = {}) => {
+  try {
+    const queryParams = {};
+    if (params.period) queryParams.period = params.period;
+    if (params.startDate) queryParams.startDate = params.startDate;
+    if (params.endDate) queryParams.endDate = params.endDate;
+    
+    const response = await apiGet('Product/GetProductReport', queryParams);
+    
+    if (import.meta.env.DEV) {
+      console.log('[ProductService.getProductReport] Response received:', response);
+    }
+    
+    // Handle Swagger response format
+    if (response && typeof response === 'object') {
+      if (response.success === false) {
+        console.error('[ProductService.getProductReport] API returned error:', response.message, response.errors);
+        throw new Error(response.message || 'Failed to get product report');
+      }
+      
+      // Response structure: { periodType, totalCount, data: [...] }
+      if (response.data && typeof response.data === 'object' && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      
+      // If data is string, try to parse
+      if (response.data && typeof response.data === 'string') {
+        try {
+          const parsed = JSON.parse(response.data);
+          if (parsed && typeof parsed === 'object' && Array.isArray(parsed.data)) {
+            return parsed.data;
+          }
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          console.warn('[ProductService.getProductReport] Failed to parse response.data as JSON:', e);
+          return [];
+        }
+      }
+      
+      // Fallback: if data is directly an array
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      }
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('[ProductService.getProductReport] Error:', error);
+    throw error;
+  }
+};
+

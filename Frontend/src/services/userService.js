@@ -511,3 +511,60 @@ export const deleteCurrentUserAvatar = async () => {
   return response;
 };
 
+/**
+ * Get user report
+ * Endpoint: GET /v1/User/GetUserReport?period={period}
+ * Response format: { success: boolean, message: string, data: { periodType, totalCount, data: [...] }, errors: string[] }
+ * @param {object} params - { period: 'day'|'month'|'quarter'|'year' }
+ * @returns {Promise} - User report data array
+ */
+export const getUserReport = async (params = {}) => {
+  try {
+    const queryParams = {};
+    if (params.period) queryParams.period = params.period;
+    
+    const response = await apiGet('User/GetUserReport', queryParams);
+    
+    if (import.meta.env.DEV) {
+      console.log('[UserService.getUserReport] Response received:', response);
+    }
+    
+    // Handle Swagger response format
+    if (response && typeof response === 'object') {
+      if (response.success === false) {
+        console.error('[UserService.getUserReport] API returned error:', response.message, response.errors);
+        throw new Error(response.message || 'Failed to get user report');
+      }
+      
+      // Response structure: { periodType, totalCount, data: [...] }
+      if (response.data && typeof response.data === 'object' && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      
+      // If data is string, try to parse
+      if (response.data && typeof response.data === 'string') {
+        try {
+          const parsed = JSON.parse(response.data);
+          if (parsed && typeof parsed === 'object' && Array.isArray(parsed.data)) {
+            return parsed.data;
+          }
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          console.warn('[UserService.getUserReport] Failed to parse response.data as JSON:', e);
+          return [];
+        }
+      }
+      
+      // Fallback: if data is directly an array
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      }
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('[UserService.getUserReport] Error:', error);
+    throw error;
+  }
+};
+
