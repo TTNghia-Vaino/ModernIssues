@@ -51,4 +51,6 @@ public partial class product
     public virtual ICollection<warranty> warranties { get; set; } = new List<warranty>();
 
     public virtual ICollection<promotion> promotions { get; set; } = new List<promotion>();
+
+    public virtual ICollection<product_serial> product_serials { get; set; } = new List<product_serial>();
 }

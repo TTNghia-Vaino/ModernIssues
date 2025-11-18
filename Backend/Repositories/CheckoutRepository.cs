@@ -102,41 +102,87 @@ namespace ModernIssues.Repositories
                 }
             }
 
-            // 7. Tạo warranty cho từng sản phẩm (nếu có warranty_period)
-            var warranties = cartItems
-                .Where(c => c.product != null && c.product.warranty_period.HasValue && c.product.warranty_period > 0)
-                .SelectMany(cartItem =>
+            await _context.SaveChangesAsync();
+
+            // 7. Tạo warranty tự động cho từng sản phẩm (nếu có warranty_period)
+            // Lấy serial numbers từ product_serials (trong kho) thay vì tạo mới
+            var warranties = new List<warranty>();
+
+            foreach (var cartItem in cartItems)
+            {
+                if (cartItem.product != null && 
+                    cartItem.product.warranty_period.HasValue && 
+                    cartItem.product.warranty_period > 0)
                 {
-                    if (cartItem.product == null) return Enumerable.Empty<warranty>();
                     var warrantyPeriod = cartItem.product.warranty_period ?? 0;
                     var startDate = DateTime.UtcNow;
                     var endDate = startDate.AddMonths(warrantyPeriod);
 
-                    // Tạo warranty cho mỗi quantity (mỗi sản phẩm cần 1 warranty riêng)
-                    return Enumerable.Range(0, cartItem.quantity).Select(index => new warranty
+                    // Lấy serial numbers có sẵn trong kho (is_disabled = false = còn bảo hành) cho sản phẩm này
+                    var availableSerials = await _context.product_serials
+                        .Where(ps => ps.product_id == cartItem.product_id 
+                                  && (ps.is_disabled == null || ps.is_disabled == false))
+                        .Take(cartItem.quantity)
+                        .ToListAsync();
+
+                    // Kiểm tra đủ serial không
+                    if (availableSerials.Count < cartItem.quantity)
                     {
-                        product_id = cartItem.product_id,
-                        user_id = userId,
-                        order_id = newOrder.order_id,
-                        start_date = startDate,
-                        end_date = endDate,
-                        status = "active",
-                        serial_number = null, // Serial number sẽ được cập nhật sau bởi admin
-                        created_at = DateTime.UtcNow,
-                        updated_at = DateTime.UtcNow,
-                        created_by = userId,
-                        updated_by = userId,
-                        is_disabled = false
-                    });
-                })
-                .ToList();
+                        throw new ArgumentException(
+                            $"Không đủ serial numbers trong kho cho sản phẩm {cartItem.product.product_name}. " +
+                            $"Cần {cartItem.quantity} nhưng chỉ có {availableSerials.Count} sản phẩm có serial.");
+                    }
+
+                    // Tạo warranty cho mỗi serial number
+                    foreach (var productSerial in availableSerials)
+                    {
+                        var newWarranty = new warranty
+                        {
+                            product_id = cartItem.product_id,
+                            user_id = userId,
+                            order_id = newOrder.order_id,
+                            start_date = startDate,
+                            end_date = endDate,
+                            status = "active",
+                            serial_number = productSerial.serial_number, // Sử dụng serial từ kho
+                            created_at = DateTime.UtcNow,
+                            updated_at = DateTime.UtcNow,
+                            created_by = userId,
+                            updated_by = userId,
+                            is_disabled = false
+                        };
+
+                        warranties.Add(newWarranty);
+
+                        // Cập nhật serial: gán order_id và warranty_id (sẽ cập nhật sau khi lưu warranty)
+                        // Không cần đổi is_disabled vì vẫn còn bảo hành (is_disabled = false)
+                        productSerial.order_id = newOrder.order_id;
+                        productSerial.updated_at = DateTime.UtcNow;
+                        productSerial.updated_by = userId;
+                    }
+                }
+            }
 
             if (warranties.Any())
             {
                 _context.warranties.AddRange(warranties);
-            }
+                await _context.SaveChangesAsync();
 
-            await _context.SaveChangesAsync();
+                // Cập nhật warranty_id vào product_serials sau khi warranty được tạo
+                foreach (var warrantyItem in warranties)
+                {
+                    var productSerial = await _context.product_serials
+                        .FirstOrDefaultAsync(ps => ps.serial_number == warrantyItem.serial_number);
+                    
+                    if (productSerial != null)
+                    {
+                        productSerial.warranty_id = warrantyItem.warranty_id;
+                        productSerial.updated_at = DateTime.UtcNow;
+                    }
+                }
+                
+                await _context.SaveChangesAsync();
+            }
 
             // 8. Xóa tất cả cart items
             _context.carts.RemoveRange(cartItems);
