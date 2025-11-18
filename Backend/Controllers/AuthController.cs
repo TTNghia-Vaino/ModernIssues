@@ -83,8 +83,13 @@ namespace ModernIssues.Controllers
 
         // POST: api/Auth/Login
         [HttpPost("Login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        public async Task<IActionResult> Login([FromBody] LoginRequest? request)
         {
+            if (request == null)
+            {
+                return BadRequest(new { message = "Dữ liệu đăng nhập không hợp lệ." });
+            }
+
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
                 return BadRequest(new { message = "Email và mật khẩu không được để trống." });
