@@ -241,10 +241,15 @@ public partial class WebDbContext : DbContext
             entity.ToTable(tb => tb.HasComment("Chương trình khuyến mãi, ví dụ: giảm 10%, mua 1 tặng 1..."));
 
             entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            entity.Property(e => e.discount_percent).HasPrecision(5, 2);
+            entity.Property(e => e.discount_type)
+                .HasMaxLength(20)
+                .HasDefaultValue("percentage")
+                .HasComment("Loại khuyến mãi: percentage (phần trăm) hoặc fixed_amount (số tiền trực tiếp)");
+            entity.Property(e => e.discount_value).HasPrecision(15, 2).HasComment("Giá trị khuyến mãi: phần trăm (0-100) hoặc số tiền (nếu discount_type = fixed_amount)");
             entity.Property(e => e.is_active).HasDefaultValue(true);
             entity.Property(e => e.promotion_name).HasMaxLength(150);
             entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.banner_url).HasComment("URL banner khuyến mãi (tùy chọn)");
 
             entity.HasOne(d => d.created_byNavigation).WithMany(p => p.promotioncreated_byNavigations)
                 .HasForeignKey(d => d.created_by)

@@ -179,3 +179,190 @@ UNION ALL
 SELECT 'warranty_details' as table_name,
        EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'warranty_details') as exists;
 
+-- ============================================
+-- Thêm cột banner_url vào bảng promotions
+-- ============================================
+
+-- Thêm cột banner_url vào bảng promotions (nếu chưa có)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'promotions' 
+        AND column_name = 'banner_url'
+    ) THEN
+        ALTER TABLE promotions ADD COLUMN banner_url TEXT NULL;
+        RAISE NOTICE 'Đã thêm cột banner_url vào bảng promotions';
+    ELSE
+        RAISE NOTICE 'Cột banner_url đã tồn tại trong bảng promotions';
+    END IF;
+END $$;
+
+-- Thêm comment cho cột banner_url
+COMMENT ON COLUMN promotions.banner_url IS 'URL banner khuyến mãi (tùy chọn)';
+
+-- ============================================
+-- Cập nhật schema promotion: thêm discount_type và discount_value
+-- ============================================
+
+-- Thêm cột discount_type (nếu chưa có)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'promotions' 
+        AND column_name = 'discount_type'
+    ) THEN
+        ALTER TABLE promotions ADD COLUMN discount_type VARCHAR(20) NULL DEFAULT 'percentage';
+        RAISE NOTICE 'Đã thêm cột discount_type vào bảng promotions';
+    ELSE
+        RAISE NOTICE 'Cột discount_type đã tồn tại trong bảng promotions';
+    END IF;
+END $$;
+
+-- Thêm cột discount_value (nếu chưa có)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'promotions' 
+        AND column_name = 'discount_value'
+    ) THEN
+        ALTER TABLE promotions ADD COLUMN discount_value NUMERIC(15,2) NULL;
+        RAISE NOTICE 'Đã thêm cột discount_value vào bảng promotions';
+    ELSE
+        RAISE NOTICE 'Cột discount_value đã tồn tại trong bảng promotions';
+    END IF;
+END $$;
+
+-- Migrate dữ liệu từ discount_percent sang discount_value (nếu có)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'promotions' 
+        AND column_name = 'discount_percent'
+    ) AND EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'promotions' 
+        AND column_name = 'discount_value'
+    ) THEN
+        -- Cập nhật discount_value từ discount_percent cho các bản ghi chưa có discount_value
+        UPDATE promotions 
+        SET discount_value = discount_percent,
+            discount_type = 'percentage'
+        WHERE discount_value IS NULL AND discount_percent IS NOT NULL;
+        RAISE NOTICE 'Đã migrate dữ liệu từ discount_percent sang discount_value';
+    END IF;
+END $$;
+
+-- Thêm comment cho các cột mới
+COMMENT ON COLUMN promotions.discount_type IS 'Loại khuyến mãi: percentage (phần trăm) hoặc fixed_amount (số tiền trực tiếp)';
+COMMENT ON COLUMN promotions.discount_value IS 'Giá trị khuyến mãi: phần trăm (0-100) hoặc số tiền (nếu discount_type = fixed_amount)';
+
+-- ============================================
+-- Tạo bảng product_promotions (nếu chưa có)
+-- Bảng này dùng để liên kết many-to-many giữa products và promotions
+-- ============================================
+
+-- Kiểm tra và tạo bảng product_promotions (nếu chưa có)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'product_promotions'
+    ) THEN
+        CREATE TABLE product_promotions (
+            product_id INTEGER NOT NULL,
+            promotion_id INTEGER NOT NULL,
+            CONSTRAINT product_promotions_pkey PRIMARY KEY (product_id, promotion_id),
+            CONSTRAINT product_promotions_product_id_fkey 
+                FOREIGN KEY (product_id) 
+                REFERENCES products(product_id) 
+                ON DELETE CASCADE,
+            CONSTRAINT product_promotions_promotion_id_fkey 
+                FOREIGN KEY (promotion_id) 
+                REFERENCES promotions(promotion_id) 
+                ON DELETE CASCADE
+        );
+
+        COMMENT ON TABLE product_promotions IS 'Liên kết nhiều sản phẩm với nhiều chương trình khuyến mãi';
+        
+        RAISE NOTICE 'Đã tạo bảng product_promotions';
+    ELSE
+        RAISE NOTICE 'Bảng product_promotions đã tồn tại';
+    END IF;
+END $$;
+
+-- Kiểm tra và tạo index nếu chưa có
+CREATE INDEX IF NOT EXISTS idx_product_promotions_product_id 
+    ON product_promotions(product_id);
+
+CREATE INDEX IF NOT EXISTS idx_product_promotions_promotion_id 
+    ON product_promotions(promotion_id);
+
+-- Kiểm tra constraints (nếu bảng đã tồn tại nhưng thiếu constraints)
+DO $$
+BEGIN
+    -- Kiểm tra primary key
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'product_promotions'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_schema = 'public' 
+        AND table_name = 'product_promotions' 
+        AND constraint_name = 'product_promotions_pkey'
+    ) THEN
+        ALTER TABLE product_promotions 
+        ADD CONSTRAINT product_promotions_pkey 
+        PRIMARY KEY (product_id, promotion_id);
+        RAISE NOTICE 'Đã thêm primary key cho product_promotions';
+    END IF;
+
+    -- Kiểm tra foreign key product_id
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'product_promotions'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_schema = 'public' 
+        AND table_name = 'product_promotions' 
+        AND constraint_name = 'product_promotions_product_id_fkey'
+    ) THEN
+        ALTER TABLE product_promotions 
+        ADD CONSTRAINT product_promotions_product_id_fkey 
+        FOREIGN KEY (product_id) 
+        REFERENCES products(product_id) 
+        ON DELETE CASCADE;
+        RAISE NOTICE 'Đã thêm foreign key product_id cho product_promotions';
+    END IF;
+
+    -- Kiểm tra foreign key promotion_id
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'product_promotions'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_schema = 'public' 
+        AND table_name = 'product_promotions' 
+        AND constraint_name = 'product_promotions_promotion_id_fkey'
+    ) THEN
+        ALTER TABLE product_promotions 
+        ADD CONSTRAINT product_promotions_promotion_id_fkey 
+        FOREIGN KEY (promotion_id) 
+        REFERENCES promotions(promotion_id) 
+        ON DELETE CASCADE;
+        RAISE NOTICE 'Đã thêm foreign key promotion_id cho product_promotions';
+    END IF;
+END $$;
+

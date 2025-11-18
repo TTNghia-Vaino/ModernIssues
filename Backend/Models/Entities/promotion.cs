@@ -14,7 +14,15 @@ public partial class promotion
 
     public string? description { get; set; }
 
-    public decimal? discount_percent { get; set; }
+    /// <summary>
+    /// Loại khuyến mãi: "percentage" (phần trăm) hoặc "fixed_amount" (số tiền trực tiếp)
+    /// </summary>
+    public string discount_type { get; set; } = "percentage";
+
+    /// <summary>
+    /// Giá trị khuyến mãi: phần trăm (0-100) hoặc số tiền (nếu discount_type = "fixed_amount")
+    /// </summary>
+    public decimal? discount_value { get; set; }
 
     public DateTime start_date { get; set; }
 
@@ -29,6 +37,8 @@ public partial class promotion
     public int? created_by { get; set; }
 
     public int? updated_by { get; set; }
+
+    public string? banner_url { get; set; }
 
     public virtual user? created_byNavigation { get; set; }
 
