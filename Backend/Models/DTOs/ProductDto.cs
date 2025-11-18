@@ -60,12 +60,27 @@ namespace ModernIssues.Models.DTOs
     }
 
     // ============================================
-    // 4. DTO cho Sản phẩm bán chạy
+    // 4. DTO cho Sản phẩm bán chạy (đơn giản)
     // ============================================
-    public class BestSellingProductDto : ProductDto
+    public class BestSellingProductDto
     {
         /// <summary>
-        /// Tổng số lượng đã bán (từ các đơn hàng đã hoàn thành)
+        /// ID sản phẩm
+        /// </summary>
+        public int ProductId { get; set; }
+
+        /// <summary>
+        /// Tên sản phẩm
+        /// </summary>
+        public string ProductName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// URL ảnh sản phẩm
+        /// </summary>
+        public string ImageUrl { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Tổng số lượng đã bán trong tháng hiện tại
         /// </summary>
         public int TotalSold { get; set; }
     }

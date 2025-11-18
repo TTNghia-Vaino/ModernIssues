@@ -17,14 +17,44 @@ namespace ModernIssues.Repositories
     public class ProductRepository : IProductRepository
     {
         private readonly string _connectionString;
+        private readonly WebDbContext _context;
 
-        public ProductRepository(IConfiguration configuration)
+        public ProductRepository(IConfiguration configuration, WebDbContext context)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection")
                                 ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+            _context = context;
         }
 
         private IDbConnection Connection => new NpgsqlConnection(_connectionString);
+
+        /// <summary>
+        /// Tạo serial numbers cho sản phẩm khi nhập hàng vào kho
+        /// </summary>
+        private async Task CreateProductSerialsAsync(int productId, int quantity, int adminId)
+        {
+            var serials = new List<product_serial>();
+            var timestamp = DateTime.UtcNow;
+            var baseSerial = $"PRD-{productId}-{timestamp:yyyyMMddHHmmss}";
+
+            for (int i = 0; i < quantity; i++)
+            {
+                var serialNumber = $"{baseSerial}-{i + 1:D6}";
+                serials.Add(new product_serial
+                {
+                    product_id = productId,
+                    serial_number = serialNumber,
+                    created_at = timestamp,
+                    updated_at = timestamp,
+                    created_by = adminId,
+                    updated_by = adminId,
+                    is_disabled = false // false = còn bảo hành, true = hết bảo hành
+                });
+            }
+
+            _context.product_serials.AddRange(serials);
+            await _context.SaveChangesAsync();
+        }
 
         // --- CREATE ---
         // File: Repositories/ProductRepository.cs
@@ -66,7 +96,15 @@ namespace ModernIssues.Repositories
 
             using (var db = Connection)
             {
-                return await db.QueryFirstOrDefaultAsync<ProductDto>(sql, parameters);
+                var result = await db.QueryFirstOrDefaultAsync<ProductDto>(sql, parameters);
+                
+                // Tạo serial numbers cho từng sản phẩm nhập vào kho
+                if (result != null && product.Stock > 0)
+                {
+                    await CreateProductSerialsAsync(result.ProductId, product.Stock, adminId);
+                }
+                
+                return result;
             }
         }
 
@@ -221,6 +259,10 @@ namespace ModernIssues.Repositories
 
             using (var db = Connection)
             {
+                // Lấy stock hiện tại trước khi update
+                var currentStockSql = "SELECT stock FROM products WHERE product_id = @ProductId;";
+                var currentStock = await db.QueryFirstOrDefaultAsync<int?>(currentStockSql, new { ProductId = productId }) ?? 0;
+                
                 var updatedProduct = await db.QueryFirstOrDefaultAsync<ProductDto>(sql, parameters);
                 
                 // Nếu có sản phẩm được cập nhật, lấy thêm thông tin category
@@ -233,6 +275,13 @@ namespace ModernIssues.Repositories
                     ";
                     var categoryName = await db.QueryFirstOrDefaultAsync<string>(categorySql, new { CategoryId = product.CategoryId });
                     updatedProduct.CategoryName = categoryName ?? "Chưa phân loại";
+                    
+                    // Tính số lượng stock tăng thêm và tạo serial cho phần tăng
+                    var stockIncrease = product.Stock - currentStock;
+                    if (stockIncrease > 0)
+                    {
+                        await CreateProductSerialsAsync(productId, stockIncrease, adminId);
+                    }
                 }
                 
                 return updatedProduct;

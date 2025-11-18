@@ -30,11 +30,15 @@ public partial class WebDbContext : DbContext
 
     public virtual DbSet<product> products { get; set; }
 
+    public virtual DbSet<product_serial> product_serials { get; set; }
+
     public virtual DbSet<promotion> promotions { get; set; }
 
     public virtual DbSet<user> users { get; set; }
 
     public virtual DbSet<warranty> warranties { get; set; }
+
+    public virtual DbSet<warranty_detail> warranty_details { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -289,14 +293,27 @@ public partial class WebDbContext : DbContext
 
         modelBuilder.Entity<warranty>(entity =>
         {
-            entity.HasKey(e => new { e.warranty_id, e.product_id, e.user_id, e.order_id }).HasName("warranty_pkey");
+            // Primary key chỉ là warranty_id (auto-increment)
+            // Cho phép nhiều warranty cho cùng (product_id, user_id, order_id) với serial number khác nhau
+            entity.HasKey(e => e.warranty_id).HasName("warranty_pkey");
 
             entity.ToTable("warranty", tb => tb.HasComment("Thông tin bảo hành sản phẩm (thời gian và trạng thái)"));
 
+            // warranty_id tự động tăng bằng sequence (đã tạo trong migration script)
             entity.Property(e => e.warranty_id).ValueGeneratedOnAdd();
             entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.is_disabled).HasDefaultValue(false);
-            entity.Property(e => e.serial_number).HasMaxLength(100);
+            
+            // Serial number là bắt buộc và phải unique (bảo hành theo serial number)
+            entity.Property(e => e.serial_number)
+                .IsRequired()
+                .HasMaxLength(100);
+            
+            // Tạo unique index cho serial_number
+            entity.HasIndex(e => e.serial_number)
+                .IsUnique()
+                .HasDatabaseName("warranty_serial_number_unique");
+            
             entity.Property(e => e.status)
                 .HasMaxLength(50)
                 .HasDefaultValueSql("'active'::character varying");
@@ -347,6 +364,100 @@ public partial class WebDbContext : DbContext
                 .HasForeignKey(d => d.product_id)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("carts_product_id_fkey");
+        });
+
+        modelBuilder.Entity<product_serial>(entity =>
+        {
+            entity.HasKey(e => e.serial_id).HasName("product_serials_pkey");
+
+            entity.ToTable("product_serials", tb => tb.HasComment("Bảng quản lý serial numbers của sản phẩm trong kho"));
+
+            entity.Property(e => e.serial_id).ValueGeneratedOnAdd();
+            entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.is_disabled).HasDefaultValue(false)
+                .HasComment("Trạng thái bảo hành: false = còn bảo hành, true = hết bảo hành");
+            entity.Property(e => e.serial_number)
+                .IsRequired()
+                .HasMaxLength(100);
+            entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            // Tạo unique index cho serial_number
+            entity.HasIndex(e => e.serial_number)
+                .IsUnique()
+                .HasDatabaseName("product_serials_serial_number_unique");
+
+            entity.HasOne(d => d.created_byNavigation).WithMany(p => p.product_serialcreated_byNavigations)
+                .HasForeignKey(d => d.created_by)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("product_serials_created_by_fkey");
+
+            entity.HasOne(d => d.order).WithMany(p => p.product_serials)
+                .HasForeignKey(d => d.order_id)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("product_serials_order_id_fkey");
+
+            entity.HasOne(d => d.product).WithMany(p => p.product_serials)
+                .HasForeignKey(d => d.product_id)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("product_serials_product_id_fkey");
+
+            entity.HasOne(d => d.updated_byNavigation).WithMany(p => p.product_serialupdated_byNavigations)
+                .HasForeignKey(d => d.updated_by)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("product_serials_updated_by_fkey");
+
+            entity.HasOne(d => d.warranty).WithOne(p => p.product_serial)
+                .HasForeignKey<product_serial>(d => d.warranty_id)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("product_serials_warranty_id_fkey");
+        });
+
+        modelBuilder.Entity<warranty_detail>(entity =>
+        {
+            entity.HasKey(e => e.detail_id).HasName("warranty_details_pkey");
+
+            entity.ToTable("warranty_details", tb => tb.HasComment("Chi tiết từng lần bảo hành của một warranty (lần 1, 2, 3, 4...)"));
+
+            entity.Property(e => e.detail_id).ValueGeneratedOnAdd();
+            entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.is_disabled).HasDefaultValue(false);
+            entity.Property(e => e.status)
+                .HasMaxLength(50)
+                .HasDefaultValueSql("'pending'::character varying")
+                .HasComment("Trạng thái: pending, approved, processing, completed, rejected, cancelled");
+            entity.Property(e => e.request_date).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.cost)
+                .HasPrecision(15, 2);
+            entity.Property(e => e.description).HasMaxLength(1000);
+            entity.Property(e => e.solution).HasMaxLength(1000);
+            entity.Property(e => e.notes).HasMaxLength(500);
+            entity.Property(e => e.image_urls).HasComment("Ảnh minh chứng (có thể lưu JSON array)");
+
+            // Tạo unique constraint cho (warranty_id, claim_number) để đảm bảo không trùng lặp
+            entity.HasIndex(e => new { e.warranty_id, e.claim_number })
+                .IsUnique()
+                .HasDatabaseName("warranty_details_warranty_claim_unique");
+
+            entity.HasOne(d => d.created_byNavigation).WithMany(p => p.warranty_detailcreated_byNavigations)
+                .HasForeignKey(d => d.created_by)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("warranty_details_created_by_fkey");
+
+            entity.HasOne(d => d.handled_byNavigation).WithMany(p => p.warranty_detailhandled_byNavigations)
+                .HasForeignKey(d => d.handled_by)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("warranty_details_handled_by_fkey");
+
+            entity.HasOne(d => d.updated_byNavigation).WithMany(p => p.warranty_detailupdated_byNavigations)
+                .HasForeignKey(d => d.updated_by)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("warranty_details_updated_by_fkey");
+
+            entity.HasOne(d => d.warranty).WithMany(p => p.warranty_details)
+                .HasForeignKey(d => d.warranty_id)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("warranty_details_warranty_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

@@ -40,4 +40,6 @@ public partial class order
     public virtual user? user { get; set; }
 
     public virtual ICollection<warranty> warranties { get; set; } = new List<warranty>();
+
+    public virtual ICollection<product_serial> product_serials { get; set; } = new List<product_serial>();
 }

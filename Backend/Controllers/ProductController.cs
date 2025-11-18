@@ -776,10 +776,10 @@ namespace ModernIssues.Controllers
         // 10. GET BEST SELLING PRODUCTS: GET api/v1/Product/GetBestSellingProducts
         // ============================================
         /// <summary>
-        /// Lấy danh sách sản phẩm bán chạy, sắp xếp từ nhiều đến ít.
+        /// Lấy danh sách sản phẩm bán chạy trong tháng hiện tại, sắp xếp từ nhiều đến ít.
         /// </summary>
         /// <param name="limit">Số lượng sản phẩm cần lấy (mặc định: 10, tối đa: 100)</param>
-        /// <response code="200">Trả về danh sách sản phẩm bán chạy.</response>
+        /// <response code="200">Trả về danh sách sản phẩm bán chạy trong tháng hiện tại.</response>
         /// <response code="500">Lỗi hệ thống.</response>
         [HttpGet("GetBestSellingProducts")]
         [ProducesResponseType(typeof(ApiResponse<List<BestSellingProductDto>>), HttpStatusCodes.OK)]
@@ -791,12 +791,19 @@ namespace ModernIssues.Controllers
                 // Giới hạn limit hợp lý
                 limit = Math.Clamp(limit, 1, 100);
 
-                // Lấy các đơn hàng đã hoàn thành (filter trong memory để tránh lỗi LINQ to Entities)
+                // Lấy tháng hiện tại (UTC)
+                var now = DateTime.UtcNow;
+                var startOfMonth = DateTime.SpecifyKind(new DateTime(now.Year, now.Month, 1), DateTimeKind.Utc);
+                var endOfMonth = startOfMonth.AddMonths(1).AddTicks(-1);
+
+                // Lấy các đơn hàng đã hoàn thành trong tháng hiện tại
                 var completedStatuses = new[] { "completed", "delivered", "paid", "shipped" };
                 
-                // Lấy tất cả orders có status không null
                 var allOrders = await _context.orders
-                    .Where(o => !string.IsNullOrEmpty(o.status))
+                    .Where(o => o.order_date.HasValue &&
+                                o.order_date.Value >= startOfMonth &&
+                                o.order_date.Value <= endOfMonth &&
+                                !string.IsNullOrEmpty(o.status))
                     .ToListAsync();
 
                 // Filter completed orders in memory
@@ -805,38 +812,29 @@ namespace ModernIssues.Controllers
                     .Select(o => o.order_id)
                     .ToList();
 
-                // Query để lấy sản phẩm bán chạy
+                if (!completedOrderIds.Any())
+                {
+                    return Ok(ApiResponse<List<BestSellingProductDto>>.SuccessResponse(
+                        new List<BestSellingProductDto>(),
+                        "Không có sản phẩm bán chạy trong tháng hiện tại."));
+                }
+
+                // Query để lấy sản phẩm bán chạy (chỉ lấy thông tin cần thiết)
                 var bestSellingProducts = await (from od in _context.order_details
                                                  join p in _context.products on od.product_id equals p.product_id
-                                                 join c in _context.categories on p.category_id equals c.category_id into categoryGroup
-                                                 from c in categoryGroup.DefaultIfEmpty()
                                                  where completedOrderIds.Contains(od.order_id) &&
                                                        (p.is_disabled == null || p.is_disabled == false)
-                                                 group new { od, p, c } by new
+                                                 group new { od, p } by new
                                                  {
                                                      p.product_id,
                                                      p.product_name,
-                                                     p.description,
-                                                     p.price,
-                                                     p.stock,
-                                                     p.warranty_period,
-                                                     p.image_url,
-                                                     p.category_id,
-                                                     p.on_prices,
-                                                     CategoryName = c != null ? c.category_name : null
+                                                     p.image_url
                                                  } into g
                                                  select new
                                                  {
                                                      ProductId = g.Key.product_id,
-                                                     CategoryId = g.Key.category_id ?? 0,
                                                      ProductName = g.Key.product_name,
-                                                     Description = g.Key.description ?? string.Empty,
-                                                     Price = g.Key.price,
-                                                     Stock = g.Key.stock ?? 0,
-                                                     WarrantyPeriod = g.Key.warranty_period ?? 0,
                                                      ImageUrl = g.Key.image_url ?? string.Empty,
-                                                     OnPrices = g.Key.on_prices ?? 0,
-                                                     CategoryName = g.Key.CategoryName ?? "Chưa phân loại",
                                                      TotalSold = g.Sum(x => x.od.quantity)
                                                  })
                                                  .OrderByDescending(x => x.TotalSold)
@@ -848,21 +846,14 @@ namespace ModernIssues.Controllers
                 var result = bestSellingProducts.Select(x => new BestSellingProductDto
                 {
                     ProductId = x.ProductId,
-                    CategoryId = x.CategoryId,
                     ProductName = x.ProductName,
-                    Description = x.Description,
-                    Price = x.Price,
-                    Stock = x.Stock,
-                    WarrantyPeriod = x.WarrantyPeriod,
                     ImageUrl = x.ImageUrl,
-                    OnPrices = x.OnPrices,
-                    CategoryName = x.CategoryName,
                     TotalSold = x.TotalSold
                 }).ToList();
 
                 return Ok(ApiResponse<List<BestSellingProductDto>>.SuccessResponse(
                     result,
-                    $"Lấy danh sách {result.Count} sản phẩm bán chạy thành công."));
+                    $"Lấy danh sách {result.Count} sản phẩm bán chạy trong tháng hiện tại thành công."));
             }
             catch (Exception ex)
             {

@@ -11,14 +11,5 @@ namespace ModernIssues.Models.DTOs
         [StringLength(20, ErrorMessage = "Loại thanh toán không được vượt quá 20 ký tự")]
         public string PaymentType { get; set; } = "COD";
     }
-
-    /// <summary>
-    /// DTO cho warranty khi checkout
-    /// </summary>
-    public class WarrantyCreateDto
-    {
-        public int ProductId { get; set; }
-        public string? SerialNumber { get; set; }
-    }
 }
 

@@ -85,4 +85,14 @@ public partial class user
     public virtual ICollection<warranty> warrantyupdated_byNavigations { get; set; } = new List<warranty>();
 
     public virtual ICollection<warranty> warrantyusers { get; set; } = new List<warranty>();
+
+    public virtual ICollection<product_serial> product_serialcreated_byNavigations { get; set; } = new List<product_serial>();
+
+    public virtual ICollection<product_serial> product_serialupdated_byNavigations { get; set; } = new List<product_serial>();
+
+    public virtual ICollection<warranty_detail> warranty_detailcreated_byNavigations { get; set; } = new List<warranty_detail>();
+
+    public virtual ICollection<warranty_detail> warranty_detailhandled_byNavigations { get; set; } = new List<warranty_detail>();
+
+    public virtual ICollection<warranty_detail> warranty_detailupdated_byNavigations { get; set; } = new List<warranty_detail>();
 }
