@@ -59,7 +59,7 @@ public partial class WebDbContext : DbContext
             entity.ToTable("bank_transactions");
 
             entity.Property(e => e.Id)
-                .ValueGeneratedNever()
+                .UseIdentityAlwaysColumn()
                 .HasColumnName("id");
             entity.Property(e => e.Accountnumber)
                 .HasMaxLength(50)

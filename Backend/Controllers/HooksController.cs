@@ -2,6 +2,7 @@
 using ModernIssues.Services;
 using ModernIssues.Models.DTOs;
 using ModernIssues.Models.Entities;
+using System.Globalization;
 
 namespace ModernIssues.Controllers
 {
@@ -18,7 +19,7 @@ namespace ModernIssues.Controllers
         }
 
         [HttpPost("transaction")]
-        public async Task<IActionResult> ReceiveTransaction(BankTransaction dto)
+        public async Task<IActionResult> ReceiveTransaction([FromBody] BankTransactionDto dto)
         {
             // 1️⃣ Kiểm tra API key trong header
             if (!Request.Headers.TryGetValue("Authorization", out var authHeader))
@@ -44,9 +45,9 @@ namespace ModernIssues.Controllers
 
             var entity = new BankTransaction
             {
-                Id = dto.Id,
+                // Id để DB tự tăng
                 Gateway = dto.Gateway,
-                Transactiondate = dto.Transactiondate,
+                Transactiondate = DateTime.ParseExact(dto.Transactiondate, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
                 Accountnumber = dto.Accountnumber,
                 Code = dto.Code,
                 Content = dto.Content,
@@ -60,7 +61,11 @@ namespace ModernIssues.Controllers
 
             await _hooksService.AddTransactionAsync(entity);
 
-            return Ok(new { message = "Transaction" + dto.Id + dto.Transferamount + dto.Content + "saved" });
+
+            return Ok(new
+            {
+                message = $"Transaction {entity.Referencecode} - {entity.Transferamount} - {entity.Content} saved"
+            });
         }
     }
 }
