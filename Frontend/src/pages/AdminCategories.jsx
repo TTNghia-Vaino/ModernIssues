@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../services/categoryService';
+import { getProductCountByCategory } from '../services/productService';
 import './AdminCategories.css';
 
 const AdminCategories = () => {
@@ -63,22 +64,45 @@ const AdminCategories = () => {
   const loadCategories = async () => {
     try {
       setLoading(true);
-      const apiCategories = await getCategories();
+      
+      // Load categories and product counts in parallel
+      const [apiCategories, productCounts] = await Promise.all([
+        getCategories(),
+        getProductCountByCategory().catch(err => {
+          console.warn('[AdminCategories] Failed to load product counts:', err);
+          return []; // Return empty array if API fails
+        })
+      ]);
+      
       console.log('[AdminCategories] Raw API response:', apiCategories);
+      console.log('[AdminCategories] Product counts:', productCounts);
+      
+      // Create a map of category_id to product_count for quick lookup
+      const countMap = {};
+      if (Array.isArray(productCounts)) {
+        productCounts.forEach(item => {
+          countMap[item.category_id] = item.product_count;
+        });
+      }
       
       // Map API response to component format
       if (Array.isArray(apiCategories)) {
-        const mapped = apiCategories.map(cat => ({
-          id: cat.categoryId || cat.id,
-          name: cat.categoryName || cat.name || 'Chưa có tên',
-          description: cat.description || '',
-          status: cat.status || 'active',
-          productCount: cat.productCount || 0,
-          parentId: cat.parentId || null,
-          parentName: cat.parentName || null,
-          createdAt: cat.createdAt,
-          updatedAt: cat.updatedAt
-        }));
+        const mapped = apiCategories.map(cat => {
+          const categoryId = cat.categoryId || cat.id;
+          const productCount = countMap[categoryId] !== undefined ? countMap[categoryId] : (cat.productCount || 0);
+          
+          return {
+            id: categoryId,
+            name: cat.categoryName || cat.name || 'Chưa có tên',
+            description: cat.description || '',
+            status: cat.status || 'active',
+            productCount: productCount,
+            parentId: cat.parentId || null,
+            parentName: cat.parentName || null,
+            createdAt: cat.createdAt,
+            updatedAt: cat.updatedAt
+          };
+        });
         console.log('[AdminCategories] Mapped categories:', mapped);
         setCategories(mapped);
       } else {

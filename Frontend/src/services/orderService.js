@@ -154,3 +154,138 @@ export const updateOrderStatus = async (orderId, status) => {
   }
 };
 
+/**
+ * Get order report
+ * Endpoint: GET /v1/Order/GetOrderReport?period={period}
+ * Response format: { success: boolean, message: string, data: { periodType, totalCount, data: [...] }, errors: string[] }
+ * @param {object} params - { period: 'day'|'month'|'quarter'|'year' }
+ * @returns {Promise} - Order report data array
+ */
+export const getOrderReport = async (params = {}) => {
+  try {
+    const queryParams = {};
+    if (params.period) queryParams.period = params.period;
+    
+    const response = await apiGet('Order/GetOrderReport', queryParams);
+    
+    if (import.meta.env.DEV) {
+      console.log('[OrderService.getOrderReport] Response received:', response);
+    }
+    
+    const handled = handleResponse(response);
+    
+    // Response structure: { periodType, totalCount, data: [...] }
+    if (handled && typeof handled === 'object' && Array.isArray(handled.data)) {
+      return handled.data;
+    }
+    
+    // Fallback: return empty array
+    return Array.isArray(handled) ? handled : [];
+  } catch (error) {
+    console.error('[OrderService.getOrderReport] Error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get payment method report
+ * Endpoint: GET /v1/Order/GetPaymentMethodReport
+ * Query params: period (optional), startDate (optional), endDate (optional)
+ * @param {object} params - Query parameters { period, startDate, endDate }
+ * @returns {Promise} - Payment method report data
+ */
+export const getPaymentMethodReport = async (params = {}) => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params.period) queryParams.append('period', params.period);
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+    
+    const queryString = queryParams.toString();
+    const endpoint = queryString ? `Order/GetPaymentMethodReport?${queryString}` : 'Order/GetPaymentMethodReport';
+    
+    const response = await apiGet(endpoint);
+    
+    if (import.meta.env.DEV) {
+      console.log('[OrderService.getPaymentMethodReport] Response received:', response);
+    }
+    
+    const handled = handleResponse(response);
+    
+    // Response structure: { periodType, totalOrders, data: [...] }
+    if (handled && typeof handled === 'object' && Array.isArray(handled.data)) {
+      return handled.data;
+    }
+    
+    // Fallback: return empty array
+    return Array.isArray(handled) ? handled : [];
+  } catch (error) {
+    console.error('[OrderService.getPaymentMethodReport] Error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get order status report
+ * Endpoint: GET /v1/Order/GetOrderStatusReport
+ * Query params: period (optional), startDate (optional), endDate (optional)
+ * @param {object} params - Query parameters { period, startDate, endDate }
+ * @returns {Promise} - Order status report data
+ */
+export const getOrderStatusReport = async (params = {}) => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params.period) queryParams.append('period', params.period);
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+    
+    const queryString = queryParams.toString();
+    const endpoint = queryString ? `Order/GetOrderStatusReport?${queryString}` : 'Order/GetOrderStatusReport';
+    
+    const response = await apiGet(endpoint);
+    
+    if (import.meta.env.DEV) {
+      console.log('[OrderService.getOrderStatusReport] Response received:', response);
+    }
+    
+    const handled = handleResponse(response);
+    
+    // Response structure: { periodType, totalOrders, data: [...] }
+    if (handled && typeof handled === 'object' && Array.isArray(handled.data)) {
+      return handled.data;
+    }
+    
+    // Fallback: return empty array
+    return Array.isArray(handled) ? handled : [];
+  } catch (error) {
+    console.error('[OrderService.getOrderStatusReport] Error:', error);
+    throw error;
+  }
+};
+
+export const getRevenueReport = async (params = {}) => {
+  try {
+    const queryParams = {};
+    if (params.period) queryParams.period = params.period;
+    
+    const response = await apiGet('Order/GetRevenueReport', queryParams);
+    
+    if (import.meta.env.DEV) {
+      console.log('[OrderService.getRevenueReport] Response received:', response);
+    }
+    
+    const handled = handleResponse(response);
+    
+    // Response structure: { periodType, totalRevenue, totalOrders, data: [...] }
+    if (handled && typeof handled === 'object' && Array.isArray(handled.data)) {
+      return handled.data;
+    }
+    
+    // Fallback: return empty array
+    return Array.isArray(handled) ? handled : [];
+  } catch (error) {
+    console.error('[OrderService.getRevenueReport] Error:', error);
+    throw error;
+  }
+};
+

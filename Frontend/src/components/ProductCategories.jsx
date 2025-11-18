@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getCategoryTree } from '../services/categoryService';
+import { getProductCountByCategory } from '../services/productService';
 import './ProductCategories.css';
 
 // Map icon based on category name
@@ -35,19 +36,38 @@ function ProductCategories() {
     const loadCategories = async () => {
       try {
         setLoading(true);
-        const apiCategories = await getCategoryTree();
+        
+        // Load categories and product counts in parallel
+        const [apiCategories, productCounts] = await Promise.all([
+          getCategoryTree(),
+          getProductCountByCategory().catch(err => {
+            console.warn('[ProductCategories] Failed to load product counts:', err);
+            return []; // Return empty array if API fails
+          })
+        ]);
         
         if (Array.isArray(apiCategories) && apiCategories.length > 0) {
+          // Create a map of category_id to product_count for quick lookup
+          const countMap = {};
+          if (Array.isArray(productCounts)) {
+            productCounts.forEach(item => {
+              countMap[item.category_id] = item.product_count;
+            });
+          }
+          
           // Transform API categories to component format
-          const transformed = apiCategories.slice(0, 6).map(cat => ({
-            id: cat.id,
-            name: cat.name,
-            icon: cat.icon || getCategoryIcon(cat.name),
-            image: cat.image || getCategoryImage(cat.name),
-            description: cat.description || `${cat.name} chất lượng cao`,
-            productCount: cat.productCount ? `${cat.productCount}+ sản phẩm` : "0+ sản phẩm",
-            link: `/products?category=${cat.id}`
-          }));
+          const transformed = apiCategories.slice(0, 6).map(cat => {
+            const productCount = countMap[cat.id] || 0;
+            return {
+              id: cat.id,
+              name: cat.name,
+              icon: cat.icon || getCategoryIcon(cat.name),
+              image: cat.image || getCategoryImage(cat.name),
+              description: cat.description || `${cat.name} chất lượng cao`,
+              productCount: productCount > 0 ? `${productCount} sản phẩm` : "0 sản phẩm",
+              link: `/products?category=${cat.id}`
+            };
+          });
           setCategories(transformed);
         }
       } catch (error) {
