@@ -15,6 +15,7 @@ public partial class WebDbContext : DbContext
         {
             _configuration = configuration;
         }
+    public virtual DbSet<BankTransaction> BankTransactions { get; set; }
 
     public virtual DbSet<cart> carts { get; set; }
 
@@ -51,6 +52,45 @@ public partial class WebDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<BankTransaction>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("bank_transactions_pkey");
+
+            entity.ToTable("bank_transactions");
+
+            entity.Property(e => e.Id)
+                .ValueGeneratedNever()
+                .HasColumnName("id");
+            entity.Property(e => e.Accountnumber)
+                .HasMaxLength(50)
+                .HasColumnName("accountnumber");
+            entity.Property(e => e.Accumulated)
+                .HasPrecision(18, 2)
+                .HasColumnName("accumulated");
+            entity.Property(e => e.Code)
+                .HasMaxLength(255)
+                .HasColumnName("code");
+            entity.Property(e => e.Content).HasColumnName("content");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.Gateway)
+                .HasMaxLength(100)
+                .HasColumnName("gateway");
+            entity.Property(e => e.Referencecode)
+                .HasMaxLength(255)
+                .HasColumnName("referencecode");
+            entity.Property(e => e.Subaccount)
+                .HasMaxLength(50)
+                .HasColumnName("subaccount");
+            entity.Property(e => e.Transactiondate)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("transactiondate");
+            entity.Property(e => e.Transferamount)
+                .HasPrecision(18, 2)
+                .HasColumnName("transferamount");
+            entity.Property(e => e.Transfertype)
+                .HasMaxLength(10)
+                .HasColumnName("transfertype");
+        });
         modelBuilder.Entity<category>(entity =>
         {
             entity.HasKey(e => e.category_id).HasName("categories_pkey");
