@@ -44,6 +44,18 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true; 
 });
 
+// Add CORS to allow SePay webhook to send requests
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSePayWebhook", policy =>
+    {
+        policy.AllowAnyOrigin()  // SePay webhook can come from any origin
+              .AllowAnyMethod()   // Allow POST for webhook
+              .AllowAnyHeader()   // Allow Authorization header
+              .WithExposedHeaders("Content-Type", "Authorization");
+    });
+});
+
 
 // 1. Đăng ký Repository (Tầng Data Access)
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
@@ -128,6 +140,9 @@ app.Use(async (context, next) =>
 });
 
 app.UseHttpsRedirection();
+
+// Enable CORS for SePay webhook (must be before UseAuthorization)
+app.UseCors("AllowSePayWebhook");
 
 // Cấu hình static files để truy cập ảnh
 app.UseStaticFiles();

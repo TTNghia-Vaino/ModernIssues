@@ -134,11 +134,13 @@ Frontend → Backend mapping trong `checkoutService.js`:
 ### Backend
 - [x] appsettings.json có SepayConfig và HooksConfig
 - [x] Program.cs đăng ký đầy đủ services
+- [x] **CORS đã được enable** để SePay có thể gửi webhook
 - [x] CheckoutController có endpoint POST /v1/Checkout
 - [x] HooksController có endpoint POST /Hooks/transaction
 - [x] PaymentController có endpoint GET /v1/Payment/GenerateQr
 - [x] CheckoutRepository tạo gencode và QR URL
 - [x] HooksService xử lý webhook và đối chiếu gencode
+- [x] Database có bảng bank_transactions để lưu biến động số dư
 
 ### Frontend
 - [x] checkoutService.js map payment method đúng
