@@ -16,8 +16,8 @@ const AdminProducts = () => {
   const [formData, setFormData] = useState({
     name: '',
     category: '',
-    price: '',
-    originalPrice: '',
+    price: '', // This will be the original price (giá gốc)
+    originalPrice: '', // Keep for backward compatibility
     discount: 0,
     image: '',
     description: '',
@@ -220,8 +220,8 @@ const AdminProducts = () => {
     setFormData({
       name: '',
       category: '',
-      price: '',
-      originalPrice: '',
+      price: '', // Giá gốc
+      originalPrice: '', // Giá gốc
       discount: 0,
       image: '',
       description: '',
@@ -260,8 +260,9 @@ const AdminProducts = () => {
       ...product,
       name: product.name || product.productName || '',
       category: product.categoryId || product.category || '',
-      price: product.price || '',
-      originalPrice: product.price || product.originalPrice || '',
+      // Use onPrice/onPrices as giá gốc, fallback to price if no promotion
+      price: product.onPrices || product.onPrice || product.originalPrice || product.price || '',
+      originalPrice: product.onPrices || product.onPrice || product.originalPrice || product.price || '',
       image: previewImageUrl || '',
       description: product.description || '',
       stock: product.stock || 0,
@@ -379,11 +380,10 @@ const AdminProducts = () => {
       newErrors.category = 'Vui lòng chọn danh mục';
     }
     
-    if (!formData.price || formData.price <= 0) {
-      newErrors.price = 'Vui lòng nhập giá hợp lệ';
-    }
-    
-    if (!formData.originalPrice || formData.originalPrice <= 0) {
+    // Only validate originalPrice (giá gốc)
+    // Price will be set from originalPrice when submitting
+    const priceToValidate = formData.originalPrice || formData.price;
+    if (!priceToValidate || priceToValidate <= 0) {
       newErrors.originalPrice = 'Vui lòng nhập giá gốc hợp lệ';
     }
     
@@ -404,14 +404,21 @@ const AdminProducts = () => {
     
     try {
       setLoading(true);
-      // Calculate discount
-      const discount = Math.round(((formData.originalPrice - formData.price) / formData.originalPrice) * 100);
+      
+      // Get giá gốc from originalPrice or price field
+      const originalPriceValue = Number(formData.originalPrice || formData.price || 0);
+      
+      if (!originalPriceValue || originalPriceValue <= 0) {
+        showNotification('Vui lòng nhập giá gốc hợp lệ', 'error');
+        setLoading(false);
+        return;
+      }
       
       const productData = {
         ...formData,
-        discount,
-        price: Number(formData.price),
-        originalPrice: Number(formData.originalPrice),
+        price: originalPriceValue, // Giá gốc
+        originalPrice: originalPriceValue, // Keep for display
+        discount: 0, // Discount will be calculated by promotion API
         stock: Number(formData.stock)
       };
       
@@ -419,13 +426,17 @@ const AdminProducts = () => {
       const categoryId = Number(productData.category);
       if (!categoryId || categoryId <= 0) {
         showNotification('Vui lòng chọn danh mục sản phẩm', 'error');
+        setLoading(false);
         return;
       }
       
+      // Send originalPrice as price to API
+      // API will store it as price and onPrice (giá gốc)
+      // When promotion is applied, UpdatePrices will update price to promotion price
       const apiProductData = {
         productName: productData.name || 'Untitled Product',
         description: productData.description || 'No description',
-        price: Number(productData.price) || 0,
+        price: originalPriceValue, // Giá gốc - API will use this as both price and onPrice initially
         categoryId: categoryId,
         stock: Number(productData.stock) || 0,
         warrantyPeriod: Number(productData.warrantyPeriod) || 12
@@ -948,31 +959,28 @@ const AdminProducts = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="price">Giá bán: <span className="required">*</span></label>
-                  <input
-                    type="number"
-                    id="price"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    placeholder="Nhập giá bán"
-                    className={errors.price ? 'error' : ''}
-                  />
-                  {errors.price && <span className="error-message">{errors.price}</span>}
-                </div>
-                
-                <div className="form-group">
                   <label htmlFor="originalPrice">Giá gốc: <span className="required">*</span></label>
                   <input
                     type="number"
                     id="originalPrice"
                     name="originalPrice"
-                    value={formData.originalPrice}
-                    onChange={handleInputChange}
+                    value={formData.originalPrice || formData.price || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Update both originalPrice and price to keep them in sync
+                      setFormData(prev => ({
+                        ...prev,
+                        originalPrice: value,
+                        price: value
+                      }));
+                    }}
                     placeholder="Nhập giá gốc"
                     className={errors.originalPrice ? 'error' : ''}
                   />
                   {errors.originalPrice && <span className="error-message">{errors.originalPrice}</span>}
+                  <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                    Giá khuyến mãi sẽ được tự động cập nhật khi áp dụng chương trình khuyến mãi
+                  </p>
                 </div>
                 
                 <div className="form-group">

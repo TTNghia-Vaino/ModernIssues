@@ -311,6 +311,110 @@ const AdminDashboard = () => {
     };
   }, [secondaryChartType, paymentData, statusData]);
 
+  // Load all reports for all periods in parallel - wrapped in useCallback
+  const loadAllReportsForAllPeriods = useCallback(async (signal = null) => {
+    try {
+      if (signal && signal.aborted) {
+        return;
+      }
+      
+      setLoading(true);
+      setError(null);
+
+      const periods = ['day', 'month', 'quarter', 'year'];
+      const reportTypesArray = ['product', 'order', 'user', 'revenue'];
+      
+      // Build base params
+      const baseParams = {};
+      if (startDate) baseParams.startDate = startDate;
+      if (endDate) baseParams.endDate = endDate;
+
+      // Create all API calls for all combinations
+      const apiCalls = [];
+      const callKeys = [];
+      
+      periods.forEach(periodValue => {
+        reportTypesArray.forEach(reportTypeValue => {
+          const params = { ...baseParams, period: periodValue };
+          
+          let apiCall;
+          switch (reportTypeValue) {
+            case 'product':
+              apiCall = getProductReport(params);
+              break;
+            case 'order':
+              apiCall = getOrderReport(params);
+              break;
+            case 'user':
+              apiCall = getUserReport(params);
+              break;
+            case 'revenue':
+              apiCall = getRevenueReport(params);
+              break;
+            default:
+              apiCall = Promise.resolve([]);
+          }
+          
+          apiCalls.push(
+            apiCall.catch(err => {
+              if (signal && signal.aborted) return [];
+              console.warn(`[AdminDashboard] Error loading ${reportTypeValue} report (${periodValue}):`, err);
+              return [];
+            })
+          );
+          
+          callKeys.push({ reportType: reportTypeValue, period: periodValue });
+        });
+      });
+
+      // Load all in parallel
+      const results = await Promise.all(apiCalls);
+
+      if (signal && signal.aborted) {
+        return;
+      }
+
+      // Transform and cache all reports by type and period
+      const newReportsData = {
+        product: { day: null, month: null, quarter: null, year: null },
+        order: { day: null, month: null, quarter: null, year: null },
+        user: { day: null, month: null, quarter: null, year: null },
+        revenue: { day: null, month: null, quarter: null, year: null }
+      };
+
+      results.forEach((data, index) => {
+        const { reportType: type, period: periodValue } = callKeys[index];
+        newReportsData[type][periodValue] = transformReportData(data, type);
+      });
+
+      setReportsData(newReportsData);
+      
+      // Update current chart with selected report type and period
+      const currentData = newReportsData[reportType]?.[period];
+      if (currentData) {
+        setChartData(currentData);
+      }
+      
+      setError(null);
+
+    } catch (error) {
+      if (signal && signal.aborted) {
+        return;
+      }
+      
+      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+        return;
+      }
+      
+      console.error('[AdminDashboard] Error loading reports:', error);
+      setError(error.message || 'Không thể tải dữ liệu báo cáo');
+    } finally {
+      if (!signal || !signal.aborted) {
+        setLoading(false);
+      }
+    }
+  }, [startDate, endDate, reportType, period]);
+
   // Load all reports for all periods when component mounts or date changes
   useEffect(() => {
     // Cancel previous request if exists
@@ -447,110 +551,6 @@ const AdminDashboard = () => {
     
     loadSecondaryData();
   }, [secondaryPeriod, secondaryStartDate, secondaryEndDate]);
-
-  // Load all reports for all periods in parallel - wrapped in useCallback
-  const loadAllReportsForAllPeriods = useCallback(async (signal = null) => {
-    try {
-      if (signal && signal.aborted) {
-        return;
-      }
-      
-      setLoading(true);
-      setError(null);
-
-      const periods = ['day', 'month', 'quarter', 'year'];
-      const reportTypesArray = ['product', 'order', 'user', 'revenue'];
-      
-      // Build base params
-      const baseParams = {};
-      if (startDate) baseParams.startDate = startDate;
-      if (endDate) baseParams.endDate = endDate;
-
-      // Create all API calls for all combinations
-      const apiCalls = [];
-      const callKeys = [];
-      
-      periods.forEach(periodValue => {
-        reportTypesArray.forEach(reportTypeValue => {
-          const params = { ...baseParams, period: periodValue };
-          
-          let apiCall;
-          switch (reportTypeValue) {
-            case 'product':
-              apiCall = getProductReport(params);
-              break;
-            case 'order':
-              apiCall = getOrderReport(params);
-              break;
-            case 'user':
-              apiCall = getUserReport(params);
-              break;
-            case 'revenue':
-              apiCall = getRevenueReport(params);
-              break;
-            default:
-              apiCall = Promise.resolve([]);
-          }
-          
-          apiCalls.push(
-            apiCall.catch(err => {
-              if (signal && signal.aborted) return [];
-              console.warn(`[AdminDashboard] Error loading ${reportTypeValue} report (${periodValue}):`, err);
-              return [];
-            })
-          );
-          
-          callKeys.push({ reportType: reportTypeValue, period: periodValue });
-        });
-      });
-
-      // Load all in parallel
-      const results = await Promise.all(apiCalls);
-
-      if (signal && signal.aborted) {
-        return;
-      }
-
-      // Transform and cache all reports by type and period
-      const newReportsData = {
-        product: { day: null, month: null, quarter: null, year: null },
-        order: { day: null, month: null, quarter: null, year: null },
-        user: { day: null, month: null, quarter: null, year: null },
-        revenue: { day: null, month: null, quarter: null, year: null }
-      };
-
-      results.forEach((data, index) => {
-        const { reportType: type, period: periodValue } = callKeys[index];
-        newReportsData[type][periodValue] = transformReportData(data, type);
-      });
-
-      setReportsData(newReportsData);
-      
-      // Update current chart with selected report type and period
-      const currentData = newReportsData[reportType]?.[period];
-      if (currentData) {
-        setChartData(currentData);
-      }
-      
-      setError(null);
-
-    } catch (error) {
-      if (signal && signal.aborted) {
-        return;
-      }
-      
-      if (error.name === 'AbortError' || error.message?.includes('aborted')) {
-        return;
-      }
-      
-      console.error('[AdminDashboard] Error loading reports:', error);
-      setError(error.message || 'Không thể tải dữ liệu báo cáo');
-    } finally {
-      if (!signal || !signal.aborted) {
-        setLoading(false);
-      }
-    }
-  }, [startDate, endDate, reportType, period]);
 
 
 
