@@ -122,5 +122,54 @@ namespace ModernIssues.Models.DTOs
         public List<PromotionUpdateDetail> PromotionDetails { get; set; } = new List<PromotionUpdateDetail>();
         public DateTime ProcessedAt { get; set; }
     }
+
+    /// <summary>
+    /// DTO cho sản phẩm có thể thêm vào promotion
+    /// </summary>
+    public class AvailableProductDto
+    {
+        public int ProductId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
+        public decimal Price { get; set; }
+        public int? CategoryId { get; set; }
+        public string? CategoryName { get; set; }
+        
+        /// <summary>
+        /// ID của promotion hiện tại đang áp dụng cho sản phẩm (nếu có)
+        /// </summary>
+        public int? CurrentPromotionId { get; set; }
+        
+        /// <summary>
+        /// Tên của promotion hiện tại đang áp dụng cho sản phẩm (nếu có)
+        /// </summary>
+        public string? CurrentPromotionName { get; set; }
+        
+        /// <summary>
+        /// Hiển thị giá trị khuyến mãi hiện tại: "20%" hoặc "50,000 VNĐ"
+        /// </summary>
+        public string? CurrentDiscountDisplay { get; set; }
+    }
+
+    /// <summary>
+    /// Response cho API lấy danh sách sản phẩm có thể thêm vào promotion
+    /// </summary>
+    public class AvailableProductsResponse
+    {
+        public int TotalCount { get; set; }
+        public int CurrentPage { get; set; }
+        public int Limit { get; set; }
+        public List<AvailableProductDto> AvailableProducts { get; set; } = new List<AvailableProductDto>();
+        
+        /// <summary>
+        /// Số lượng sản phẩm bị bỏ qua vì đã có promotion tốt hơn
+        /// </summary>
+        public int SkippedCount { get; set; }
+        
+        /// <summary>
+        /// Danh sách sản phẩm bị bỏ qua (chỉ hiển thị một phần để tham khảo)
+        /// </summary>
+        public List<AvailableProductDto> SkippedProducts { get; set; } = new List<AvailableProductDto>();
+    }
 }
 
