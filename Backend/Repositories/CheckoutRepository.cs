@@ -1,6 +1,9 @@
 using ModernIssues.Models.DTOs;
 using ModernIssues.Models.Entities;
+using ModernIssues.Models.Configurations;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Caching.Memory;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -15,10 +18,15 @@ namespace ModernIssues.Repositories
     public class CheckoutRepository : ICheckoutRepository
     {
         private readonly WebDbContext _context;
+        private readonly SepayConfig _sepayConfig;
+        private readonly IMemoryCache _cache;
+        private const int CACHE_EXPIRATION_HOURS = 24; // Cache gencode trong 24 giờ
 
-        public CheckoutRepository(WebDbContext context)
+        public CheckoutRepository(WebDbContext context, IOptions<SepayConfig> sepayConfig, IMemoryCache cache)
         {
             _context = context;
+            _sepayConfig = sepayConfig.Value;
+            _cache = cache;
         }
 
         public async Task<OrderDto> CheckoutAsync(int userId, string paymentType)
@@ -118,9 +126,10 @@ namespace ModernIssues.Repositories
                     var startDate = DateTime.UtcNow;
                     var endDate = startDate.AddMonths(warrantyPeriod);
 
-                    // Lấy serial numbers có sẵn trong kho (is_disabled = false = còn bảo hành) cho sản phẩm này
+                    // Lấy serial numbers có sẵn trong kho (chưa bán: is_sold = false, còn bảo hành: is_disabled = false)
                     var availableSerials = await _context.product_serials
                         .Where(ps => ps.product_id == cartItem.product_id 
+                                  && (ps.is_sold == null || ps.is_sold == false)
                                   && (ps.is_disabled == null || ps.is_disabled == false))
                         .Take(cartItem.quantity)
                         .ToListAsync();
@@ -154,9 +163,9 @@ namespace ModernIssues.Repositories
 
                         warranties.Add(newWarranty);
 
-                        // Cập nhật serial: gán order_id và warranty_id (sẽ cập nhật sau khi lưu warranty)
+                        // Cập nhật serial: đánh dấu đã bán (is_sold = true)
                         // Không cần đổi is_disabled vì vẫn còn bảo hành (is_disabled = false)
-                        productSerial.order_id = newOrder.order_id;
+                        productSerial.is_sold = true;
                         productSerial.updated_at = DateTime.UtcNow;
                         productSerial.updated_by = userId;
                     }
@@ -168,20 +177,8 @@ namespace ModernIssues.Repositories
                 _context.warranties.AddRange(warranties);
                 await _context.SaveChangesAsync();
 
-                // Cập nhật warranty_id vào product_serials sau khi warranty được tạo
-                foreach (var warrantyItem in warranties)
-                {
-                    var productSerial = await _context.product_serials
-                        .FirstOrDefaultAsync(ps => ps.serial_number == warrantyItem.serial_number);
-                    
-                    if (productSerial != null)
-                    {
-                        productSerial.warranty_id = warrantyItem.warranty_id;
-                        productSerial.updated_at = DateTime.UtcNow;
-                    }
-                }
-                
-                await _context.SaveChangesAsync();
+                // Note: Database thực tế KHÔNG có warranty_id trong product_serials
+                // Không cần cập nhật warranty_id vào product_serials
             }
 
             // 8. Xóa tất cả cart items
@@ -201,6 +198,42 @@ namespace ModernIssues.Repositories
                 throw new Exception("Lỗi khi tạo đơn hàng.");
             }
 
+            // Tạo QR URL và gencode nếu payment type là Transfer hoặc ATM
+            string? qrUrl = null;
+            string? gencode = null;
+            
+            if ((order.types == "Transfer" || order.types == "ATM") && order.total_amount.HasValue && order.total_amount > 0)
+            {
+                // Tạo gencode unique: ORDER_{order_id}_{timestamp}_{guid}
+                // Format này đảm bảo unique và dễ đối chiếu
+                var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+                var uniqueId = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
+                gencode = $"ORDER_{order.order_id}_{timestamp}_{uniqueId}";
+                
+                // Lưu thông tin đơn hàng vào cache với key là gencode
+                var cacheInfo = new OrderCacheInfo
+                {
+                    OrderId = order.order_id,
+                    UserId = order.user_id,
+                    TotalAmount = order.total_amount ?? 0,
+                    PaymentType = order.types ?? "",
+                    Status = order.status ?? "pending",
+                    CreatedAt = order.created_at ?? DateTime.UtcNow
+                };
+                
+                var cacheKey = $"gencode_{gencode}";
+                var cacheOptions = new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(CACHE_EXPIRATION_HOURS),
+                    SlidingExpiration = TimeSpan.FromHours(CACHE_EXPIRATION_HOURS)
+                };
+                
+                _cache.Set(cacheKey, cacheInfo, cacheOptions);
+                
+                // Tạo QR URL với gencode (khóa cứng trong nội dung chuyển khoản)
+                qrUrl = $"https://qr.sepay.vn/img?acc={_sepayConfig.AccountNumber}&bank={_sepayConfig.BankName}&amount={order.total_amount}&des={gencode}";
+            }
+
             // Map sang OrderDto
             return new OrderDto
             {
@@ -214,6 +247,8 @@ namespace ModernIssues.Repositories
                 TypesDisplay = order.types == "COD" ? "Thanh toán khi nhận hàng" :
                               order.types == "Transfer" ? "Chuyển khoản" :
                               order.types == "ATM" ? "Thẻ ATM" : order.types,
+                QrUrl = qrUrl,
+                Gencode = gencode,
                 CreatedAt = order.created_at,
                 UpdatedAt = order.updated_at,
                 CreatedBy = order.created_by,

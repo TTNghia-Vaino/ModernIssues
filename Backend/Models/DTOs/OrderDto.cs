@@ -17,6 +17,8 @@ namespace ModernIssues.Models.DTOs
         public decimal? TotalAmount { get; set; } = 0;
         public string? Types { get; set; } = "COD";
         public string? TypesDisplay { get; set; } = string.Empty;
+        public string? QrUrl { get; set; } // Đường link QR code thanh toán (cho Transfer và ATM)
+        public string? Gencode { get; set; } // Mã gencode để đối chiếu với biến động số dư
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public int? CreatedBy { get; set; }

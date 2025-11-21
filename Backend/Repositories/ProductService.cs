@@ -86,5 +86,11 @@ namespace ModernIssues.Repositories
         {
             return await _productRepository.ReactivateAsync(productId, adminId);
         }
+
+        // === GENERATE SERIALS (Tạo serial cho tất cả sản phẩm hiện có) ===
+        public async Task<int> GenerateSerialsForAllProductsAsync(int adminId)
+        {
+            return await _productRepository.GenerateSerialsForAllProductsAsync(adminId);
+        }
     }
 }
