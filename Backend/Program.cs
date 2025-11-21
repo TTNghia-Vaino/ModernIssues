@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using ModernIssues.Models.Configurations;
 using ModernIssues.Services;
 using ModernIssues.Models.Entities;
 using ModernIssues.Repositories; // Cần cho IProductRepository và ProductRepository
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Repositories.Service;
+using ModernIssues.Hubs;
 using System.Reflection;
 using System.IO;
 using Microsoft.OpenApi.Models;
@@ -44,13 +46,16 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true; 
 });
 
-// Add CORS to allow SePay webhook to send requests
+// Add SignalR for real-time notifications
+builder.Services.AddSignalR();
+
+// Add CORS to allow SePay webhook and SignalR connections
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSePayWebhook", policy =>
     {
-        policy.AllowAnyOrigin()  // SePay webhook can come from any origin
-              .AllowAnyMethod()   // Allow POST for webhook
+        policy.AllowAnyOrigin()  // SePay webhook and SignalR can come from any origin
+              .AllowAnyMethod()   // Allow POST for webhook, GET/POST for SignalR
               .AllowAnyHeader()   // Allow Authorization header
               .WithExposedHeaders("Content-Type", "Authorization");
     });
@@ -148,6 +153,9 @@ app.UseCors("AllowSePayWebhook");
 app.UseStaticFiles();
 
 app.UseAuthorization();
+
+// Map SignalR Hub
+app.MapHub<PaymentHub>("/paymentHub");
 
 app.MapControllers();
 

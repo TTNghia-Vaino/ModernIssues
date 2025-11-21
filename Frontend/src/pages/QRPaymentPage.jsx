@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { generateQr } from '../services/paymentService';
+import { signalRService } from '../services/signalRService';
+import { useNotification } from '../context/NotificationContext';
 import './QRPaymentPage.css';
 
 const formatPrice = (price) => price.toLocaleString('vi-VN') + '₫';
 
 const QRPaymentPage = () => {
   const navigate = useNavigate();
+  const { success } = useNotification();
   const [orderData, setOrderData] = useState(null);
   const [qrCodeUrl, setQrCodeUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [paymentStatus, setPaymentStatus] = useState('pending'); // pending, success, failed
 
   useEffect(() => {
     // Get order data from localStorage
@@ -44,6 +48,84 @@ const QRPaymentPage = () => {
       navigate('/checkout');
     }
   }, [navigate]);
+
+  // Connect SignalR and listen for payment notifications
+  useEffect(() => {
+    let listenerId = null;
+    let gencode = null;
+
+    const setupSignalR = async () => {
+      try {
+        // Use orderData from state instead of re-reading from localStorage
+        if (!orderData) {
+          console.log('[QRPaymentPage] No orderData, skipping SignalR setup');
+          return;
+        }
+
+        gencode = orderData.gencode || orderData.genCode;
+        
+        if (!gencode) {
+          console.log('[QRPaymentPage] No gencode found in orderData, skipping SignalR');
+          return;
+        }
+
+        console.log('[QRPaymentPage] Setting up SignalR for gencode:', gencode);
+        
+        // Connect to SignalR
+        await signalRService.connect();
+        
+        // Join payment group
+        await signalRService.joinPaymentGroup(gencode);
+        
+        // Listen for payment success
+        listenerId = signalRService.onPaymentSuccess((data) => {
+          console.log('[QRPaymentPage] Payment success notification:', data);
+          
+          const orderId = orderData.orderId || orderData.order_id || orderData.id;
+          // Check if gencode matches or orderId matches
+          const gencodeMatch = data.gencode === gencode;
+          const orderIdMatch = data.orderId === orderId || 
+                               String(data.orderId) === String(orderId);
+          
+          if (gencodeMatch || orderIdMatch) {
+            console.log('[QRPaymentPage] Payment confirmed for order:', orderId, 'gencode:', gencode);
+            setPaymentStatus('success');
+            success('Thanh toán thành công! Đơn hàng của bạn đã được xác nhận.');
+            
+            // Save order to lastOrder for confirmation page
+            const savedOrder = localStorage.getItem('pendingOrder');
+            if (savedOrder) {
+              localStorage.setItem('lastOrder', savedOrder);
+            }
+            localStorage.removeItem('pendingOrder');
+            
+            // Navigate to order confirmation after 2 seconds
+            setTimeout(() => {
+              navigate('/order-confirmation');
+            }, 2000);
+          }
+        });
+      } catch (error) {
+        console.error('[QRPaymentPage] SignalR setup error:', error);
+        // Continue without SignalR - user can still manually check
+      }
+    };
+
+    // Only setup SignalR if we have order data and gencode
+    if (orderData && (orderData.gencode || orderData.genCode)) {
+      setupSignalR();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (listenerId) {
+        signalRService.offPaymentSuccess(listenerId);
+      }
+      if (gencode) {
+        signalRService.leavePaymentGroup(gencode).catch(console.error);
+      }
+    };
+  }, [orderData, navigate, success]);
 
   useEffect(() => {
     // Only fetch QR code from API if qrUrl is not already set from checkout response
@@ -224,6 +306,13 @@ const QRPaymentPage = () => {
   }, [orderData, qrCodeUrl]);
 
   const handleBackToCheckout = () => {
+    // Leave SignalR group before navigating
+    if (orderData) {
+      const gencode = orderData.gencode || orderData.genCode;
+      if (gencode) {
+        signalRService.leavePaymentGroup(gencode).catch(console.error);
+      }
+    }
     navigate('/checkout');
   };
 
@@ -243,6 +332,23 @@ const QRPaymentPage = () => {
           <div className="logo">TechZone</div>
           <h1>Thanh toán qua QR Code</h1>
         </div>
+
+        {/* Payment Success Banner */}
+        {paymentStatus === 'success' && (
+          <div className="payment-success-banner" style={{
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            color: 'white',
+            padding: '20px',
+            borderRadius: '12px',
+            marginBottom: '24px',
+            textAlign: 'center',
+            animation: 'slideDown 0.3s ease-out'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}>✓</div>
+            <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: 'bold' }}>Thanh toán thành công!</h2>
+            <p style={{ margin: 0, fontSize: '16px', opacity: 0.95 }}>Đang chuyển đến trang xác nhận đơn hàng...</p>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="qr-content">

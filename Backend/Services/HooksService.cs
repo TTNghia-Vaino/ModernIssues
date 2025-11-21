@@ -1,10 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Caching.Memory;
 using ModernIssues.Models.Entities;
 using ModernIssues.Models.Configurations;
 using ModernIssues.Models.DTOs;
+using ModernIssues.Hubs;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -17,12 +19,18 @@ namespace ModernIssues.Services
         private readonly WebDbContext _context;
         private readonly HooksConfig _hooksConfig;
         private readonly IMemoryCache _cache;
+        private readonly IHubContext<PaymentHub> _hubContext;
 
-        public HooksService(WebDbContext context, IOptions<HooksConfig> hooksConfig, IMemoryCache cache)
+        public HooksService(
+            WebDbContext context, 
+            IOptions<HooksConfig> hooksConfig, 
+            IMemoryCache cache,
+            IHubContext<PaymentHub> hubContext)
         {
             _context = context;
             _hooksConfig = hooksConfig.Value;
             _cache = cache;
+            _hubContext = hubContext;
         }
 
         public async Task AddTransactionAsync(BankTransaction transaction)
@@ -126,6 +134,24 @@ namespace ModernIssues.Services
             result.Message += $". Payment successful! Order {cacheInfo.OrderId} status updated to 'paid'";
             result.OrderUpdated = true;
             result.OrderId = cacheInfo.OrderId;
+
+            // 10. Gửi SignalR notification đến client đang chờ thanh toán
+            try
+            {
+                await _hubContext.Clients.Group($"payment_{gencode}").SendAsync("PaymentSuccess", new
+                {
+                    orderId = cacheInfo.OrderId,
+                    gencode = gencode,
+                    amount = transaction.Transferamount,
+                    message = "Thanh toán thành công! Đơn hàng của bạn đã được xác nhận.",
+                    timestamp = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                // Log error nhưng không fail toàn bộ process
+                Console.WriteLine($"[SignalR] Error sending payment notification: {ex.Message}");
+            }
 
             return result;
         }

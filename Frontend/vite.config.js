@@ -48,6 +48,20 @@ export default defineConfig({
             console.log('[Proxy Request]', req.method, req.url, '→', proxyReq.path);
           });
         },
+      },
+      '/paymentHub': {
+        target: 'ws://35.232.61.38:5000',
+        ws: true,
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('[SignalR Proxy Error]', err.message);
+          });
+          proxy.on('proxyReqWs', (proxyReq, req, _socket) => {
+            console.log('[SignalR Proxy Request]', req.url, '→', proxyReq.path);
+          });
+        },
       }
     }
   }
