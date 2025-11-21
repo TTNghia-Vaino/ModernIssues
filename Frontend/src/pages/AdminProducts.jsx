@@ -168,7 +168,14 @@ const AdminProducts = () => {
           stock: product.stock || 0,
           warrantyPeriod: product.warrantyPeriod || 12,
           status: (product.stock || 0) > 0 ? 'active' : 'inactive',
-          isDisabled: product.isDisabled === true || product.isDisabled === 'true' || product.is_disabled === true,
+          // Map isDisabled from API (support both camelCase and snake_case, boolean and string)
+          isDisabled: (() => {
+            const isDisabledValue = product.isDisabled !== undefined ? product.isDisabled : product.is_disabled;
+            if (isDisabledValue === true || isDisabledValue === 'true') return true;
+            if (isDisabledValue === false || isDisabledValue === 'false') return false;
+            // Default to false if undefined or null
+            return false;
+          })(),
           badge: product.badge || '',
           featured: product.featured || false,
           specs: product.specs || {}
@@ -282,11 +289,21 @@ const AdminProducts = () => {
         // Use DELETE API to soft delete (set is_disabled = true)
         // DELETE /v1/Product/{id} - Vô hiệu hóa sản phẩm (soft delete)
         console.log('[AdminProducts.handleDisable] Soft deleting product:', id);
-        await productService.deleteProduct(id);
-        console.log('[AdminProducts.handleDisable] Product soft deleted successfully');
+        const deleteResponse = await productService.deleteProduct(id);
+        console.log('[AdminProducts.handleDisable] Product soft deleted successfully, response:', deleteResponse);
         
-        // Reload products to sync with backend
-        await loadProducts();
+        // Update local state immediately for instant UI feedback
+        // DELETE API sets is_disabled = true, so we set isDisabled to true
+        setProducts(prevProducts => 
+          prevProducts.map(p => 
+            p.id === id 
+              ? { ...p, isDisabled: true } 
+              : p
+          )
+        );
+        
+        // Don't reload automatically - state is already updated
+        // User can manually refresh if needed, or reload will happen on next page load
         showNotification('Ngừng bán sản phẩm thành công!');
       } catch (error) {
         console.error('[AdminProducts.handleDisable] Error disabling product:', error);
@@ -319,11 +336,28 @@ const AdminProducts = () => {
         };
         
         console.log('[AdminProducts.handleActivate] Updating product:', id, 'with data:', updateData);
-        await productService.updateProduct(id, updateData, null);
-        console.log('[AdminProducts.handleActivate] Product updated successfully');
+        const updatedProduct = await productService.updateProduct(id, updateData, null);
+        console.log('[AdminProducts.handleActivate] Product updated successfully, response:', updatedProduct);
         
-        // Reload products to sync with backend
-        await loadProducts();
+        // Update local state immediately - we know isDisabled should be false (we're activating)
+        // Use the value we sent to API, not response (response may not include isDisabled)
+        setProducts(prevProducts => 
+          prevProducts.map(p => 
+            p.id === id 
+              ? { 
+                  ...p, 
+                  isDisabled: false, // We're activating, so isDisabled = false
+                  // Also update other fields from response if available
+                  ...(updatedProduct?.productName && { productName: updatedProduct.productName, name: updatedProduct.productName }),
+                  ...(updatedProduct?.price !== undefined && { price: updatedProduct.price }),
+                  ...(updatedProduct?.stock !== undefined && { stock: updatedProduct.stock })
+                } 
+              : p
+          )
+        );
+        
+        // Don't reload automatically - state is already updated correctly
+        // User can manually refresh if needed, or reload will happen on next page load
         showNotification('Kích hoạt sản phẩm thành công!');
       } catch (error) {
         console.error('[AdminProducts.handleActivate] Error activating product:', error);
@@ -745,7 +779,7 @@ const AdminProducts = () => {
           <div className="col-price">Giá bán</div>
           <div className="col-stock">Tồn kho</div>
           <div className="col-status">Trạng thái</div>
-          <div className="col-actions">Thao tác</div>
+          <div className="col-actions" aria-hidden="true"></div>
         </div>
 
         {paginatedProducts.map((product) => (

@@ -88,9 +88,19 @@ function SSDShowcase() {
         console.log('[SSDShowcase] Transformed products:', transformedProducts.length);
         
         const ssdProducts = transformedProducts.filter(
-          product => product.status === 'active' || product.status === undefined || 
-                     product.category?.toLowerCase().includes('ssd') ||
-                     product.name?.toLowerCase().includes('ssd')
+          product => {
+            // Filter out disabled products
+            const isNotDisabled = product.isDisabled !== true && product.isDisabled !== 'true';
+            if (!isNotDisabled) return false;
+            
+            // Check status (active or undefined)
+            const isActive = product.status === 'active' || product.status === undefined;
+            if (!isActive) return false;
+            
+            // Check category or name contains 'ssd'
+            return product.category?.toLowerCase().includes('ssd') ||
+                   product.name?.toLowerCase().includes('ssd');
+          }
         );
         console.log('[SSDShowcase] Filtered SSD products:', ssdProducts.length);
         setProducts(ssdProducts.slice(0, 10)); // Lấy 10 sản phẩm đầu tiên
@@ -107,7 +117,12 @@ function SSDShowcase() {
           console.log('[SSDShowcase] Using localStorage fallback');
           const allProducts = JSON.parse(savedProducts);
           const ssdProducts = allProducts.filter(
-            product => product.category === 'SSD' && product.status === 'active'
+            product => {
+              const isNotDisabled = product.isDisabled !== true && product.isDisabled !== 'true';
+              return product.category === 'SSD' && 
+                     product.status === 'active' && 
+                     isNotDisabled;
+            }
           );
           setProducts(ssdProducts.slice(0, 10));
         } else {

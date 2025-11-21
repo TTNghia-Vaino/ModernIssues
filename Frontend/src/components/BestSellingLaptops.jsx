@@ -12,6 +12,7 @@ function BestSellingLaptops() {
   const [laptops, setLaptops] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState('next');
+  const placeholderImage = 'https://via.placeholder.com/300x200?text=Laptop';
 
   // Load laptops from API, but delay if in grace period
   useEffect(() => {
@@ -78,11 +79,26 @@ function BestSellingLaptops() {
         const transformedProducts = transformProducts(productsArray);
         console.log('[BestSellingLaptops] Transformed products:', transformedProducts.length);
         
-        const activeLaptops = transformedProducts.filter(
-          product => product.status === 'active' || product.status === undefined ||
-                     product.category?.toLowerCase().includes('laptop') ||
-                     product.name?.toLowerCase().includes('laptop')
-        );
+        // Filter only laptops - must be exact category match, not just containing "laptop"
+        const activeLaptops = transformedProducts.filter(product => {
+          // Filter out disabled products
+          const isNotDisabled = product.isDisabled !== true && product.isDisabled !== 'true';
+          if (!isNotDisabled) return false;
+          
+          // Check status
+          const isActive = product.status === 'active' || product.status === undefined;
+          if (!isActive) return false;
+          
+          // Check category - must be exactly "Laptop" (case-insensitive)
+          const category = product.category?.toString().trim();
+          if (!category) return false;
+          
+          // Exact match for "Laptop" category (case-insensitive)
+          const categoryLower = category.toLowerCase();
+          const isLaptopCategory = categoryLower === 'laptop';
+          
+          return isLaptopCategory;
+        });
         console.log('[BestSellingLaptops] Filtered laptops:', activeLaptops.length);
         setLaptops(activeLaptops);
       } catch (apiError) {
@@ -98,7 +114,12 @@ function BestSellingLaptops() {
           console.log('[BestSellingLaptops] Using localStorage fallback');
           const allProducts = JSON.parse(savedProducts);
           const activeLaptops = allProducts.filter(
-            product => product.category === 'Laptop' && product.status === 'active'
+            product => {
+              const isNotDisabled = product.isDisabled !== true && product.isDisabled !== 'true';
+              return product.category === 'Laptop' && 
+                     product.status === 'active' && 
+                     isNotDisabled;
+            }
           );
           setLaptops(activeLaptops);
         } else {
@@ -201,6 +222,26 @@ function BestSellingLaptops() {
     );
   };
 
+  const getLaptopImage = (laptop) => {
+    if (!laptop) return placeholderImage;
+    if (laptop.image && laptop.image.trim() !== '') {
+      return laptop.image;
+    }
+    if (Array.isArray(laptop.images) && laptop.images.length > 0) {
+      const firstImage = laptop.images.find(Boolean);
+      if (typeof firstImage === 'string' && firstImage.trim()) {
+        return firstImage;
+      }
+      if (firstImage && typeof firstImage === 'object') {
+        const url = firstImage.url || firstImage.src || firstImage.path || firstImage.image;
+        if (url && url.trim()) {
+          return url;
+        }
+      }
+    }
+    return placeholderImage;
+  };
+
   return (
     <section className="best-selling-laptops">
       <div className="container">
@@ -272,9 +313,16 @@ function BestSellingLaptops() {
                             
                             <div className="laptop-image-wrapper">
                               <img 
-                                src={laptop.image || 'https://via.placeholder.com/300x200?text=Laptop'} 
+                                src={getLaptopImage(laptop)} 
                                 alt={laptop.name} 
-                                className="laptop-image" 
+                                className="laptop-image"
+                                onError={(event) => {
+                                  if (event.currentTarget.dataset.fallbackApplied === 'true') {
+                                    return;
+                                  }
+                                  event.currentTarget.dataset.fallbackApplied = 'true';
+                                  event.currentTarget.src = placeholderImage;
+                                }} 
                               />
                             </div>
 
