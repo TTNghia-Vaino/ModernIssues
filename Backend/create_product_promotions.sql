@@ -27,3 +27,4 @@ CREATE INDEX IF NOT EXISTS idx_product_promotions_product_id
 CREATE INDEX IF NOT EXISTS idx_product_promotions_promotion_id 
     ON product_promotions(promotion_id);
 
+

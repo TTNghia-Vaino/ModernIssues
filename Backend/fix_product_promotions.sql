@@ -123,3 +123,4 @@ WHERE tc.table_schema = 'public'
 AND tc.table_name = 'product_promotions'
 ORDER BY tc.constraint_type, tc.constraint_name;
 
+
