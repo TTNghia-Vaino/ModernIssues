@@ -18,7 +18,8 @@ function MiniPCShowcase() {
     { id: 'do-hoa-render', name: 'PC Đồ Họa Render' },
     { id: 'itx-nho-gon', name: 'PC ITX / Nhỏ Gọn' },
     { id: 'pc-ai', name: 'PC AI' },
-    { id: 'tu-build', name: 'PC Tự Build' }
+    { id: 'tu-build', name: 'PC Tự Build' },
+    { id: 'thung-may', name: 'Thùng máy' }
   ];
 
   useEffect(() => {
@@ -50,10 +51,10 @@ function MiniPCShowcase() {
       // Try API first
       try {
         console.log('[MiniPCShowcase] Fetching products from API...');
+        // Load more products to ensure we get all Mini PC related products
         const productsData = await productService.listProducts({ 
           page: 1, 
-          limit: 10,
-          search: 'Mini PC'
+          limit: 100
         });
         
         console.log('[MiniPCShowcase] Raw API response:', productsData);
@@ -86,10 +87,42 @@ function MiniPCShowcase() {
         const transformedProducts = transformProducts(productsArray);
         console.log('[MiniPCShowcase] Transformed products:', transformedProducts.length);
         
+        // Create a set of valid category names for Mini PC
+        const validCategoryNames = new Set([
+          'Mini PC',
+          ...categories.map(cat => cat.name)
+        ]);
+        console.log('[MiniPCShowcase] Valid category names:', Array.from(validCategoryNames));
+        
         const miniPCProducts = transformedProducts.filter(
-          product => product.status === 'active' || product.status === undefined ||
-                     product.category?.toLowerCase().includes('mini') ||
-                     product.name?.toLowerCase().includes('mini')
+          product => {
+            // Filter out disabled products
+            const isNotDisabled = product.isDisabled !== true && product.isDisabled !== 'true';
+            if (!isNotDisabled) return false;
+            
+            // Check status (active or undefined)
+            const isActive = product.status === 'active' || product.status === undefined;
+            if (!isActive) return false;
+            
+            // Check if category matches any valid Mini PC category
+            const categoryMatch = product.category && validCategoryNames.has(product.category);
+            
+            // Also check if category or name contains 'mini' (for backward compatibility)
+            const nameOrCategoryContainsMini = product.category?.toLowerCase().includes('mini') ||
+                                               product.name?.toLowerCase().includes('mini');
+            
+            const isMatch = categoryMatch || nameOrCategoryContainsMini;
+            
+            if (isMatch) {
+              console.log('[MiniPCShowcase] Product matched:', {
+                name: product.name,
+                category: product.category,
+                matchReason: categoryMatch ? 'category_match' : 'name_contains_mini'
+              });
+            }
+            
+            return isMatch;
+          }
         );
         console.log('[MiniPCShowcase] Filtered Mini PC products:', miniPCProducts.length);
         setProducts(miniPCProducts.slice(0, 10)); // Lấy 10 sản phẩm đầu tiên
@@ -106,7 +139,12 @@ function MiniPCShowcase() {
           console.log('[MiniPCShowcase] Using localStorage fallback');
           const allProducts = JSON.parse(savedProducts);
           const miniPCProducts = allProducts.filter(
-            product => product.category === 'Mini PC' && product.status === 'active'
+            product => {
+              const isNotDisabled = product.isDisabled !== true && product.isDisabled !== 'true';
+              return product.category === 'Mini PC' && 
+                     product.status === 'active' && 
+                     isNotDisabled;
+            }
           );
           setProducts(miniPCProducts.slice(0, 10));
         } else {

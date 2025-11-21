@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   Chart as ChartJS,
@@ -7,6 +7,7 @@ import {
   BarElement,
   BarController,
   ArcElement,
+  DoughnutController,
   PieController,
   Title,
   Tooltip,
@@ -24,11 +25,59 @@ ChartJS.register(
   BarElement,
   BarController,
   ArcElement,
+  DoughnutController,
   PieController,
   Title,
   Tooltip,
   Legend
 );
+
+// Report type configurations - moved outside component as constant
+const reportTypes = [
+  { value: 'product', label: 'Báo cáo Sản phẩm', color: '#3498db' },
+  { value: 'order', label: 'Báo cáo Đơn hàng', color: '#2ecc71' },
+  { value: 'user', label: 'Báo cáo Người dùng', color: '#f39c12' },
+  { value: 'revenue', label: 'Báo cáo Doanh thu', color: '#e74c3c' }
+];
+
+// Transform report data to chart format - moved outside component as pure function
+const transformReportData = (data, type) => {
+  const currentReport = reportTypes.find(r => r.value === type);
+  
+  let labels = [];
+  let values = [];
+
+  if (Array.isArray(data) && data.length > 0) {
+    switch (type) {
+      case 'product':
+      case 'order':
+      case 'user':
+        labels = data.map(item => item.period || 'N/A');
+        values = data.map(item => item.count || 0);
+        break;
+      case 'revenue':
+        labels = data.map(item => item.period || 'N/A');
+        values = data.map(item => item.revenue || 0);
+        break;
+      default:
+        break;
+    }
+  }
+
+  const formattedLabels = labels.length > 0 ? labels : ['Không có dữ liệu'];
+  const formattedValues = values.length > 0 ? values : [0];
+
+  return {
+    labels: formattedLabels,
+    datasets: [{
+      label: currentReport?.label || 'Dữ liệu',
+      data: formattedValues,
+      backgroundColor: currentReport?.color || '#3498db',
+      borderColor: currentReport?.color || '#3498db',
+      borderWidth: 1,
+    }]
+  };
+};
 
 const AdminDashboard = () => {
   const { isInTokenGracePeriod } = useAuth();
@@ -61,14 +110,6 @@ const AdminDashboard = () => {
   const [secondaryLoading, setSecondaryLoading] = useState(false);
   const secondaryChartRef = useRef(null);
   const secondaryChartInstanceRef = useRef(null);
-
-  // Report type configurations
-  const reportTypes = [
-    { value: 'product', label: 'Báo cáo Sản phẩm', color: '#3498db' },
-    { value: 'order', label: 'Báo cáo Đơn hàng', color: '#2ecc71' },
-    { value: 'user', label: 'Báo cáo Người dùng', color: '#f39c12' },
-    { value: 'revenue', label: 'Báo cáo Doanh thu', color: '#e74c3c' }
-  ];
 
   const periodLabels = {
     day: 'Ngày',
@@ -304,7 +345,7 @@ const AdminDashboard = () => {
         abortControllerRef.current.abort();
       }
     };
-  }, [startDate, endDate]); // Load when date changes, not when period/reportType changes
+  }, [startDate, endDate, isInTokenGracePeriod, loadAllReportsForAllPeriods]); // Load when date changes, not when period/reportType changes
 
   // Load secondary charts data and best selling products
   useEffect(() => {
@@ -407,8 +448,8 @@ const AdminDashboard = () => {
     loadSecondaryData();
   }, [secondaryPeriod, secondaryStartDate, secondaryEndDate]);
 
-  // Load all reports for all periods in parallel
-  const loadAllReportsForAllPeriods = async (signal = null) => {
+  // Load all reports for all periods in parallel - wrapped in useCallback
+  const loadAllReportsForAllPeriods = useCallback(async (signal = null) => {
     try {
       if (signal && signal.aborted) {
         return;
@@ -418,7 +459,7 @@ const AdminDashboard = () => {
       setError(null);
 
       const periods = ['day', 'month', 'quarter', 'year'];
-      const reportTypes = ['product', 'order', 'user', 'revenue'];
+      const reportTypesArray = ['product', 'order', 'user', 'revenue'];
       
       // Build base params
       const baseParams = {};
@@ -430,7 +471,7 @@ const AdminDashboard = () => {
       const callKeys = [];
       
       periods.forEach(periodValue => {
-        reportTypes.forEach(reportTypeValue => {
+        reportTypesArray.forEach(reportTypeValue => {
           const params = { ...baseParams, period: periodValue };
           
           let apiCall;
@@ -509,46 +550,7 @@ const AdminDashboard = () => {
         setLoading(false);
       }
     }
-  };
-
-  // Transform report data to chart format
-  const transformReportData = (data, type) => {
-    const currentReport = reportTypes.find(r => r.value === type);
-    
-    let labels = [];
-    let values = [];
-
-    if (Array.isArray(data) && data.length > 0) {
-      switch (type) {
-        case 'product':
-        case 'order':
-        case 'user':
-          labels = data.map(item => item.period || 'N/A');
-          values = data.map(item => item.count || 0);
-          break;
-        case 'revenue':
-          labels = data.map(item => item.period || 'N/A');
-          values = data.map(item => item.revenue || 0);
-          break;
-        default:
-          break;
-      }
-    }
-
-    const formattedLabels = labels.length > 0 ? labels : ['Không có dữ liệu'];
-    const formattedValues = values.length > 0 ? values : [0];
-
-    return {
-      labels: formattedLabels,
-      datasets: [{
-        label: currentReport?.label || 'Dữ liệu',
-        data: formattedValues,
-        backgroundColor: currentReport?.color || '#3498db',
-        borderColor: currentReport?.color || '#3498db',
-        borderWidth: 1,
-      }]
-    };
-  };
+  }, [startDate, endDate, reportType, period]);
 
 
 

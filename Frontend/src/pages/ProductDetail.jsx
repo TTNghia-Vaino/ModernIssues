@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -20,6 +20,7 @@ function ProductDetail() {
   const [selectedCapacity, setSelectedCapacity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const placeholderImage = 'https://via.placeholder.com/500?text=No+Image';
 
   useEffect(() => {
     let cancelled = false;
@@ -73,10 +74,36 @@ function ProductDetail() {
         const productData = await productService.getProductById(id);
         console.log('[ProductDetail] Product from API:', productData);
         
+        // Check if productData is valid
+        if (!productData) {
+          console.error('[ProductDetail] Product data is null or undefined');
+          throw new Error('Sản phẩm không tồn tại');
+        }
+        
         // Handle Swagger response format: response.data contains product object
         const product = productData && typeof productData === 'object' ? productData : productData;
+        console.log('[ProductDetail] Product before transform:', product);
+        
         // Transform API format to component format
         const transformedProduct = transformProduct(product);
+        console.log('[ProductDetail] Product after transform:', transformedProduct);
+        
+        // Validate transformed product
+        if (!transformedProduct) {
+          console.error('[ProductDetail] Transformed product is null or undefined');
+          throw new Error('Không thể xử lý dữ liệu sản phẩm');
+        }
+        
+        if (!transformedProduct.id && !transformedProduct.productId) {
+          console.error('[ProductDetail] Product missing ID:', transformedProduct);
+          throw new Error('Sản phẩm thiếu thông tin ID');
+        }
+        
+        if (!transformedProduct.name && !transformedProduct.productName) {
+          console.error('[ProductDetail] Product missing name:', transformedProduct);
+          throw new Error('Sản phẩm thiếu tên');
+        }
+        
         setProduct(transformedProduct);
         
         // Nếu có variants (dung lượng), chọn variant đầu tiên
@@ -263,25 +290,61 @@ function ProductDetail() {
     }
   };
 
-  if (loading) {
-    return <div className="product-detail-loading">Đang tải...</div>;
-  }
+  // Calculate derived values - must be before early returns
+  const currentPrice = product ? (selectedCapacity ? selectedCapacity.price : product.price) : 0;
+  const originalPrice = product ? (selectedCapacity ? selectedCapacity.originalPrice : product.originalPrice) : null;
+  const discount = product?.discount || 0;
 
-  if (error || !product) {
+  // All hooks must be called before any conditional returns
+  const productImages = useMemo(() => {
+    if (!product) return [placeholderImage];
+    const images = [];
+    if (product?.image) {
+      images.push(product.image);
+    }
+    if (Array.isArray(product?.images)) {
+      images.push(...product.images.filter(Boolean));
+    }
+    const uniqueImages = Array.from(new Set(images));
+    return uniqueImages.length > 0 ? uniqueImages : [placeholderImage];
+  }, [product]);
+
+  useEffect(() => {
+    if (productImages.length > 0 && selectedImage >= productImages.length) {
+      setSelectedImage(0);
+    }
+  }, [productImages.length, selectedImage]);
+
+  if (loading) {
     return (
-      <div className="product-not-found">
-        <h2>{error || 'Không tìm thấy sản phẩm'}</h2>
-        <button onClick={() => navigate('/')}>Về trang chủ</button>
+      <div className="product-detail-page">
+        <div className="product-detail-loading">
+          <div>Đang tải thông tin sản phẩm...</div>
+        </div>
       </div>
     );
   }
 
-  const currentPrice = selectedCapacity ? selectedCapacity.price : product.price;
-  const originalPrice = selectedCapacity ? selectedCapacity.originalPrice : product.originalPrice;
-  const discount = product.discount || 0;
+  if (error || !product) {
+    return (
+      <div className="product-detail-page">
+        <div className="product-not-found">
+          <h2>{error || 'Không tìm thấy sản phẩm'}</h2>
+          <p>Vui lòng thử lại sau hoặc quay về trang chủ.</p>
+          <button onClick={() => navigate('/')}>Về trang chủ</button>
+          <button onClick={() => navigate('/products')} style={{ marginLeft: '10px' }}>Xem tất cả sản phẩm</button>
+        </div>
+      </div>
+    );
+  }
 
-  // Tạo mảng hình ảnh (có thể mở rộng sau)
-  const productImages = [product.image];
+  const handleImageError = (event) => {
+    if (event.currentTarget.dataset.fallbackApplied === 'true') {
+      return;
+    }
+    event.currentTarget.dataset.fallbackApplied = 'true';
+    event.currentTarget.src = placeholderImage;
+  };
 
   return (
     <div className="product-detail-page">
@@ -302,8 +365,9 @@ function ProductDetail() {
           <div className="product-images-section">
             <div className="main-image">
               <img 
-                src={productImages[selectedImage] || 'https://via.placeholder.com/500'} 
+                src={productImages[selectedImage]} 
                 alt={product.name} 
+                onError={handleImageError}
               />
               {discount > 0 && (
                 <div className="discount-badge">-{discount}%</div>
@@ -318,7 +382,7 @@ function ProductDetail() {
                     className={`thumbnail ${selectedImage === index ? 'active' : ''}`}
                     onClick={() => setSelectedImage(index)}
                   >
-                    <img src={img} alt={`${product.name} ${index + 1}`} />
+                    <img src={img} alt={`${product.name} ${index + 1}`} onError={handleImageError} />
                   </div>
                 ))}
               </div>

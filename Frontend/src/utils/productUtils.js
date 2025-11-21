@@ -1,7 +1,62 @@
+import { getBaseURL } from '../config/api';
+
 /**
  * Utility functions for product data transformation
  * Converts API format to component format
  */
+
+const FALLBACK_IMAGE_BASE_URL = 'http://35.232.61.38:5000';
+
+const getCleanBaseUrl = () => {
+  const baseUrl = getBaseURL() || FALLBACK_IMAGE_BASE_URL;
+  return baseUrl.replace(/\/$/, '').replace(/\/v1$/i, '');
+};
+
+const normalizeImageUrl = (url) => {
+  if (typeof url !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const absolutePrefixes = ['http://', 'https://', 'data:', 'blob:', '//'];
+  if (absolutePrefixes.some(prefix => trimmed.toLowerCase().startsWith(prefix))) {
+    return trimmed;
+  }
+
+  const cleanBaseUrl = getCleanBaseUrl();
+  if (trimmed.startsWith('/')) {
+    return `${cleanBaseUrl}${trimmed}`;
+  }
+
+  // Default upload location on backend
+  return `${cleanBaseUrl}/Uploads/Images/${trimmed}`;
+};
+
+const normalizeImageCollection = (collection) => {
+  if (!Array.isArray(collection)) {
+    return [];
+  }
+
+  const normalized = collection
+    .map(item => {
+      if (!item) return undefined;
+      if (typeof item === 'string') {
+        return normalizeImageUrl(item);
+      }
+      if (typeof item === 'object') {
+        const fromObject = item.url || item.src || item.path || item.imageUrl || item.image;
+        return normalizeImageUrl(fromObject);
+      }
+      return undefined;
+    })
+    .filter(Boolean);
+
+  return Array.from(new Set(normalized));
+};
 
 /**
  * Transform API product format to component format
@@ -11,6 +66,31 @@
  * @param {object} apiProduct - Product object from API
  * @returns {object} - Transformed product object for components
  */
+export const resolveImageUrl = (product) => {
+  if (!product) return undefined;
+
+  const candidates = [
+    product.image,
+    product.imageUrl,
+    product.thumbnailUrl,
+    product.thumbnail,
+    product.coverImage
+  ]
+    .map(normalizeImageUrl)
+    .filter(Boolean);
+
+  if (candidates.length > 0) {
+    return candidates[0];
+  }
+
+  const collectionCandidates = [
+    ...normalizeImageCollection(product.images),
+    ...normalizeImageCollection(product.media)
+  ];
+
+  return collectionCandidates.length > 0 ? collectionCandidates[0] : undefined;
+};
+
 export const transformProduct = (apiProduct) => {
   if (!apiProduct || typeof apiProduct !== 'object') {
     return apiProduct;
@@ -23,12 +103,23 @@ export const transformProduct = (apiProduct) => {
 
   // Get productId value (from API or existing)
   const productIdValue = apiProduct.productId || apiProduct.id;
+  const resolvedImage = resolveImageUrl(apiProduct);
+  const resolvedImages = normalizeImageCollection(apiProduct.images);
+  
+  // Map isDisabled from API (handle both camelCase and snake_case)
+  const isDisabled = apiProduct.isDisabled === true || apiProduct.isDisabled === 'true' || 
+                     apiProduct.is_disabled === true || apiProduct.is_disabled === 'true';
+  
+  // Set status based on isDisabled if status is not provided
+  // If isDisabled is false/undefined, product is active
+  // If isDisabled is true, product is inactive
+  const status = apiProduct.status || (isDisabled ? 'inactive' : 'active');
   
   return {
     // Map API properties to component properties
     id: productIdValue,
     name: apiProduct.productName || apiProduct.name,
-    image: apiProduct.imageUrl || apiProduct.image,
+    image: resolvedImage || resolvedImages[0],
     category: apiProduct.categoryName || apiProduct.category,
     categoryId: apiProduct.categoryId || apiProduct.categoryId,
     
@@ -47,14 +138,15 @@ export const transformProduct = (apiProduct) => {
     specs: apiProduct.specs,
     badge: apiProduct.badge,
     featured: apiProduct.featured,
-    status: apiProduct.status,
+    status: status,
+    isDisabled: isDisabled,
     rating: apiProduct.rating,
     reviewCount: apiProduct.reviewCount,
     isNew: apiProduct.isNew,
     shortDescription: apiProduct.shortDescription,
     inStock: apiProduct.inStock,
     variants: apiProduct.variants,
-    images: apiProduct.images,
+    images: resolvedImages.length > 0 ? resolvedImages : normalizeImageCollection(apiProduct.media),
     sku: apiProduct.sku,
     onPrices: apiProduct.onPrices,
     

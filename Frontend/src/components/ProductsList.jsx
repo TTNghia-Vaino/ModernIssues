@@ -14,11 +14,28 @@ const ProductsList = () => {
   const params = new URLSearchParams(search);
   const initialQ = params.get('q') || '';
   const urlCategory = params.get('category') || ''; // Đọc category từ URL
+  const urlSubcategory = params.get('subcategory') || ''; // Đọc subcategory từ URL
+
+  // Map subcategory ID to category name
+  const subcategoryMap = {
+    'van-phong-st': 'PC Văn Phòng ST',
+    'gaming-st': 'PC Gaming ST',
+    'do-hoa-render': 'PC Đồ Họa Render',
+    'itx-nho-gon': 'PC ITX / Nhỏ Gọn',
+    'pc-ai': 'PC AI',
+    'tu-build': 'PC Tự Build',
+    'thung-may': 'Thùng máy'
+  };
+
+  // If subcategory exists, use its mapped category name, otherwise use urlCategory
+  const effectiveCategory = urlSubcategory && subcategoryMap[urlSubcategory] 
+    ? subcategoryMap[urlSubcategory] 
+    : urlCategory;
 
   const [products, setProducts] = useState([]);
   const [q, setQ] = useState(initialQ);
   const [brand, setBrand] = useState('');
-  const [category, setCategory] = useState(urlCategory); // Set category từ URL
+  const [category, setCategory] = useState(effectiveCategory); // Set category từ URL hoặc subcategory
   const [maxPrice, setMaxPrice] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -26,13 +43,19 @@ const ProductsList = () => {
   useEffect(() => {
     const currentParams = new URLSearchParams(search);
     const newCategory = currentParams.get('category') || '';
+    const newSubcategory = currentParams.get('subcategory') || '';
     const newQ = currentParams.get('q') || '';
+    
+    // Map subcategory to category name if exists
+    const effectiveNewCategory = newSubcategory && subcategoryMap[newSubcategory]
+      ? subcategoryMap[newSubcategory]
+      : newCategory;
     
     let shouldReload = false;
     
     // Cập nhật category nếu thay đổi
-    if (newCategory !== category) {
-      setCategory(newCategory);
+    if (effectiveNewCategory !== category) {
+      setCategory(effectiveNewCategory);
       shouldReload = true;
     }
     
@@ -44,7 +67,7 @@ const ProductsList = () => {
     
     // Reload products khi category hoặc query từ URL thay đổi
     if (shouldReload) {
-      loadProducts(newCategory || null, newQ);
+      loadProducts(effectiveNewCategory || null, newQ);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
@@ -67,7 +90,7 @@ const ProductsList = () => {
       }
       
       if (!cancelled) {
-        loadProducts(urlCategory || null, initialQ);
+        loadProducts(effectiveCategory || null, initialQ);
       }
     };
     
@@ -87,13 +110,29 @@ const ProductsList = () => {
       // Use searchQuery parameter if provided, otherwise use state q
       const activeSearchQuery = searchQuery !== null ? searchQuery : q;
       
+      // Check if we have subcategory - if so, we'll filter client-side by category name
+      const currentParams = new URLSearchParams(search);
+      const currentSubcategory = currentParams.get('subcategory') || '';
+      const hasSubcategory = !!currentSubcategory;
+      
       // Try API first
       try {
-        console.log('[ProductsList] Fetching products from API...', { categoryId: activeCategory, search: activeSearchQuery });
+        // If we have subcategory, don't filter by parent category in API
+        // Load all products (or with search if provided) and filter client-side by subcategory category name
+        // This is because subcategory products may have different category name than parent
+        const apiCategoryId = hasSubcategory ? null : activeCategory;
+        console.log('[ProductsList] Fetching products from API...', { 
+          categoryId: apiCategoryId, 
+          search: activeSearchQuery,
+          hasSubcategory,
+          subcategory: currentSubcategory,
+          effectiveCategory: activeCategory,
+          willFilterBy: hasSubcategory ? subcategoryMap[currentSubcategory] : activeCategory
+        });
         const productsData = await productService.listProducts({
           page: 1,
-          limit: 100, // Get more products for listing
-          ...(activeCategory && { categoryId: activeCategory }),
+          limit: 200, // Get more products when filtering by subcategory (need to find products across all categories)
+          ...(apiCategoryId && { categoryId: apiCategoryId }),
           ...(activeSearchQuery && { search: activeSearchQuery })
         });
         
@@ -126,7 +165,13 @@ const ProductsList = () => {
         // Transform API format to component format
         const transformedProducts = transformProducts(productsArray);
         console.log('[ProductsList] Transformed products:', transformedProducts.length);
-        setProducts(transformedProducts);
+        
+        // Filter out disabled products (API should already filter, but double-check for safety)
+        const activeProducts = transformedProducts.filter(
+          product => product.isDisabled !== true && product.isDisabled !== 'true'
+        );
+        console.log('[ProductsList] Active products (after filtering disabled):', activeProducts.length);
+        setProducts(activeProducts);
       } catch (apiError) {
         console.error('[ProductsList] API failed:', apiError);
         console.error('[ProductsList] Error details:', {
@@ -138,7 +183,10 @@ const ProductsList = () => {
         const savedProducts = localStorage.getItem('adminProducts');
         if (savedProducts) {
           const allProducts = JSON.parse(savedProducts);
-          const activeProducts = allProducts.filter(p => p.status === 'active' || p.status !== 'disabled');
+          const activeProducts = allProducts.filter(p => {
+            const isNotDisabled = p.isDisabled !== true && p.isDisabled !== 'true';
+            return (p.status === 'active' || p.status !== 'disabled') && isNotDisabled;
+          });
           setProducts(activeProducts);
         }
       }

@@ -61,11 +61,17 @@ function RelatedProducts({ categoryId, currentProductId }) {
           products = response.data.data;
         }
 
-        // Filter out current product and transform
+        // Filter out current product, disabled products, and transform
         const filtered = products
-          .filter(p => p.id !== parseInt(currentProductId))
+          .filter(p => {
+            // Filter out disabled products
+            const isNotDisabled = p.isDisabled !== true && p.isDisabled !== 'true' && 
+                                  p.is_disabled !== true && p.is_disabled !== 'true';
+            return isNotDisabled && p.id !== parseInt(currentProductId);
+          })
           .slice(0, 10)
-          .map(p => transformProduct(p));
+          .map(p => transformProduct(p))
+          .filter(p => p.isDisabled !== true && p.isDisabled !== 'true'); // Double-check after transform
 
         console.log('[RelatedProducts] Filtered and transformed products:', filtered);
 
@@ -97,20 +103,24 @@ function RelatedProducts({ categoryId, currentProductId }) {
       if (savedProducts) {
         const allProducts = JSON.parse(savedProducts);
         
-        // Filter products by category and exclude current product
+        // Filter products by category, exclude disabled products and current product
         const related = allProducts
-          .filter(p => 
-            p.category === categoryId || 
-            p.categoryId === categoryId ||
-            (categoryId && p.category?.toString().includes(categoryId?.toString()))
-          )
-          .filter(p => p.id !== parseInt(currentProductId))
+          .filter(p => {
+            const isNotDisabled = p.isDisabled !== true && p.isDisabled !== 'true';
+            const matchesCategory = p.category === categoryId || 
+                                   p.categoryId === categoryId ||
+                                   (categoryId && p.category?.toString().includes(categoryId?.toString()));
+            return isNotDisabled && matchesCategory && p.id !== parseInt(currentProductId);
+          })
           .slice(0, 10);
 
-        // If not enough products found by category, just take 10 random excluding current
+        // If not enough products found by category, just take 10 random excluding current and disabled
         if (related.length < 3) {
           return allProducts
-            .filter(p => p.id !== parseInt(currentProductId))
+            .filter(p => {
+              const isNotDisabled = p.isDisabled !== true && p.isDisabled !== 'true';
+              return isNotDisabled && p.id !== parseInt(currentProductId);
+            })
             .slice(0, 10);
         }
 

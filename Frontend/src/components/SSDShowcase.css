@@ -160,7 +160,7 @@
 /* ===== PRODUCTS GRID ===== */
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
 }
 
@@ -182,7 +182,7 @@
 .product-card {
   background: white;
   border-radius: 12px;
-  padding: 16px;
+  padding: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
@@ -230,11 +230,11 @@
 /* ===== PRODUCT IMAGE ===== */
 .product-image {
   width: 100%;
-  height: 180px;
+  height: 160px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   background: #f8f9fa;
   border-radius: 8px;
   overflow: hidden;
@@ -248,16 +248,16 @@
 
 /* ===== PRODUCT NAME ===== */
 .product-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #212529;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 40px;
+  min-height: 36px;
 }
 
 /* ===== PRODUCT SPECS ===== */
@@ -295,7 +295,7 @@
 }
 
 .current-price {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   color: #e03131;
 }
@@ -340,7 +340,7 @@
 /* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 1200px) {
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .ssd-banner-content {
@@ -440,7 +440,7 @@
   }
 
   .current-price {
-    font-size: 16px;
+    font-size: 14px;
   }
 
   .original-price {
@@ -493,6 +493,18 @@
 
   .category-tab {
     padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .current-price {
+    font-size: 13px;
+  }
+
+  .original-price {
+    font-size: 11px;
+  }
+
+  .product-name {
     font-size: 12px;
   }
 }

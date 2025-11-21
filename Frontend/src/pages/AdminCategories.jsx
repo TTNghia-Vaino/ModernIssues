@@ -314,10 +314,10 @@ const AdminCategories = () => {
           <div className="col-id">ID</div>
           <div className="col-name">Tên danh mục</div>
           <div className="col-parent">Danh mục cha</div>
-          <div className="col-description">Mô tả</div>
+          <div className="col-description"></div>
           <div className="col-count">Số sản phẩm</div>
           <div className="col-status">Trạng thái</div>
-          <div className="col-actions">Thao tác</div>
+          <div className="col-actions"></div>
         </div>
 
         {paginatedCategories.map((category) => (
