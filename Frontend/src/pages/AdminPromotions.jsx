@@ -1,4 +1,10 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import * as promotionService from '../services/promotionService'
+import * as productService from '../services/productService'
+import { getCategories } from '../services/categoryService'
+import { useNotification } from '../context/NotificationContext'
+import { useAuth } from '../context/AuthContext'
+import { normalizeImageUrl } from '../utils/productUtils'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Badge } from '../components/ui/badge'
@@ -33,70 +39,36 @@ const statusColors = {
   expired: 'bg-red-100 text-red-800 border-red-300'
 }
 
-const mockPromotions = [
-  {
-    id: 1,
-    name: 'Flash Sale Cuối Tuần',
-    description: 'Giảm giá sốc cho các sản phẩm điện thoại',
-    discountPercent: 20,
-    products: ['iPhone 15 Pro Max', 'Samsung Galaxy S24'],
-    startDate: '2025-01-15',
-    endDate: '2025-01-17',
-    status: 'active',
-    banner: '/flash-sale-banner.jpg'
-  },
-  {
-    id: 2,
-    name: 'Khuyến Mãi Laptop',
-    description: 'Mua laptop tặng kèm phụ kiện',
-    discountPercent: 15,
-    products: ['MacBook Pro M3', 'Dell XPS 15'],
-    startDate: '2025-01-10',
-    endDate: '2025-01-31',
-    status: 'active',
-    banner: '/laptop-promo.jpg'
-  },
-  {
-    id: 3,
-    name: 'Giảm Giá Tết',
-    description: 'Chương trình khuyến mãi Tết Nguyên Đán',
-    discountPercent: 30,
-    products: ['iPad Air M2', 'AirPods Pro 2'],
-    startDate: '2025-01-01',
-    endDate: '2025-01-10',
-    status: 'expired',
-    banner: '/tet-sale.jpg'
-  },
-]
-
-const availableProducts = [
-  'iPhone 15 Pro Max',
-  'Samsung Galaxy S24',
-  'MacBook Pro M3',
-  'Dell XPS 15',
-  'iPad Air M2',
-  'AirPods Pro 2',
-  'Apple Watch Series 9',
-  'Sony WH-1000XM5',
-]
 
 const AdminPromotions = () => {
-  const [promotions, setPromotions] = useState(mockPromotions)
+  const { success, error } = useNotification()
+  const { isInTokenGracePeriod } = useAuth()
+  const [promotions, setPromotions] = useState([])
+  const [availableProducts, setAvailableProducts] = useState([])
+  const [categories, setCategories] = useState([])
+  const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [selectedPromotion, setSelectedPromotion] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
   
+  // Filter states for product selection in modal
+  const [productCategoryFilter, setProductCategoryFilter] = useState('all')
+  const [productSearchQuery, setProductSearchQuery] = useState('')
+  
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [totalCount, setTotalCount] = useState(0)
 
   // Form states
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    discountType: 'percentage', // 'percentage' or 'fixed'
     discountPercent: 0,
+    discountValue: 0, // For fixed amount
     products: [],
     startDate: '',
     endDate: '',
@@ -106,67 +78,374 @@ const AdminPromotions = () => {
   const [bannerFile, setBannerFile] = useState(null)
   const [bannerPreview, setBannerPreview] = useState('')
 
-  const filteredPromotions = promotions.filter(promo => {
-    const matchesSearch = promo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         promo.description.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = filterStatus === 'all' || promo.status === filterStatus
-    return matchesSearch && matchesStatus
-  })
+  // Load promotions and products from API on mount
+  useEffect(() => {
+    let cancelled = false
+    
+    const attemptLoad = async () => {
+      // If in grace period, wait for it to end
+      if (isInTokenGracePeriod) {
+        console.log('[AdminPromotions] Waiting for token grace period to end before loading promotions')
+        await new Promise(resolve => setTimeout(resolve, 6000))
+        if (cancelled) return
+      }
+      
+      if (!cancelled) {
+        loadCategories()
+        loadProducts()
+        loadPromotions()
+      }
+    }
+    
+    attemptLoad()
+    
+    return () => {
+      cancelled = true
+    }
+  }, []) // Only run on mount
 
-  // Pagination calculation
-  const totalPages = Math.ceil(filteredPromotions.length / pageSize)
-  const startIndex = (currentPage - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const paginatedPromotions = filteredPromotions.slice(startIndex, endIndex)
+  // Load promotions when page, filter, or search changes
+  // Add debounce for searchQuery to avoid too many API calls
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadPromotions()
+    }, searchQuery ? 500 : 0) // 500ms debounce when searching, immediate when clearing
+    
+    return () => clearTimeout(timeoutId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize, filterStatus, searchQuery])
+
+  const loadCategories = async () => {
+    try {
+      const apiCategories = await getCategories()
+      // Flatten the tree structure for dropdown
+      const flattenCategories = (cats, result = []) => {
+        if (!Array.isArray(cats)) return result
+        cats.forEach(cat => {
+          const categoryId = cat.categoryId || cat.id
+          const categoryName = cat.categoryName || cat.name || 'Chưa có tên'
+          if (categoryId) {
+            result.push({ id: categoryId, name: categoryName })
+          }
+          if (cat.children && Array.isArray(cat.children)) {
+            flattenCategories(cat.children, result)
+          }
+        })
+        return result
+      }
+      const flatCategories = flattenCategories(Array.isArray(apiCategories) ? apiCategories : [])
+      setCategories(flatCategories)
+    } catch (err) {
+      console.error('[AdminPromotions] Error loading categories:', err)
+      setCategories([])
+    }
+  }
+
+  const loadProducts = async () => {
+    try {
+      const products = await productService.getAllListProducts()
+      // Map products to array of objects with id, name, and category info
+      if (Array.isArray(products)) {
+        const productList = products.map(p => ({
+          id: p.productId || p.id,
+          name: p.productName || p.name || `Product ${p.productId || p.id}`,
+          categoryId: p.categoryId || p.category,
+          categoryName: p.categoryName || p.categoryName || 'Chưa phân loại'
+        })).filter(p => p.id)
+        setAvailableProducts(productList)
+      }
+    } catch (err) {
+      console.error('[AdminPromotions] Error loading products:', err)
+      // Fallback to empty array
+      setAvailableProducts([])
+    }
+  }
+
+  const loadPromotions = async () => {
+    try {
+      setLoading(true)
+      const params = {
+        page: currentPage,
+        limit: pageSize,
+        status: filterStatus !== 'all' ? filterStatus : undefined,
+        search: searchQuery && searchQuery.trim() ? searchQuery.trim() : undefined
+      }
+      
+      // Remove undefined params
+      Object.keys(params).forEach(key => params[key] === undefined && delete params[key])
+      
+      const response = await promotionService.listPromotions(params)
+      
+      console.log('[AdminPromotions] API Response:', response)
+      
+      // Handle paginated response: { totalCount, currentPage, limit, data: [] }
+      if (response && typeof response === 'object') {
+        if (response.data && Array.isArray(response.data)) {
+          setPromotions(response.data)
+          setTotalCount(response.totalCount || response.data.length)
+        } else if (Array.isArray(response)) {
+          setPromotions(response)
+          setTotalCount(response.length)
+        } else {
+          console.warn('[AdminPromotions] Unexpected response format:', response)
+          setPromotions([])
+          setTotalCount(0)
+        }
+      } else {
+        console.warn('[AdminPromotions] Invalid response:', response)
+        setPromotions([])
+        setTotalCount(0)
+      }
+    } catch (err) {
+      console.error('[AdminPromotions] Error loading promotions:', err)
+      error(err.message || 'Không thể tải danh sách khuyến mãi')
+      setPromotions([])
+      setTotalCount(0)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Search is now handled by API, no need for client-side filtering
+  const filteredPromotions = promotions
 
   // Reset to page 1 when filters change
-  React.useEffect(() => {
+  useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, filterStatus, filteredPromotions.length])
+  }, [searchQuery, filterStatus])
 
-  const handleAddPromotion = () => {
-    const newPromotion = {
-      id: Math.max(...promotions.map(p => p.id)) + 1,
-      ...formData,
-      banner: bannerPreview
+  // Pagination calculation (server-side pagination)
+  const totalPages = Math.ceil(totalCount / pageSize)
+  const startIndex = (currentPage - 1) * pageSize
+  const endIndex = Math.min(startIndex + promotions.length, totalCount)
+
+  const handleAddPromotion = async () => {
+    try {
+      setLoading(true)
+      
+      // Validate required fields
+      if (!formData.name || !formData.startDate || !formData.endDate) {
+        error('Vui lòng điền đầy đủ thông tin bắt buộc')
+        return
+      }
+      
+      if (formData.products.length === 0) {
+        error('Vui lòng chọn ít nhất một sản phẩm')
+        return
+      }
+      
+      // Validate discount value
+      if (formData.discountType === 'percentage' && (formData.discountPercent <= 0 || formData.discountPercent > 100)) {
+        error('Phần trăm giảm giá phải từ 1 đến 100')
+        return
+      }
+      if (formData.discountType === 'fixed' && formData.discountValue <= 0) {
+        error('Số tiền giảm phải lớn hơn 0')
+        return
+      }
+      
+      const promotionData = {
+        ...formData,
+        banner: bannerPreview
+      }
+      
+      const created = await promotionService.createPromotion(promotionData, bannerFile)
+      success('Thêm khuyến mãi thành công!')
+      
+      // Update product prices after creating promotion
+      try {
+        await promotionService.updatePromotionPrices()
+        console.log('[AdminPromotions] Product prices updated after creating promotion')
+      } catch (priceError) {
+        console.warn('[AdminPromotions] Failed to update product prices:', priceError)
+        // Don't show error to user, just log it
+      }
+      
+      resetForm()
+      setIsAddDialogOpen(false)
+      loadPromotions() // Reload list
+    } catch (err) {
+      console.error('[AdminPromotions] Error adding promotion:', err)
+      console.error('[AdminPromotions] Error details:', err.message)
+      console.error('[AdminPromotions] Error data:', err.data)
+      console.error('[AdminPromotions] Error errors array:', err.errors)
+      
+      // Show detailed error message including errors array
+      const errorMessage = err.errors && Array.isArray(err.errors) && err.errors.length > 0
+        ? `${err.message || 'Không thể thêm khuyến mãi'}\n${err.errors.join('\n')}`
+        : (err.message || 'Không thể thêm khuyến mãi')
+      
+      error(errorMessage)
+    } finally {
+      setLoading(false)
     }
-    setPromotions([...promotions, newPromotion])
-    resetForm()
-    setIsAddDialogOpen(false)
   }
 
-  const handleEditPromotion = () => {
+  const handleEditPromotion = async () => {
     if (!selectedPromotion) return
-    setPromotions(promotions.map(p => 
-      p.id === selectedPromotion.id 
-        ? { ...selectedPromotion, ...formData, banner: bannerPreview || formData.banner }
-        : p
-    ))
-    resetForm()
-    setIsAddDialogOpen(false)
+    
+    try {
+      setLoading(true)
+      
+      // Validate required fields
+      if (!formData.name || !formData.startDate || !formData.endDate) {
+        error('Vui lòng điền đầy đủ thông tin bắt buộc')
+        return
+      }
+      
+      if (formData.products.length === 0) {
+        error('Vui lòng chọn ít nhất một sản phẩm')
+        return
+      }
+      
+      // Validate discount value
+      if (formData.discountType === 'percentage' && (formData.discountPercent <= 0 || formData.discountPercent > 100)) {
+        error('Phần trăm giảm giá phải từ 1 đến 100')
+        return
+      }
+      if (formData.discountType === 'fixed' && formData.discountValue <= 0) {
+        error('Số tiền giảm phải lớn hơn 0')
+        return
+      }
+      
+      const promotionId = selectedPromotion.id || selectedPromotion.promotionId
+      const promotionData = {
+        ...formData,
+        banner: bannerPreview || formData.banner
+      }
+      
+      await promotionService.updatePromotion(promotionId, promotionData, bannerFile)
+      success('Cập nhật khuyến mãi thành công!')
+      
+      // Update product prices after updating promotion
+      try {
+        await promotionService.updatePromotionPrices()
+        console.log('[AdminPromotions] Product prices updated after updating promotion')
+      } catch (priceError) {
+        console.warn('[AdminPromotions] Failed to update product prices:', priceError)
+        // Don't show error to user, just log it
+      }
+      
+      resetForm()
+      setIsAddDialogOpen(false)
+      loadPromotions() // Reload list
+    } catch (err) {
+      console.error('[AdminPromotions] Error updating promotion:', err)
+      error(err.message || 'Không thể cập nhật khuyến mãi')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDeletePromotion = (id) => {
-    setPromotions(promotions.filter(p => p.id !== id))
+  const handleDeletePromotion = async (id) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa khuyến mãi này?')) {
+      return
+    }
+    
+    try {
+      setLoading(true)
+      await promotionService.deletePromotion(id)
+      success('Xóa khuyến mãi thành công!')
+      
+      // Update product prices after deleting promotion
+      try {
+        await promotionService.updatePromotionPrices()
+        console.log('[AdminPromotions] Product prices updated after deleting promotion')
+      } catch (priceError) {
+        console.warn('[AdminPromotions] Failed to update product prices:', priceError)
+        // Don't show error to user, just log it
+      }
+      
+      loadPromotions() // Reload list
+    } catch (err) {
+      console.error('[AdminPromotions] Error deleting promotion:', err)
+      error(err.message || 'Không thể xóa khuyến mãi')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const openEditDialog = (promotion) => {
-    setSelectedPromotion(promotion)
-    setFormData(promotion)
-    setBannerPreview(promotion.banner || '')
-    setIsAddDialogOpen(true)
+  const openEditDialog = async (promotion) => {
+    try {
+      setLoading(true)
+      // Reset filters when opening edit dialog
+      setProductCategoryFilter('all')
+      setProductSearchQuery('')
+      
+      // Load full promotion details from API
+      const fullPromotion = await promotionService.getPromotionById(promotion.id || promotion.promotionId)
+      
+      console.log('[AdminPromotions] Loaded promotion for edit:', fullPromotion)
+      
+      setSelectedPromotion(fullPromotion)
+      
+      // Extract product IDs from products array (can be objects or IDs)
+      const productIds = fullPromotion.productIds || 
+        (Array.isArray(fullPromotion.products) 
+          ? fullPromotion.products.map(p => typeof p === 'object' ? (p.productId || p.id) : p).filter(id => id)
+          : [])
+      
+      // mapApiToUi already normalizes "fixed_amount" to "fixed" for UI
+      const discountType = fullPromotion.discountType || 'percentage';
+      const apiDiscountValue = fullPromotion.discountValue || fullPromotion.discountPercent || 0;
+      
+      setFormData({
+        name: fullPromotion.name || '',
+        description: fullPromotion.description || '',
+        discountType: discountType, // Already normalized by mapApiToUi (fixed_amount -> fixed)
+        // Set the correct value based on discountType
+        discountPercent: discountType === 'percentage' ? apiDiscountValue : 0,
+        discountValue: discountType === 'fixed' ? apiDiscountValue : 0,
+        products: productIds,
+        startDate: fullPromotion.startDate || '',
+        endDate: fullPromotion.endDate || '',
+        status: fullPromotion.status || 'inactive',
+        banner: fullPromotion.banner || ''
+      })
+      
+      // Set banner preview - handle full URL or relative path
+      const bannerUrl = fullPromotion.bannerUrl || fullPromotion.banner
+      if (bannerUrl) {
+        const normalizedUrl = normalizeImageUrl(bannerUrl)
+        setBannerPreview(normalizedUrl || '')
+      } else {
+        setBannerPreview('')
+      }
+      
+      setIsAddDialogOpen(true)
+    } catch (err) {
+      console.error('[AdminPromotions] Error loading promotion details:', err)
+      error(err.message || 'Không thể tải chi tiết khuyến mãi')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const openDetailDialog = (promotion) => {
-    setSelectedPromotion(promotion)
-    setIsDetailDialogOpen(true)
+  const openDetailDialog = async (promotion) => {
+    try {
+      setLoading(true)
+      // Load full promotion details from API
+      const fullPromotion = await promotionService.getPromotionById(promotion.id || promotion.promotionId)
+      
+      console.log('[AdminPromotions] Loaded promotion for detail:', fullPromotion)
+      
+      setSelectedPromotion(fullPromotion)
+      setIsDetailDialogOpen(true)
+    } catch (err) {
+      console.error('[AdminPromotions] Error loading promotion details:', err)
+      error(err.message || 'Không thể tải chi tiết khuyến mãi')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const resetForm = () => {
     setFormData({
       name: '',
       description: '',
+      discountType: 'percentage',
       discountPercent: 0,
+      discountValue: 0,
       products: [],
       startDate: '',
       endDate: '',
@@ -176,6 +455,9 @@ const AdminPromotions = () => {
     setBannerFile(null)
     setBannerPreview('')
     setSelectedPromotion(null)
+    // Reset product filters when closing modal
+    setProductCategoryFilter('all')
+    setProductSearchQuery('')
   }
 
   const handleBannerUpload = (e) => {
@@ -190,14 +472,37 @@ const AdminPromotions = () => {
     }
   }
 
-  const toggleProductSelection = (product) => {
+  const toggleProductSelection = (productId) => {
     setFormData(prev => ({
       ...prev,
-      products: prev.products.includes(product)
-        ? prev.products.filter(p => p !== product)
-        : [...prev.products, product]
+      products: prev.products.includes(productId)
+        ? prev.products.filter(p => p !== productId)
+        : [...prev.products, productId]
     }))
   }
+
+  // Filter products based on category and search query
+  const filteredProducts = availableProducts.filter(product => {
+    // Filter by category
+    if (productCategoryFilter !== 'all') {
+      const categoryId = product.categoryId || product.category
+      if (String(categoryId) !== String(productCategoryFilter)) {
+        return false
+      }
+    }
+    
+    // Filter by search query
+    if (productSearchQuery && productSearchQuery.trim()) {
+      const searchLower = productSearchQuery.toLowerCase().trim()
+      const productName = (product.name || '').toLowerCase()
+      const categoryName = (product.categoryName || '').toLowerCase()
+      if (!productName.includes(searchLower) && !categoryName.includes(searchLower)) {
+        return false
+      }
+    }
+    
+    return true
+  })
 
   const getStatusBadge = (status) => {
     return (
@@ -207,47 +512,81 @@ const AdminPromotions = () => {
     )
   }
 
+  const handleUpdatePrices = async () => {
+    if (!window.confirm('Bạn có chắc chắn muốn cập nhật giá sản phẩm theo khuyến mãi? Thao tác này sẽ cập nhật giá cho tất cả sản phẩm có khuyến mãi đang hoạt động.')) {
+      return
+    }
+    
+    try {
+      setLoading(true)
+      const result = await promotionService.updatePromotionPrices()
+      console.log('[AdminPromotions] Update prices result:', result)
+      success(`Đã cập nhật giá cho ${result?.updatedProductCount || 0} sản phẩm từ ${result?.processedPromotionCount || 0} khuyến mãi`)
+    } catch (err) {
+      console.error('[AdminPromotions] Error updating prices:', err)
+      error(err.message || 'Không thể cập nhật giá sản phẩm')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="admin-promotions">
       <div className="page-header">
         <h2>Quản lý Khuyến mãi</h2>
-        <button 
-          className="add-btn"
-          onClick={() => {
-            resetForm()
-            setIsAddDialogOpen(true)
-          }}
-        >
-          <Plus className="w-4 h-4" style={{ marginRight: '8px' }} />
-          Thêm khuyến mãi mới
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            className="add-btn"
+            onClick={handleUpdatePrices}
+            style={{ backgroundColor: '#10b981', marginRight: '8px' }}
+            title="Cập nhật giá sản phẩm theo khuyến mãi"
+          >
+            🔄 Cập nhật giá sản phẩm
+          </button>
+          <button 
+            className="add-btn"
+            onClick={() => {
+              resetForm()
+              setIsAddDialogOpen(true)
+            }}
+          >
+            <Plus className="w-4 h-4" style={{ marginRight: '8px' }} />
+            Thêm khuyến mãi mới
+          </button>
+        </div>
       </div>
 
       {/* Filters Bar */}
-      {promotions.length > 0 && (
-        <div className="filters-bar">
-          <div className="filter-item search">
-            <input
-              type="text"
-              placeholder="🔍 Tìm kiếm theo tên hoặc mô tả..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="filter-item">
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="all">Tất cả trạng thái</option>
-              <option value="active">Đang hoạt động</option>
-              <option value="inactive">Chưa kích hoạt</option>
-              <option value="expired">Đã hết hạn</option>
-            </select>
-          </div>
+      <div className="filters-bar">
+        <div className="filter-item search">
+          <input
+            type="text"
+            placeholder="🔍 Tìm kiếm theo tên hoặc mô tả..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div className="filter-item">
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <option value="all">Tất cả trạng thái</option>
+            <option value="active">Đang hoạt động</option>
+            <option value="inactive">Chưa kích hoạt</option>
+            <option value="expired">Đã hết hạn</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner"></div>
+          <p>Đang tải...</p>
         </div>
       )}
 
       {/* Data Table */}
       <div className="data-table-container">
-        {paginatedPromotions.length > 0 ? (
+        {filteredPromotions.length > 0 ? (
           <div className="promotions-table">
             <div className="table-header">
               <div className="col-id">ID</div>
@@ -259,25 +598,32 @@ const AdminPromotions = () => {
               <div className="col-actions">Thao tác</div>
             </div>
 
-            {paginatedPromotions.map((promotion) => (
-              <div key={promotion.id} className="table-row">
-                <div className="col-id">#{promotion.id}</div>
+            {filteredPromotions.map((promotion) => (
+              <div key={promotion.id || promotion.promotionId} className="table-row">
+                <div className="col-id">#{promotion.id || promotion.promotionId}</div>
                 <div className="col-name">
                   <div>
-                    <p className="promotion-name">{promotion.name}</p>
-                    <p className="promotion-description">{promotion.description}</p>
+                    <p className="promotion-name">{promotion.name || promotion.promotionName}</p>
+                    <p className="promotion-description">{promotion.description || ''}</p>
                   </div>
                 </div>
                 <div className="col-discount">
-                  <span className="discount-badge">{promotion.discountPercent}%</span>
+                  <span className="discount-badge">
+                    {promotion.discountDisplay || 
+                      (promotion.discountType === 'fixed' 
+                        ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(promotion.discountValue || promotion.discountPercent || 0)
+                        : `${Math.round(promotion.discountPercent || promotion.discountValue || 0)}%`
+                      )
+                    }
+                  </span>
                 </div>
                 <div className="col-products">
-                  <p>{promotion.products.length} sản phẩm</p>
+                  <p>{promotion.productCount || promotion.productIds?.length || promotion.products?.length || 0} sản phẩm</p>
                 </div>
                 <div className="col-dates">
                   <div>
-                    <p>{promotion.startDate}</p>
-                    <p className="date-to">đến {promotion.endDate}</p>
+                    <p>{promotion.startDateDisplay || promotion.startDate || ''}</p>
+                    <p className="date-to">đến {promotion.endDateDisplay || promotion.endDate || ''}</p>
                   </div>
                 </div>
                 <div className="col-status">
@@ -298,7 +644,7 @@ const AdminPromotions = () => {
                         Chỉnh sửa
                       </DropdownMenuItem>
                       <DropdownMenuItem 
-                        onClick={() => handleDeletePromotion(promotion.id)}
+                        onClick={() => handleDeletePromotion(promotion.id || promotion.promotionId)}
                         className="text-red-600"
                       >
                         Xóa
@@ -317,10 +663,10 @@ const AdminPromotions = () => {
       </div>
 
       {/* Pagination Controls */}
-      {filteredPromotions.length > 0 && (
+      {totalCount > 0 && (
         <div className="pagination-controls">
           <div className="pagination-info">
-            Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredPromotions.length)} / {filteredPromotions.length} chương trình khuyến mãi
+            Hiển thị {startIndex + 1}-{Math.min(startIndex + promotions.length, totalCount)} / {totalCount} chương trình khuyến mãi
           </div>
           
           <div className="pagination-buttons">
@@ -362,7 +708,17 @@ const AdminPromotions = () => {
       )}
 
       {/* Add/Edit Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      <Dialog 
+        open={isAddDialogOpen} 
+        onOpenChange={(open) => {
+          setIsAddDialogOpen(open)
+          if (!open) {
+            // Reset filters when closing dialog
+            setProductCategoryFilter('all')
+            setProductSearchQuery('')
+          }
+        }}
+      >
         <DialogContent className="promotion-form-modal max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0 promotion-form-header">
             <DialogTitle className="promotion-form-title">
@@ -403,15 +759,41 @@ const AdminPromotions = () => {
                 </div>
                 
                 <div className="form-item">
-                  <Label htmlFor="discount" className="form-label">Phần trăm giảm giá *</Label>
+                  <Label htmlFor="discountType" className="form-label">Loại giảm giá *</Label>
+                  <Select 
+                    value={formData.discountType} 
+                    onValueChange={(value) => setFormData({ ...formData, discountType: value, discountPercent: 0, discountValue: 0 })}
+                  >
+                    <SelectTrigger className="form-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="percentage">Giảm theo phần trăm (%)</SelectItem>
+                      <SelectItem value="fixed">Giảm số tiền cố định (₫)</SelectItem>
+                      {/* Note: UI uses "fixed" but backend expects "fixed_amount" - handled in service */}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="form-item">
+                  <Label htmlFor="discount" className="form-label">
+                    {formData.discountType === 'percentage' ? 'Phần trăm giảm giá (%) *' : 'Số tiền giảm (₫) *'}
+                  </Label>
                   <Input
                     id="discount"
                     type="number"
                     min="0"
-                    max="100"
-                    value={formData.discountPercent}
-                    onChange={(e) => setFormData({ ...formData, discountPercent: Number(e.target.value) })}
-                    placeholder="VD: 20"
+                    max={formData.discountType === 'percentage' ? '100' : undefined}
+                    value={formData.discountType === 'percentage' ? formData.discountPercent : formData.discountValue}
+                    onChange={(e) => {
+                      const value = Number(e.target.value)
+                      if (formData.discountType === 'percentage') {
+                        setFormData({ ...formData, discountPercent: value })
+                      } else {
+                        setFormData({ ...formData, discountValue: value })
+                      }
+                    }}
+                    placeholder={formData.discountType === 'percentage' ? 'VD: 20' : 'VD: 50000'}
                     className="form-input"
                   />
                 </div>
@@ -440,27 +822,84 @@ const AdminPromotions = () => {
               <h3 className="form-section-title">Sản phẩm áp dụng</h3>
               <div className="form-item" style={{ gridColumn: '1 / -1' }}>
                 <Label className="form-label">Chọn sản phẩm áp dụng *</Label>
-                <div className="products-selection">
-                  {availableProducts.map((product) => (
-                    <div key={product} className="product-checkbox-item">
-                      <input
-                        type="checkbox"
-                        id={`product-${product}`}
-                        checked={formData.products.includes(product)}
-                        onChange={() => toggleProductSelection(product)}
-                        className="product-checkbox"
-                      />
-                      <label htmlFor={`product-${product}`} className="product-label">
-                        {product}
-                      </label>
-                    </div>
-                  ))}
+                
+                {/* Filter controls */}
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1', minWidth: '200px' }}>
+                    <Input
+                      type="text"
+                      placeholder="Tìm kiếm sản phẩm..."
+                      value={productSearchQuery}
+                      onChange={(e) => setProductSearchQuery(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div style={{ flex: '1', minWidth: '200px' }}>
+                    <Select 
+                      value={productCategoryFilter} 
+                      onValueChange={setProductCategoryFilter}
+                    >
+                      <SelectTrigger className="form-select" style={{ width: '100%' }}>
+                        <SelectValue placeholder="Tất cả danh mục" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả danh mục</SelectItem>
+                        {categories.map(cat => (
+                          <SelectItem key={cat.id} value={String(cat.id)}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                {formData.products.length > 0 && (
-                  <p className="form-description">
-                    Đã chọn {formData.products.length} sản phẩm
-                  </p>
-                )}
+                
+                <div className="products-selection" style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px' }}>
+                  {filteredProducts.length > 0 ? (
+                    <>
+                      {filteredProducts.map((product) => (
+                        <div key={product.id} className="product-checkbox-item">
+                          <input
+                            type="checkbox"
+                            id={`product-${product.id}`}
+                            checked={formData.products.includes(product.id)}
+                            onChange={() => toggleProductSelection(product.id)}
+                            className="product-checkbox"
+                          />
+                          <label htmlFor={`product-${product.id}`} className="product-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>{product.name}</span>
+                            {product.categoryName && (
+                              <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 'normal' }}>
+                                ({product.categoryName})
+                              </span>
+                            )}
+                          </label>
+                        </div>
+                      ))}
+                    </>
+                  ) : availableProducts.length > 0 ? (
+                    <p className="form-description" style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+                      Không tìm thấy sản phẩm nào phù hợp với bộ lọc
+                    </p>
+                  ) : (
+                    <p className="form-description" style={{ textAlign: 'center', padding: '20px' }}>
+                      Đang tải danh sách sản phẩm...
+                    </p>
+                  )}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                  {formData.products.length > 0 && (
+                    <p className="form-description" style={{ margin: 0 }}>
+                      Đã chọn {formData.products.length} sản phẩm
+                    </p>
+                  )}
+                  {filteredProducts.length !== availableProducts.length && (
+                    <p className="form-description" style={{ margin: 0, color: '#6b7280' }}>
+                      Hiển thị {filteredProducts.length} / {availableProducts.length} sản phẩm
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -569,14 +1008,22 @@ const AdminPromotions = () => {
           
           {selectedPromotion && (
             <div className="promotion-detail-content space-y-6 py-4 overflow-y-auto flex-1">
-              {selectedPromotion.banner && (
+              {(selectedPromotion.banner || selectedPromotion.bannerUrl) && (
                 <div className="detail-section">
                   <div className="banner-display">
-                    <img 
-                      src={selectedPromotion.banner || "/placeholder.svg"} 
-                      alt={selectedPromotion.name}
-                      className="banner-image"
-                    />
+                    {(() => {
+                      const bannerUrl = selectedPromotion.bannerUrl || selectedPromotion.banner
+                      const imageUrl = bannerUrl ? normalizeImageUrl(bannerUrl) : null
+                      
+                      return (
+                        <img 
+                          src={imageUrl || "/placeholder.svg"} 
+                          alt={selectedPromotion.name || selectedPromotion.promotionName}
+                          className="banner-image"
+                          onError={(e) => { e.target.src = "/placeholder.svg" }}
+                        />
+                      )
+                    })()}
                   </div>
                 </div>
               )}
@@ -586,22 +1033,29 @@ const AdminPromotions = () => {
                 <div className="detail-grid">
                   <div className="detail-item">
                     <label className="detail-label">Tên chương trình</label>
-                    <p className="detail-value">{selectedPromotion.name}</p>
+                    <p className="detail-value">{selectedPromotion.name || selectedPromotion.promotionName}</p>
                   </div>
                   
                   <div className="detail-item">
                     <label className="detail-label">Giảm giá</label>
-                    <p className="detail-value discount-value">{selectedPromotion.discountPercent}%</p>
+                    <p className="detail-value discount-value">
+                      {selectedPromotion.discountDisplay || 
+                        (selectedPromotion.discountType === 'fixed' 
+                          ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedPromotion.discountValue || selectedPromotion.discountPercent || 0)
+                          : `${Math.round(selectedPromotion.discountPercent || selectedPromotion.discountValue || 0)}%`
+                        )
+                      }
+                    </p>
                   </div>
                   
                   <div className="detail-item">
                     <label className="detail-label">Ngày bắt đầu</label>
-                    <p className="detail-value">{selectedPromotion.startDate}</p>
+                    <p className="detail-value">{selectedPromotion.startDateDisplay || selectedPromotion.startDate || ''}</p>
                   </div>
                   
                   <div className="detail-item">
                     <label className="detail-label">Ngày kết thúc</label>
-                    <p className="detail-value">{selectedPromotion.endDate}</p>
+                    <p className="detail-value">{selectedPromotion.endDateDisplay || selectedPromotion.endDate || ''}</p>
                   </div>
                   
                   <div className="detail-item">
@@ -611,20 +1065,52 @@ const AdminPromotions = () => {
                   
                   <div className="detail-item full-width">
                     <label className="detail-label">Mô tả</label>
-                    <p className="detail-value">{selectedPromotion.description}</p>
+                    <p className="detail-value">{selectedPromotion.description || ''}</p>
                   </div>
                 </div>
               </div>
 
               <div className="detail-section">
-                <h3 className="section-title">Sản phẩm áp dụng ({selectedPromotion.products.length})</h3>
+                <h3 className="section-title">Sản phẩm áp dụng ({selectedPromotion.productCount || selectedPromotion.products?.length || selectedPromotion.productIds?.length || 0})</h3>
                 <div className="products-list">
-                  {selectedPromotion.products.map((product, idx) => (
-                    <div key={idx} className="product-item">
-                      <span className="product-number">{idx + 1}</span>
-                      <span className="product-name">{product}</span>
-                    </div>
-                  ))}
+                  {selectedPromotion.products && selectedPromotion.products.length > 0 ? (
+                    selectedPromotion.products.map((product, idx) => {
+                      // Handle both object and ID formats
+                      const productId = typeof product === 'object' ? (product.productId || product.id) : product
+                      const productName = typeof product === 'object' 
+                        ? (product.productName || product.name || `Product ${productId}`)
+                        : (availableProducts.find(p => p.id === productId)?.name || `Product ID: ${productId}`)
+                      const productImage = typeof product === 'object' ? (product.imageUrl || product.image) : null
+                      const productPrice = typeof product === 'object' ? (product.price || 0) : 0
+                      
+                      // Construct image URL using utility
+                      const imageUrl = productImage ? normalizeImageUrl(productImage) : null
+                      
+                      return (
+                        <div key={productId || idx} className="product-item">
+                          {imageUrl && (
+                            <img 
+                              src={imageUrl} 
+                              alt={productName}
+                              className="product-image"
+                              onError={(e) => { e.target.style.display = 'none' }}
+                            />
+                          )}
+                          <div className="product-info">
+                            <span className="product-number">{idx + 1}</span>
+                            <span className="product-name">{productName}</span>
+                            {productPrice > 0 && (
+                              <span className="product-price">
+                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(productPrice)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <p className="detail-value">Chưa có sản phẩm nào được áp dụng</p>
+                  )}
                 </div>
               </div>
             </div>

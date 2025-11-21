@@ -12,7 +12,7 @@ const getCleanBaseUrl = () => {
   return baseUrl.replace(/\/$/, '').replace(/\/v1$/i, '');
 };
 
-const normalizeImageUrl = (url) => {
+export const normalizeImageUrl = (url) => {
   if (typeof url !== 'string') {
     return undefined;
   }
@@ -115,6 +115,46 @@ export const transformProduct = (apiProduct) => {
   // If isDisabled is true, product is inactive
   const status = apiProduct.status || (isDisabled ? 'inactive' : 'active');
   
+  // Handle pricing: onPrice/onPrices is original price, price is promotion price
+  // API may return onPrice (single value) or onPrices (array, take first)
+  const onPriceValue = apiProduct.onPrice || 
+    (Array.isArray(apiProduct.onPrices) && apiProduct.onPrices.length > 0 ? apiProduct.onPrices[0] : null) ||
+    (typeof apiProduct.onPrices === 'number' ? apiProduct.onPrices : null);
+  
+  // Determine original price and current price
+  // If onPrice exists, it's the original price before promotion (stored in DB)
+  // price from API is the current/promotion price (updated by UpdatePrices API)
+  // Logic: onPrice = giá gốc, price = giá khuyến mãi (nếu có promotion)
+  const hasPromotion = onPriceValue && apiProduct.price && onPriceValue > apiProduct.price;
+  
+  const originalPriceValue = hasPromotion 
+    ? onPriceValue  // Use onPrice as original when there's promotion
+    : (apiProduct.originalPrice || (onPriceValue && !apiProduct.price ? onPriceValue : null));
+  
+  const currentPriceValue = apiProduct.price || onPriceValue || apiProduct.originalPrice || 0;
+  
+  // Calculate discount percentage if there's a promotion
+  const calculatedDiscount = hasPromotion
+    ? Math.round(((onPriceValue - apiProduct.price) / onPriceValue) * 100)
+    : (apiProduct.discount || 0);
+  
+  // Transform variants if they exist
+  const transformedVariants = apiProduct.variants && Array.isArray(apiProduct.variants)
+    ? apiProduct.variants.map(variant => {
+        const variantOnPrice = variant.onPrice || 
+          (Array.isArray(variant.onPrices) && variant.onPrices.length > 0 ? variant.onPrices[0] : null);
+        const variantOriginalPrice = variantOnPrice || variant.originalPrice || variant.price;
+        const variantCurrentPrice = variant.price || variantOnPrice || variant.originalPrice;
+        
+        return {
+          ...variant,
+          price: variantCurrentPrice,
+          originalPrice: variantOriginalPrice,
+          onPrice: variantOnPrice
+        };
+      })
+    : apiProduct.variants;
+  
   return {
     // Map API properties to component properties
     id: productIdValue,
@@ -126,15 +166,19 @@ export const transformProduct = (apiProduct) => {
     // Keep productId for API calls (Cart, etc.)
     productId: productIdValue,
     
-    // Keep other properties as is
-    price: apiProduct.price,
+    // Pricing: price is current/promotion price, originalPrice is before promotion
+    price: currentPriceValue,
+    originalPrice: (originalPriceValue && originalPriceValue !== currentPriceValue) ? originalPriceValue : null,
+    salePrice: apiProduct.salePrice || currentPriceValue,
+    onPrice: onPriceValue, // Keep onPrice for reference
+    onPrices: apiProduct.onPrices, // Keep onPrices array for reference
+    discount: calculatedDiscount,
+    
+    // Other properties
     description: apiProduct.description,
     stock: apiProduct.stock,
     warrantyPeriod: apiProduct.warrantyPeriod,
     brand: apiProduct.brand,
-    discount: apiProduct.discount,
-    originalPrice: apiProduct.originalPrice,
-    salePrice: apiProduct.salePrice,
     specs: apiProduct.specs,
     badge: apiProduct.badge,
     featured: apiProduct.featured,
@@ -145,17 +189,18 @@ export const transformProduct = (apiProduct) => {
     isNew: apiProduct.isNew,
     shortDescription: apiProduct.shortDescription,
     inStock: apiProduct.inStock,
-    variants: apiProduct.variants,
+    variants: transformedVariants,
     images: resolvedImages.length > 0 ? resolvedImages : normalizeImageCollection(apiProduct.media),
     sku: apiProduct.sku,
-    onPrices: apiProduct.onPrices,
     
     // Keep original API properties for reference
     _original: {
       productId: apiProduct.productId,
       productName: apiProduct.productName,
       imageUrl: apiProduct.imageUrl,
-      categoryName: apiProduct.categoryName
+      categoryName: apiProduct.categoryName,
+      onPrice: apiProduct.onPrice,
+      onPrices: apiProduct.onPrices
     }
   };
 };
