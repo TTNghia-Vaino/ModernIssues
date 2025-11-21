@@ -15,5 +15,7 @@ namespace ModernIssues.Repositories.Service
     Task<bool> SoftDeleteProductAsync(int productId, int adminId);
     
     Task<bool> ReactivateProductAsync(int productId, int adminId);
+    
+    Task<int> GenerateSerialsForAllProductsAsync(int adminId);
 }
 }

@@ -63,7 +63,7 @@ namespace ModernIssues.Controllers
                 // Filter by status
                 if (!string.IsNullOrEmpty(status))
                 {
-                    var now = DateTime.Now;
+                    var now = DateTime.UtcNow;
                     status = status.ToLower();
                     if (status == "active")
                     {
@@ -341,19 +341,23 @@ namespace ModernIssues.Controllers
                 }
 
                 // Tạo promotion mới
+                // Đảm bảo DateTime là UTC để tương thích với PostgreSQL
+                var startDate = EnsureUtc(promotionData.StartDate);
+                var endDate = EnsureUtc(promotionData.EndDate);
+
                 var promotion = new promotion
                 {
                     promotion_name = promotionData.PromotionName,
                     description = promotionData.Description,
                     discount_type = promotionData.DiscountType,
                     discount_value = promotionData.DiscountValue,
-                    start_date = promotionData.StartDate,
-                    end_date = promotionData.EndDate,
+                    start_date = startDate,
+                    end_date = endDate,
                     is_active = promotionData.IsActive,
                     banner_url = bannerUrl,
                     created_by = GetAdminId(),
-                    created_at = DateTime.Now,
-                    updated_at = DateTime.Now
+                    created_at = DateTime.UtcNow,
+                    updated_at = DateTime.UtcNow
                 };
 
                 _context.promotions.Add(promotion);
@@ -566,15 +570,19 @@ namespace ModernIssues.Controllers
                 var oldProductIds = promotion.products.Select(p => p.product_id).ToList();
 
                 // Cập nhật thông tin promotion
+                // Đảm bảo DateTime là UTC để tương thích với PostgreSQL
+                var startDate = EnsureUtc(promotionData.StartDate);
+                var endDate = EnsureUtc(promotionData.EndDate);
+
                 promotion.promotion_name = promotionData.PromotionName;
                 promotion.description = promotionData.Description;
                 promotion.discount_type = promotionData.DiscountType;
                 promotion.discount_value = promotionData.DiscountValue;
-                promotion.start_date = promotionData.StartDate;
-                promotion.end_date = promotionData.EndDate;
+                promotion.start_date = startDate;
+                promotion.end_date = endDate;
                 promotion.is_active = promotionData.IsActive;
                 promotion.updated_by = GetAdminId();
-                promotion.updated_at = DateTime.Now;
+                promotion.updated_at = DateTime.UtcNow;
 
                 // Load collection products để đảm bảo navigation property được khởi tạo
                 await _context.Entry(promotion).Collection(p => p.products).LoadAsync();
@@ -634,6 +642,21 @@ namespace ModernIssues.Controllers
         // Helper Methods
         // ============================================
 
+        /// <summary>
+        /// Convert DateTime sang UTC để tương thích với PostgreSQL
+        /// </summary>
+        private static DateTime EnsureUtc(DateTime dateTime)
+        {
+            if (dateTime.Kind == DateTimeKind.Utc)
+                return dateTime;
+            
+            if (dateTime.Kind == DateTimeKind.Local)
+                return dateTime.ToUniversalTime();
+            
+            // Unspecified: giả định là UTC (thường từ JSON parse)
+            return DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+        }
+
         private List<int>? ParseIds(string? idsString)
         {
             if (string.IsNullOrWhiteSpace(idsString))
@@ -662,7 +685,7 @@ namespace ModernIssues.Controllers
 
         private static string GetStatusText(bool? isActive, DateTime startDate, DateTime endDate)
         {
-            var now = DateTime.Now;
+            var now = DateTime.UtcNow;
             if (isActive == false || startDate > now)
             {
                 return "Chưa kích hoạt";
@@ -730,7 +753,7 @@ namespace ModernIssues.Controllers
             if (!products.Any() || promotion.discount_value == null)
                 return;
 
-            var now = DateTime.Now;
+            var now = DateTime.UtcNow;
             // Chỉ cập nhật nếu promotion đang active và trong thời gian hiệu lực
             if (promotion.is_active == true && promotion.start_date <= now && promotion.end_date >= now)
             {
@@ -742,7 +765,7 @@ namespace ModernIssues.Controllers
                         promotion.discount_value.Value
                     );
                     product.on_prices = newOnPrice;
-                    product.updated_at = DateTime.Now;
+                    product.updated_at = DateTime.UtcNow;
                 }
 
                 await _context.SaveChangesAsync();
@@ -763,8 +786,8 @@ namespace ModernIssues.Controllers
                 var activePromotions = await _context.promotions
                     .Where(p => p.products.Any(pr => pr.product_id == product.product_id)
                         && p.is_active == true
-                        && p.start_date <= DateTime.Now
-                        && p.end_date >= DateTime.Now)
+                        && p.start_date <= DateTime.UtcNow
+                        && p.end_date >= DateTime.UtcNow)
                     .OrderByDescending(p => p.created_at)
                     .FirstOrDefaultAsync();
 
@@ -782,7 +805,7 @@ namespace ModernIssues.Controllers
                     // Không có promotion nào, reset về giá gốc
                     product.on_prices = product.price;
                 }
-                product.updated_at = DateTime.Now;
+                product.updated_at = DateTime.UtcNow;
             }
 
             await _context.SaveChangesAsync();

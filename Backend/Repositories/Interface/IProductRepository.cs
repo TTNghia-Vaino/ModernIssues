@@ -20,5 +20,8 @@ namespace ModernIssues.Repositories.Interface
         
         // REACTIVATE (Kích hoạt lại sản phẩm)
         Task<bool> ReactivateAsync(int productId, int adminId);
+        
+        // GENERATE SERIALS (Tạo serial cho tất cả sản phẩm hiện có)
+        Task<int> GenerateSerialsForAllProductsAsync(int adminId);
     }
 }

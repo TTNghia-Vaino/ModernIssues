@@ -1,8 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using ModernIssues.Services;
 using ModernIssues.Models.DTOs;
 using ModernIssues.Models.Entities;
+using ModernIssues.Models.Configurations;
+using System;
 using System.Globalization;
+using System.Threading.Tasks;
 
 namespace ModernIssues.Controllers
 {
@@ -11,11 +15,12 @@ namespace ModernIssues.Controllers
     public class HooksController : Controller
     {
         private readonly IHooksService _hooksService;
-        private const string ApiKey = "Acer-Aspire7-Vaino";
+        private readonly HooksConfig _hooksConfig;
 
-        public HooksController(IHooksService hooksService)
+        public HooksController(IHooksService hooksService, IOptions<HooksConfig> hooksConfig)
         {
             _hooksService = hooksService;
+            _hooksConfig = hooksConfig.Value;
         }
 
         [HttpPost("transaction")]
@@ -35,7 +40,7 @@ namespace ModernIssues.Controllers
 
             var incomingApiKey = authHeader.ToString().Substring(prefix.Length).Trim();
 
-            if (!string.Equals(incomingApiKey, ApiKey))
+            if (!string.Equals(incomingApiKey, _hooksConfig.ApiKey, StringComparison.Ordinal))
             {
                 return Unauthorized("Invalid API key");
             }
@@ -59,12 +64,13 @@ namespace ModernIssues.Controllers
                 Description = dto.Description
             };
 
-            await _hooksService.AddTransactionAsync(entity);
-
+            var result = await _hooksService.ProcessTransactionAsync(entity);
 
             return Ok(new
             {
-                message = $"Transaction {entity.Referencecode} - {entity.Transferamount} - {entity.Content} saved"
+                message = result.Message,
+                orderUpdated = result.OrderUpdated,
+                orderId = result.OrderId
             });
         }
     }

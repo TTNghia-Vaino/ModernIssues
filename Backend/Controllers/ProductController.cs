@@ -582,7 +582,160 @@ namespace ModernIssues.Controllers
         }
 
         // ============================================
-        // 9. GET PRODUCT REPORT: GET api/v1/Product/GetProductReport
+        // 9. CHECK SERIAL STATUS: GET api/v1/Product/CheckSerialStatus (Admin only)
+        // ============================================
+        /// <summary>
+        /// Kiểm tra trạng thái serial numbers của tất cả sản phẩm.
+        /// Hiển thị số lượng stock, số serial hiện có, và số serial cần tạo thêm.
+        /// Chỉ dành cho Admin.
+        /// </summary>
+        /// <response code="200">Trả về trạng thái serial của tất cả sản phẩm.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpGet("CheckSerialStatus")]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
+        public async Task<IActionResult> CheckSerialStatus()
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(HttpStatusCodes.Forbidden, 
+                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xem trạng thái serial."));
+            }
+
+            try
+            {
+                // Lấy tất cả sản phẩm có stock > 0
+                var products = await _context.products
+                    .Where(p => (p.stock ?? 0) > 0 && (p.is_disabled == null || p.is_disabled == false))
+                    .Select(p => new { p.product_id, p.product_name, p.stock })
+                    .ToListAsync();
+
+                var statusList = new List<object>();
+                int totalSerialsNeeded = 0;
+                int totalProductsNeedSerials = 0;
+
+                foreach (var product in products)
+                {
+                    var productId = product.product_id;
+                    var currentStock = product.stock ?? 0;
+
+                    // Đếm số serial hiện có (chưa bán: is_sold = false, còn bảo hành: is_disabled = false)
+                    var existingSerialsCount = await _context.product_serials
+                        .Where(ps => ps.product_id == productId 
+                                  && (ps.is_sold == null || ps.is_sold == false)
+                                  && (ps.is_disabled == null || ps.is_disabled == false))
+                        .CountAsync();
+
+                    var serialsNeeded = currentStock - existingSerialsCount;
+
+                    statusList.Add(new
+                    {
+                        productId = productId,
+                        productName = product.product_name,
+                        stock = currentStock,
+                        existingSerials = existingSerialsCount,
+                        serialsNeeded = serialsNeeded,
+                        status = serialsNeeded > 0 ? "Thiếu serial" : serialsNeeded < 0 ? "Thừa serial" : "Đủ serial"
+                    });
+
+                    if (serialsNeeded > 0)
+                    {
+                        totalSerialsNeeded += serialsNeeded;
+                        totalProductsNeedSerials++;
+                    }
+                }
+
+                return Ok(ApiResponse<object>.SuccessResponse(
+                    new
+                    {
+                        totalProducts = products.Count,
+                        totalProductsNeedSerials = totalProductsNeedSerials,
+                        totalSerialsNeeded = totalSerialsNeeded,
+                        products = statusList,
+                        checkedAt = DateTime.UtcNow
+                    },
+                    $"Đã kiểm tra {products.Count} sản phẩm. Cần tạo thêm {totalSerialsNeeded} serial cho {totalProductsNeedSerials} sản phẩm."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] CheckSerialStatus: {ex.Message}");
+                Console.WriteLine($"[CRITICAL ERROR] StackTrace: {ex.StackTrace}");
+                return StatusCode(HttpStatusCodes.InternalServerError,
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi kiểm tra trạng thái serial.", new List<string> { ex.Message }));
+            }
+        }
+
+        // ============================================
+        // 10. GENERATE SERIALS FOR ALL PRODUCTS: POST api/v1/Product/GenerateSerialsForAllProducts (Admin only)
+        // ============================================
+        /// <summary>
+        /// Tạo serial numbers cho tất cả sản phẩm có stock > 0.
+        /// Tự động kiểm tra số lượng stocks hiện tại và tạo serial ngay lập tức cho tất cả sản phẩm thiếu serial.
+        /// Đếm số serial hiện có và tạo thêm serial cho phần thiếu để đảm bảo số serial = stock.
+        /// Chỉ dành cho Admin.
+        /// </summary>
+        /// <response code="200">Tạo serial thành công.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpPost("GenerateSerialsForAllProducts")]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Forbidden)]
+        public async Task<IActionResult> GenerateSerialsForAllProducts()
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(HttpStatusCodes.Forbidden, 
+                    ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được tạo serial cho sản phẩm."));
+            }
+
+            try
+            {
+                var adminId = GetAdminId();
+                
+                // Gọi service để tạo serial cho tất cả sản phẩm
+                var totalSerialsCreated = await _productService.GenerateSerialsForAllProductsAsync(adminId);
+
+                return Ok(ApiResponse<object>.SuccessResponse(
+                    new { 
+                        totalSerialsCreated = totalSerialsCreated,
+                        generatedBy = adminId,
+                        generatedAt = DateTime.UtcNow,
+                        message = totalSerialsCreated > 0 
+                            ? $"Đã tạo thành công {totalSerialsCreated} serial numbers cho các sản phẩm có stock > 0."
+                            : "Tất cả sản phẩm đã có đủ serial numbers."
+                    }, 
+                    totalSerialsCreated > 0 
+                        ? $"Đã tạo thành công {totalSerialsCreated} serial numbers cho các sản phẩm có stock > 0."
+                        : "Tất cả sản phẩm đã có đủ serial numbers."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] GenerateSerialsForAllProducts: {ex.Message}");
+                Console.WriteLine($"[CRITICAL ERROR] StackTrace: {ex.StackTrace}");
+                return StatusCode(HttpStatusCodes.InternalServerError,
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi tạo serial cho sản phẩm.", new List<string> { ex.Message }));
+            }
+        }
+
+        // ============================================
+        // 10. GET PRODUCT REPORT: GET api/v1/Product/GetProductReport
         // ============================================
         /// <summary>
         /// Lấy báo cáo thống kê số lượng sản phẩm được tạo theo ngày, tháng, quý, năm để vẽ biểu đồ cột. Chỉ dành cho Admin.

@@ -61,8 +61,8 @@ namespace ModernIssues.Helpers
             // Loại bỏ ký tự đặc biệt
             var cleanName = Regex.Replace(nameWithoutExtension, @"[^a-zA-Z0-9_-]", "");
             
-            // Tạo timestamp
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            // Tạo timestamp (sử dụng UTC để nhất quán)
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
             var random = new Random().Next(1000, 9999);
             
             return $"{cleanName}_{timestamp}_{random}{extension}";

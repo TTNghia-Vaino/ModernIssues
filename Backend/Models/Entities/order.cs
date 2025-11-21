@@ -41,5 +41,7 @@ public partial class order
 
     public virtual ICollection<warranty> warranties { get; set; } = new List<warranty>();
 
-    public virtual ICollection<product_serial> product_serials { get; set; } = new List<product_serial>();
+    // Note: product_serials không có quan hệ trực tiếp với order
+    // Quan hệ giữa order và product_serial chỉ thông qua warranty (warranty có order_id và serial_number)
+    // public virtual ICollection<product_serial> product_serials { get; set; } = new List<product_serial>();
 }

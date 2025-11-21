@@ -3,12 +3,16 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using ModernIssues.Models.Entities;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ModernIssues.Models.Entities;
 
 public partial class WebDbContext : DbContext
 {
     private readonly IConfiguration _configuration;
+    private const int SYSTEM_ADMIN_ID = 1; // ID của system admin để tạo serial tự động
 
     public WebDbContext(DbContextOptions<WebDbContext> options, IConfiguration configuration)
             : base(options)
@@ -213,11 +217,16 @@ public partial class WebDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("order_details_created_by_fkey");
 
-            entity.HasOne(d => d.order).WithMany(p => p.order_details)
+            // Configure relationship with order: order_details.order_id -> orders.order_id
+            entity.HasOne(d => d.order)
+                .WithMany(p => p.order_details)
                 .HasForeignKey(d => d.order_id)
                 .HasConstraintName("order_details_order_id_fkey");
 
-            entity.HasOne(d => d.product).WithMany(p => p.order_details)
+            // Configure relationship with product: order_details.product_id -> products.product_id
+            // IMPORTANT: Foreign key is on order_details.product_id, NOT on products.order_id
+            entity.HasOne(d => d.product)
+                .WithMany(p => p.order_details)
                 .HasForeignKey(d => d.product_id)
                 .HasConstraintName("order_details_product_id_fkey");
 
@@ -385,6 +394,15 @@ public partial class WebDbContext : DbContext
             entity.HasOne(d => d.user).WithMany(p => p.warrantyusers)
                 .HasForeignKey(d => d.user_id)
                 .HasConstraintName("warranty_user_id_fkey");
+
+            // Cấu hình quan hệ với product_serial dựa trên serial_number (không phải foreign key ID)
+            // warranty liên kết với product_serial thông qua serial_number để truy xuất thông tin về product
+            // Lưu ý: Đây không phải là foreign key constraint trong database, chỉ là cách EF join để truy xuất dữ liệu
+            entity.HasOne(d => d.product_serial)
+                .WithMany() // product_serial không có navigation property về warranty
+                .HasForeignKey(d => d.serial_number)
+                .HasPrincipalKey(p => p.serial_number)
+                .OnDelete(DeleteBehavior.NoAction); // serial_number là required, không thể set null
         });
 
         modelBuilder.Entity<cart>(entity =>
@@ -436,10 +454,11 @@ public partial class WebDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("product_serials_created_by_fkey");
 
-            entity.HasOne(d => d.order).WithMany(p => p.product_serials)
-                .HasForeignKey(d => d.order_id)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("product_serials_order_id_fkey");
+            // Note: Database thực tế KHÔNG có order_id và warranty_id, chỉ có is_sold
+            // entity.HasOne(d => d.order).WithMany(p => p.product_serials)
+            //     .HasForeignKey(d => d.order_id)
+            //     .OnDelete(DeleteBehavior.SetNull)
+            //     .HasConstraintName("product_serials_order_id_fkey");
 
             entity.HasOne(d => d.product).WithMany(p => p.product_serials)
                 .HasForeignKey(d => d.product_id)
@@ -451,10 +470,11 @@ public partial class WebDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("product_serials_updated_by_fkey");
 
-            entity.HasOne(d => d.warranty).WithOne(p => p.product_serial)
-                .HasForeignKey<product_serial>(d => d.warranty_id)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("product_serials_warranty_id_fkey");
+            // Note: Database thực tế KHÔNG có warranty_id
+            // entity.HasOne(d => d.warranty).WithOne(p => p.product_serial)
+            //     .HasForeignKey<product_serial>(d => d.warranty_id)
+            //     .OnDelete(DeleteBehavior.SetNull)
+            //     .HasConstraintName("product_serials_warranty_id_fkey");
         });
 
         modelBuilder.Entity<warranty_detail>(entity =>
@@ -509,4 +529,113 @@ public partial class WebDbContext : DbContext
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
+
+    /// <summary>
+    /// Override SaveChangesAsync để tự động tạo serial khi stock tăng
+    /// Tự động tạo serial numbers khi stock của sản phẩm thay đổi
+    /// </summary>
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        // Lấy danh sách các product đã thay đổi và lưu thông tin cần thiết
+        var changedProducts = ChangeTracker.Entries<product>()
+            .Where(e => (e.State == EntityState.Modified && e.Property(p => p.stock).IsModified) 
+                     || e.State == EntityState.Added)
+            .Select(e => new 
+            { 
+                Entry = e, 
+                ProductId = e.Entity.product_id, 
+                Stock = e.Entity.stock ?? 0,
+                IsAdded = e.State == EntityState.Added
+            })
+            .ToList();
+
+        // Lưu thay đổi của product trước để có product_id (đặc biệt với product mới)
+        // Gọi base để tránh recursive call
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        // Sau khi lưu product, kiểm tra và tạo serial cho các sản phẩm cần thiết
+        if (changedProducts.Any())
+        {
+            var productsToCreateSerials = new List<(int productId, int quantity)>();
+
+            foreach (var item in changedProducts)
+            {
+                // Lấy product_id sau khi save (quan trọng cho product mới)
+                var productId = item.IsAdded ? item.Entry.Entity.product_id : item.ProductId;
+                var currentStock = item.Stock;
+
+                if (currentStock > 0 && productId > 0)
+                {
+                    // Đếm số serial hiện có trong database (chưa bán: is_sold = false, còn bảo hành: is_disabled = false)
+                    var existingSerialsCount = await product_serials
+                        .Where(ps => ps.product_id == productId 
+                                  && (ps.is_disabled == null || ps.is_disabled == false)
+                                  && (ps.is_sold == null || ps.is_sold == false))
+                        .CountAsync(cancellationToken);
+
+                    // Tính số serial cần tạo thêm để đảm bảo số serial = stock
+                    var serialsNeeded = currentStock - existingSerialsCount;
+
+                    if (serialsNeeded > 0)
+                    {
+                        productsToCreateSerials.Add((productId, serialsNeeded));
+                    }
+                }
+            }
+
+            // Tạo serial cho các sản phẩm cần thiết
+            if (productsToCreateSerials.Any())
+            {
+                await CreateProductSerialsForChangedProducts(productsToCreateSerials, cancellationToken);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Tạo serial numbers cho các sản phẩm có stock tăng
+    /// </summary>
+    private async Task CreateProductSerialsForChangedProducts(
+        List<(int productId, int quantity)> productsToCreate, 
+        CancellationToken cancellationToken = default)
+    {
+        if (!productsToCreate.Any()) return;
+
+        var serialsToAdd = new List<product_serial>();
+        var timestamp = DateTime.UtcNow;
+
+        foreach (var (productId, quantity) in productsToCreate)
+        {
+            if (quantity <= 0) continue;
+
+            var baseTimestamp = timestamp.ToString("yyyyMMddHHmmssfff");
+
+            for (int i = 0; i < quantity; i++)
+            {
+                // Tạo serial number unique: PRD-{productId}-{timestamp}-{index}
+                var serialNumber = $"PRD-{productId}-{baseTimestamp}-{(i + 1):D6}";
+
+                serialsToAdd.Add(new product_serial
+                {
+                    product_id = productId,
+                    serial_number = serialNumber,
+                    import_date = timestamp,
+                    is_sold = false,
+                    is_disabled = false,
+                    created_at = timestamp,
+                    updated_at = timestamp,
+                    created_by = SYSTEM_ADMIN_ID,
+                    updated_by = SYSTEM_ADMIN_ID
+                });
+            }
+        }
+
+        if (serialsToAdd.Any())
+        {
+            product_serials.AddRange(serialsToAdd);
+            // Gọi base.SaveChangesAsync để lưu serial, không gọi lại override method
+            await base.SaveChangesAsync(cancellationToken);
+        }
+    }
 }

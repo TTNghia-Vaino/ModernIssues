@@ -20,6 +20,7 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<SepayConfig>(builder.Configuration.GetSection("SepayConfig"));
+builder.Services.Configure<HooksConfig>(builder.Configuration.GetSection("HooksConfig"));
 builder.Services.AddDbContext<WebDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));

@@ -18,14 +18,14 @@ public partial class product_serial
     public string serial_number { get; set; } = null!;
 
     /// <summary>
-    /// ID đơn hàng nếu đã bán (nullable)
+    /// Ngày nhập hàng vào kho
     /// </summary>
-    public int? order_id { get; set; }
+    public DateTime? import_date { get; set; }
 
     /// <summary>
-    /// ID warranty nếu đã bán (nullable)
+    /// Trạng thái đã bán hay chưa (true = đã bán, false = chưa bán)
     /// </summary>
-    public int? warranty_id { get; set; }
+    public bool? is_sold { get; set; }
 
     public DateTime? created_at { get; set; }
 
@@ -39,12 +39,8 @@ public partial class product_serial
 
     public virtual user? created_byNavigation { get; set; }
 
-    public virtual order? order { get; set; }
-
     public virtual product product { get; set; } = null!;
 
     public virtual user? updated_byNavigation { get; set; }
-
-    public virtual warranty? warranty { get; set; }
 }
 
