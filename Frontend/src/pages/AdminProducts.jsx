@@ -156,9 +156,11 @@ const AdminProducts = () => {
           category: product.categoryId || product.category,
           categoryId: product.categoryId || product.category,
           categoryName: product.categoryName || product.categoryName,
-          price: product.price || 0,
-          originalPrice: product.price || 0,
-          onPrice: product.onPrices || product.onPrice || 0,
+          // price từ API = giá gốc, onPrices = giá sau khuyến mãi (nếu có promotion)
+          price: product.price || 0,  // Giá gốc
+          originalPrice: product.price || 0,  // Giá gốc (để hiển thị khi có khuyến mãi)
+          onPrice: product.onPrices || product.onPrice || 0,  // Giá sau khuyến mãi
+          // Tính % giảm giá: (giá_gốc - giá_sau_km) / giá_gốc * 100
           discount: (product.onPrices || product.onPrice) > 0 && product.price > 0
             ? Math.round(((product.price - (product.onPrices || product.onPrice)) / product.price) * 100) 
             : 0,
@@ -260,9 +262,10 @@ const AdminProducts = () => {
       ...product,
       name: product.name || product.productName || '',
       category: product.categoryId || product.category || '',
-      // Use onPrice/onPrices as giá gốc, fallback to price if no promotion
-      price: product.onPrices || product.onPrice || product.originalPrice || product.price || '',
-      originalPrice: product.onPrices || product.onPrice || product.originalPrice || product.price || '',
+      // price từ API là giá gốc, onPrices là giá sau khuyến mãi (nếu có)
+      // Khi edit, luôn dùng price làm giá gốc, không dùng onPrices
+      price: product.price || product.originalPrice || '',
+      originalPrice: product.price || product.originalPrice || '',
       image: previewImageUrl || '',
       description: product.description || '',
       stock: product.stock || 0,
