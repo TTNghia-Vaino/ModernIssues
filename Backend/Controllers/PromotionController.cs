@@ -126,7 +126,8 @@ namespace ModernIssues.Controllers
 
                 return Ok(ApiResponse<PromotionListResponse>.SuccessResponse(
                     response,
-                    $"Lấy danh sách {promotions.Count} khuyến mãi thành công."));
+                    $"Lấy danh sách {promotions.Count} khuyến mãi thành công.",
+                    HttpContext));
             }
             catch (Exception ex)
             {
@@ -134,7 +135,8 @@ namespace ModernIssues.Controllers
                 Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
                 return StatusCode(500, ApiResponse<object>.ErrorResponse(
                     "Lỗi hệ thống khi lấy danh sách khuyến mãi.",
-                    new List<string> { ex.Message }));
+                    new List<string> { ex.Message },
+                    HttpContext));
             }
         }
 
@@ -161,7 +163,7 @@ namespace ModernIssues.Controllers
 
                 if (promotion == null)
                 {
-                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {id}."));
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {id}.", null, HttpContext));
                 }
 
                 var promotionDto = new PromotionDto
@@ -192,7 +194,8 @@ namespace ModernIssues.Controllers
 
                 return Ok(ApiResponse<PromotionDto>.SuccessResponse(
                     promotionDto,
-                    "Lấy chi tiết khuyến mãi thành công."));
+                    "Lấy chi tiết khuyến mãi thành công.",
+                    HttpContext));
             }
             catch (Exception ex)
             {
@@ -200,7 +203,8 @@ namespace ModernIssues.Controllers
                 Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
                 return StatusCode(500, ApiResponse<object>.ErrorResponse(
                     "Lỗi hệ thống khi lấy chi tiết khuyến mãi.",
-                    new List<string> { ex.Message }));
+                    new List<string> { ex.Message },
+                    HttpContext));
             }
         }
 
@@ -227,13 +231,13 @@ namespace ModernIssues.Controllers
             // Kiểm tra đăng nhập
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này.", null, HttpContext));
             }
 
             // Kiểm tra quyền admin
             if (!AuthHelper.IsAdmin(HttpContext))
             {
-                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được tạo khuyến mãi."));
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được tạo khuyến mãi.", null, HttpContext));
             }
 
             try
@@ -241,33 +245,33 @@ namespace ModernIssues.Controllers
                 // Validate dữ liệu
                 if (string.IsNullOrWhiteSpace(promotionData.PromotionName))
                 {
-                    return BadRequest(ApiResponse<object>.ErrorResponse("Tên chương trình khuyến mãi không được để trống."));
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Tên chương trình khuyến mãi không được để trống.", null, HttpContext));
                 }
 
                 // Validate discount type và value
                 if (promotionData.DiscountType != "percentage" && promotionData.DiscountType != "fixed_amount")
                 {
-                    return BadRequest(ApiResponse<object>.ErrorResponse("Loại khuyến mãi không hợp lệ. Chỉ chấp nhận: 'percentage' hoặc 'fixed_amount'."));
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Loại khuyến mãi không hợp lệ. Chỉ chấp nhận: 'percentage' hoặc 'fixed_amount'.", null, HttpContext));
                 }
 
                 if (promotionData.DiscountType == "percentage")
                 {
                     if (promotionData.DiscountValue < 0 || promotionData.DiscountValue > 100)
                     {
-                        return BadRequest(ApiResponse<object>.ErrorResponse("Phần trăm giảm giá phải từ 0 đến 100."));
+                        return BadRequest(ApiResponse<object>.ErrorResponse("Phần trăm giảm giá phải từ 0 đến 100.", null, HttpContext));
                     }
                 }
                 else if (promotionData.DiscountType == "fixed_amount")
                 {
                     if (promotionData.DiscountValue < 0)
                     {
-                        return BadRequest(ApiResponse<object>.ErrorResponse("Số tiền giảm giá phải lớn hơn hoặc bằng 0."));
+                        return BadRequest(ApiResponse<object>.ErrorResponse("Số tiền giảm giá phải lớn hơn hoặc bằng 0.", null, HttpContext));
                     }
                 }
 
                 if (promotionData.EndDate <= promotionData.StartDate)
                 {
-                    return BadRequest(ApiResponse<object>.ErrorResponse("Ngày kết thúc phải sau ngày bắt đầu."));
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Ngày kết thúc phải sau ngày bắt đầu.", null, HttpContext));
                 }
 
                 // Parse category IDs và product IDs
@@ -292,7 +296,7 @@ namespace ModernIssues.Controllers
 
                 if (!allProductIds.Any())
                 {
-                    return BadRequest(ApiResponse<object>.ErrorResponse("Vui lòng chọn ít nhất một danh mục hoặc sản phẩm."));
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Vui lòng chọn ít nhất một danh mục hoặc sản phẩm.", null, HttpContext));
                 }
 
                 // Kiểm tra sản phẩm có tồn tại không
@@ -303,7 +307,7 @@ namespace ModernIssues.Controllers
 
                 if (!validProductIds.Any())
                 {
-                    return BadRequest(ApiResponse<object>.ErrorResponse("Không tìm thấy sản phẩm nào hợp lệ."));
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Không tìm thấy sản phẩm nào hợp lệ.", null, HttpContext));
                 }
 
                 // Kiểm tra danh mục có tồn tại không
@@ -324,7 +328,7 @@ namespace ModernIssues.Controllers
                     {
                         if (!ImageUploadHelper.IsValidImage(promotionData.BannerFile))
                         {
-                            return BadRequest(ApiResponse<object>.ErrorResponse("File banner không hợp lệ. Chỉ chấp nhận file ảnh (jpg, jpeg, png, gif, bmp, webp) và kích thước tối đa 5MB."));
+                            return BadRequest(ApiResponse<object>.ErrorResponse("File banner không hợp lệ. Chỉ chấp nhận file ảnh (jpg, jpeg, png, gif, bmp, webp) và kích thước tối đa 5MB.", null, HttpContext));
                         }
 
                         var uploadPath = _webHostEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
@@ -336,7 +340,7 @@ namespace ModernIssues.Controllers
                     }
                     catch (ArgumentException ex)
                     {
-                        return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi upload banner: {ex.Message}"));
+                        return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi upload banner: {ex.Message}", null, HttpContext));
                     }
                 }
 
@@ -540,7 +544,8 @@ namespace ModernIssues.Controllers
 
                 return StatusCode(201, ApiResponse<PromotionDto>.SuccessResponse(
                     promotionDto,
-                    message));
+                    message,
+                    HttpContext));
             }
             catch (Exception ex)
             {
@@ -554,7 +559,8 @@ namespace ModernIssues.Controllers
                 Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
                 return StatusCode(500, ApiResponse<object>.ErrorResponse(
                     "Lỗi hệ thống khi tạo khuyến mãi.",
-                    errorMessages));
+                    errorMessages,
+                    HttpContext));
             }
         }
 
@@ -584,13 +590,13 @@ namespace ModernIssues.Controllers
             // Kiểm tra đăng nhập
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này.", null, HttpContext));
             }
 
             // Kiểm tra quyền admin
             if (!AuthHelper.IsAdmin(HttpContext))
             {
-                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được cập nhật khuyến mãi."));
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được cập nhật khuyến mãi.", null, HttpContext));
             }
 
             try
@@ -602,39 +608,39 @@ namespace ModernIssues.Controllers
 
                 if (promotion == null)
                 {
-                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {id}."));
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {id}.", null, HttpContext));
                 }
 
                 // Validate dữ liệu
                 if (string.IsNullOrWhiteSpace(promotionData.PromotionName))
                 {
-                    return BadRequest(ApiResponse<object>.ErrorResponse("Tên chương trình khuyến mãi không được để trống."));
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Tên chương trình khuyến mãi không được để trống.", null, HttpContext));
                 }
 
                 // Validate discount type và value
                 if (promotionData.DiscountType != "percentage" && promotionData.DiscountType != "fixed_amount")
                 {
-                    return BadRequest(ApiResponse<object>.ErrorResponse("Loại khuyến mãi không hợp lệ. Chỉ chấp nhận: 'percentage' hoặc 'fixed_amount'."));
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Loại khuyến mãi không hợp lệ. Chỉ chấp nhận: 'percentage' hoặc 'fixed_amount'.", null, HttpContext));
                 }
 
                 if (promotionData.DiscountType == "percentage")
                 {
                     if (promotionData.DiscountValue < 0 || promotionData.DiscountValue > 100)
                     {
-                        return BadRequest(ApiResponse<object>.ErrorResponse("Phần trăm giảm giá phải từ 0 đến 100."));
+                        return BadRequest(ApiResponse<object>.ErrorResponse("Phần trăm giảm giá phải từ 0 đến 100.", null, HttpContext));
                     }
                 }
                 else if (promotionData.DiscountType == "fixed_amount")
                 {
                     if (promotionData.DiscountValue < 0)
                     {
-                        return BadRequest(ApiResponse<object>.ErrorResponse("Số tiền giảm giá phải lớn hơn hoặc bằng 0."));
+                        return BadRequest(ApiResponse<object>.ErrorResponse("Số tiền giảm giá phải lớn hơn hoặc bằng 0.", null, HttpContext));
                     }
                 }
 
                 if (promotionData.EndDate <= promotionData.StartDate)
                 {
-                    return BadRequest(ApiResponse<object>.ErrorResponse("Ngày kết thúc phải sau ngày bắt đầu."));
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Ngày kết thúc phải sau ngày bắt đầu.", null, HttpContext));
                 }
 
                 // Parse category IDs và product IDs
@@ -659,7 +665,7 @@ namespace ModernIssues.Controllers
 
                 if (!allProductIds.Any())
                 {
-                    return BadRequest(ApiResponse<object>.ErrorResponse("Vui lòng chọn ít nhất một danh mục hoặc sản phẩm."));
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Vui lòng chọn ít nhất một danh mục hoặc sản phẩm.", null, HttpContext));
                 }
 
                 // Kiểm tra sản phẩm có tồn tại không
@@ -670,7 +676,7 @@ namespace ModernIssues.Controllers
 
                 if (!validProductIds.Any())
                 {
-                    return BadRequest(ApiResponse<object>.ErrorResponse("Không tìm thấy sản phẩm nào hợp lệ."));
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Không tìm thấy sản phẩm nào hợp lệ.", null, HttpContext));
                 }
 
                 // Xử lý upload banner mới (nếu có)
@@ -680,7 +686,7 @@ namespace ModernIssues.Controllers
                     {
                         if (!ImageUploadHelper.IsValidImage(promotionData.BannerFile))
                         {
-                            return BadRequest(ApiResponse<object>.ErrorResponse("File banner không hợp lệ. Chỉ chấp nhận file ảnh (jpg, jpeg, png, gif, bmp, webp) và kích thước tối đa 5MB."));
+                            return BadRequest(ApiResponse<object>.ErrorResponse("File banner không hợp lệ. Chỉ chấp nhận file ảnh (jpg, jpeg, png, gif, bmp, webp) và kích thước tối đa 5MB.", null, HttpContext));
                         }
 
                         var uploadPath = _webHostEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
@@ -705,7 +711,7 @@ namespace ModernIssues.Controllers
                     }
                     catch (ArgumentException ex)
                     {
-                        return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi upload banner: {ex.Message}"));
+                        return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi upload banner: {ex.Message}", null, HttpContext));
                     }
                 }
 
@@ -921,7 +927,8 @@ namespace ModernIssues.Controllers
 
                 return Ok(ApiResponse<PromotionDto>.SuccessResponse(
                     promotionDto,
-                    message));
+                    message,
+                    HttpContext));
             }
             catch (Exception ex)
             {
@@ -935,7 +942,8 @@ namespace ModernIssues.Controllers
                 Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
                 return StatusCode(500, ApiResponse<object>.ErrorResponse(
                     "Lỗi hệ thống khi cập nhật khuyến mãi.",
-                    errorMessages));
+                    errorMessages,
+                    HttpContext));
             }
         }
 
@@ -961,13 +969,13 @@ namespace ModernIssues.Controllers
             // Kiểm tra đăng nhập
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này.", null, HttpContext));
             }
 
             // Kiểm tra quyền admin
             if (!AuthHelper.IsAdmin(HttpContext))
             {
-                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được thay đổi trạng thái khuyến mãi."));
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được thay đổi trạng thái khuyến mãi.", null, HttpContext));
             }
 
             try
@@ -979,7 +987,7 @@ namespace ModernIssues.Controllers
 
                 if (promotion == null)
                 {
-                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {id}."));
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {id}.", null, HttpContext));
                 }
 
                 // Lưu trạng thái cũ
@@ -1026,7 +1034,8 @@ namespace ModernIssues.Controllers
                 var statusText = (promotion.is_active ?? false) ? "kích hoạt" : "vô hiệu hóa";
                 return Ok(ApiResponse<PromotionDto>.SuccessResponse(
                     promotionDto,
-                    $"Đã {statusText} khuyến mãi thành công."));
+                    $"Đã {statusText} khuyến mãi thành công.",
+                    HttpContext));
             }
             catch (Exception ex)
             {
@@ -1034,7 +1043,8 @@ namespace ModernIssues.Controllers
                 Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
                 return StatusCode(500, ApiResponse<object>.ErrorResponse(
                     "Lỗi hệ thống khi thay đổi trạng thái khuyến mãi.",
-                    new List<string> { ex.Message }));
+                    new List<string> { ex.Message },
+                    HttpContext));
             }
         }
 
@@ -1061,13 +1071,13 @@ namespace ModernIssues.Controllers
             // Kiểm tra đăng nhập
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này.", null, HttpContext));
             }
 
             // Kiểm tra quyền admin
             if (!AuthHelper.IsAdmin(HttpContext))
             {
-                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được cập nhật giá sản phẩm."));
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được cập nhật giá sản phẩm.", null, HttpContext));
             }
 
             try
@@ -1088,7 +1098,7 @@ namespace ModernIssues.Controllers
 
                     if (promotion == null)
                     {
-                        return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {promotionId.Value}."));
+                        return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {promotionId.Value}.", null, HttpContext));
                     }
 
                     var products = promotion.products.ToList();
@@ -1261,7 +1271,8 @@ namespace ModernIssues.Controllers
 
                 return Ok(ApiResponse<UpdatePricesResponse>.SuccessResponse(
                     response,
-                    message));
+                    message,
+                    HttpContext));
             }
             catch (Exception ex)
             {
@@ -1269,7 +1280,8 @@ namespace ModernIssues.Controllers
                 Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
                 return StatusCode(500, ApiResponse<object>.ErrorResponse(
                     "Lỗi hệ thống khi cập nhật giá sản phẩm.",
-                    new List<string> { ex.Message }));
+                    new List<string> { ex.Message },
+                    HttpContext));
             }
         }
 
@@ -1295,13 +1307,13 @@ namespace ModernIssues.Controllers
             // Kiểm tra đăng nhập
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này.", null, HttpContext));
             }
 
             // Kiểm tra quyền admin
             if (!AuthHelper.IsAdmin(HttpContext))
             {
-                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xóa khuyến mãi."));
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xóa khuyến mãi.", null, HttpContext));
             }
 
             try
@@ -1313,7 +1325,7 @@ namespace ModernIssues.Controllers
 
                 if (promotion == null)
                 {
-                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {id}."));
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {id}.", null, HttpContext));
                 }
 
                 // Lưu danh sách sản phẩm để reset giá sau khi xóa
@@ -1351,7 +1363,8 @@ namespace ModernIssues.Controllers
 
                 return Ok(ApiResponse<object>.SuccessResponse(
                     new { promotionId = id },
-                    "Xóa khuyến mãi thành công. Giá sản phẩm đã được reset về giá gốc."));
+                    "Xóa khuyến mãi thành công. Giá sản phẩm đã được reset về giá gốc.",
+                    HttpContext));
             }
             catch (Exception ex)
             {
@@ -1359,7 +1372,8 @@ namespace ModernIssues.Controllers
                 Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
                 return StatusCode(500, ApiResponse<object>.ErrorResponse(
                     "Lỗi hệ thống khi xóa khuyến mãi.",
-                    new List<string> { ex.Message }));
+                    new List<string> { ex.Message },
+                    HttpContext));
             }
         }
 
@@ -1396,13 +1410,13 @@ namespace ModernIssues.Controllers
             // Kiểm tra đăng nhập
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
-                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này.", null, HttpContext));
             }
 
             // Kiểm tra quyền admin
             if (!AuthHelper.IsAdmin(HttpContext))
             {
-                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xem danh sách sản phẩm."));
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xem danh sách sản phẩm.", null, HttpContext));
             }
 
             try
@@ -1565,7 +1579,8 @@ namespace ModernIssues.Controllers
 
                 return Ok(ApiResponse<AvailableProductsResponse>.SuccessResponse(
                     response,
-                    $"Tìm thấy {totalCount} sản phẩm có thể thêm vào khuyến mãi. {skippedProducts.Count} sản phẩm đã có khuyến mãi tốt hơn."));
+                    $"Tìm thấy {totalCount} sản phẩm có thể thêm vào khuyến mãi. {skippedProducts.Count} sản phẩm đã có khuyến mãi tốt hơn.",
+                    HttpContext));
             }
             catch (Exception ex)
             {
@@ -1573,7 +1588,8 @@ namespace ModernIssues.Controllers
                 Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
                 return StatusCode(500, ApiResponse<object>.ErrorResponse(
                     "Lỗi hệ thống khi lấy danh sách sản phẩm.",
-                    new List<string> { ex.Message }));
+                    new List<string> { ex.Message },
+                    HttpContext));
             }
         }
 
@@ -1667,18 +1683,32 @@ namespace ModernIssues.Controllers
 
         /// <summary>
         /// Tính toán giá sau khuyến mãi (onprices) dựa trên loại khuyến mãi
+        /// - Nếu promotion theo %: lấy giá gốc nhân với % ra bao nhiêu thì lưu vào on_prices
+        ///   onprices = price * (discountValue/100)
+        ///   Ví dụ: price = 100, discountValue = 20 (giảm 20%) => onprices = 100 * (20/100) = 20
+        ///   Lưu ý: Nếu discountValue là phần trăm giảm (20%), thì cần tính giá sau giảm
+        ///   => onprices = price * ((100 - discountValue)/100) = 100 * (80/100) = 80
+        /// - Nếu promotion theo tiền mặt: lấy giá gốc - tiền khuyến mãi rồi lưu vào on_prices
+        ///   onprices = price - discountValue
         /// </summary>
         private decimal CalculateOnPrice(decimal originalPrice, string discountType, decimal discountValue)
         {
             if (discountType == "percentage")
             {
-                // Giảm theo phần trăm: onprices = price * (1 - discountValue/100)
-                var discountAmount = originalPrice * (discountValue / 100m);
-                return Math.Max(0, originalPrice - discountAmount);
+                // Giảm theo phần trăm: lấy giá gốc nhân với % (phần trăm giá còn lại sau khi giảm)
+                // Yêu cầu: "lấy giá gốc nhân với % ra bao nhiêu thì lưu vào on_prices"
+                // Hiểu là: nhân với phần trăm giá còn lại để có giá bán sau giảm
+                // Ví dụ: price = 100, discountValue = 20 (giảm 20%) 
+                // => phần trăm giá còn lại = 100 - 20 = 80%
+                // => onprices = 100 * (80/100) = 80
+                var remainingPercentage = 100m - discountValue;
+                return Math.Max(0, originalPrice * (remainingPercentage / 100m));
             }
             else if (discountType == "fixed_amount")
             {
-                // Giảm theo số tiền trực tiếp: onprices = price - discountValue
+                // Giảm theo số tiền trực tiếp: lấy giá gốc - tiền khuyến mãi
+                // Yêu cầu: "lấy giá gốc - tiền khuyến mãi rồi lưu vào on_prices"
+                // Ví dụ: price = 100, discountValue = 20 => onprices = 100 - 20 = 80
                 return Math.Max(0, originalPrice - discountValue);
             }
             return originalPrice;
