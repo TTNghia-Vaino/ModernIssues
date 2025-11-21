@@ -667,9 +667,14 @@ const AdminUsers = () => {
       {/* Modal */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>{editingUser ? 'Chỉnh sửa người dùng' : 'Thêm người dùng mới'}</h3>
+          <div className="modal-content user-form-modal">
+            <div className="modal-header user-form-header">
+              <div>
+                <h3 className="user-form-title">{editingUser ? 'Chỉnh sửa người dùng' : 'Thêm người dùng mới'}</h3>
+                <p className="user-form-description">
+                  {editingUser ? 'Cập nhật thông tin người dùng' : 'Điền thông tin người dùng mới'}
+                </p>
+              </div>
               <button 
                 className="close-btn"
                 onClick={() => setShowModal(false)}
@@ -678,131 +683,149 @@ const AdminUsers = () => {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="modal-form">
-              <div className="form-group">
-                <label htmlFor="name">Họ và tên: <span style={{ color: 'red' }}>*</span></label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Nhập họ và tên"
-                  className={errors.name ? 'error' : ''}
-                />
-                {errors.name && <span className="error-message">{errors.name}</span>}
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="email">Email: <span style={{ color: 'red' }}>*</span></label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  placeholder="Nhập email"
-                  className={errors.email ? 'error' : ''}
-                />
-                {errors.email && <span className="error-message">{errors.email}</span>}
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="phone">Số điện thoại: <span style={{ color: 'red' }}>*</span></label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  placeholder="Nhập số điện thoại (10-11 số)"
-                  className={errors.phone ? 'error' : ''}
-                />
-                {errors.phone && <span className="error-message">{errors.phone}</span>}
-              </div>
-              
-              {!editingUser && (
-                <div className="form-group">
-                  <label htmlFor="password">Mật khẩu: <span style={{ color: 'red' }}>*</span></label>
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
-                    className={errors.password ? 'error' : ''}
-                  />
-                  {errors.password && <span className="error-message">{errors.password}</span>}
-                </div>
-              )}
-              
-              <div className="form-group">
-                <label htmlFor="address">Địa chỉ:</label>
-                <input
-                  type="text"
-                  id="address"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  placeholder="Nhập địa chỉ (tùy chọn)"
-                />
-              </div>
-              
-              {!editingUser && (
-                <div className="form-group">
-                  <label htmlFor="avatar">Ảnh đại diện:</label>
-                  <input
-                    type="file"
-                    id="avatar"
-                    name="avatar"
-                    accept="image/*"
-                    onChange={handleAvatarChange}
-                    className={errors.avatar ? 'error' : ''}
-                  />
-                  {errors.avatar && <span className="error-message">{errors.avatar}</span>}
-                  {avatarPreview && (
-                    <div style={{ marginTop: '10px' }}>
-                      <img 
-                        src={avatarPreview} 
-                        alt="Preview" 
-                        style={{ 
-                          width: '100px', 
-                          height: '100px', 
-                          objectFit: 'cover', 
-                          borderRadius: '8px',
-                          border: '2px solid #e0e0e0'
-                        }} 
+            <form onSubmit={handleSubmit} className="modal-form user-form-content">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Thông tin cơ bản */}
+                <div className="form-section">
+                  <h3 className="form-section-title">Thông tin cơ bản</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                    <div className="form-group">
+                      <label htmlFor="name">Họ và tên: <span style={{ color: 'red' }}>*</span></label>
+                      <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        placeholder="Nhập họ và tên"
+                        className={errors.name ? 'error' : ''}
+                      />
+                      {errors.name && <span className="error-message">{errors.name}</span>}
+                    </div>
+                    
+                    <div className="form-group">
+                      <label htmlFor="email">Email: <span style={{ color: 'red' }}>*</span></label>
+                      <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        placeholder="Nhập email"
+                        className={errors.email ? 'error' : ''}
+                      />
+                      {errors.email && <span className="error-message">{errors.email}</span>}
+                    </div>
+                    
+                    <div className="form-group">
+                      <label htmlFor="phone">Số điện thoại: <span style={{ color: 'red' }}>*</span></label>
+                      <input
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        placeholder="Nhập số điện thoại (10-11 số)"
+                        className={errors.phone ? 'error' : ''}
+                      />
+                      {errors.phone && <span className="error-message">{errors.phone}</span>}
+                    </div>
+                    
+                    <div className="form-group">
+                      <label htmlFor="address">Địa chỉ:</label>
+                      <input
+                        type="text"
+                        id="address"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleInputChange}
+                        placeholder="Nhập địa chỉ (tùy chọn)"
                       />
                     </div>
-                  )}
+                  </div>
                 </div>
-              )}
-              
-              <div className="form-group">
-                <label htmlFor="role">Vai trò:</label>
-                <select
-                  id="role"
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                >
-                  <option value="customer">Khách hàng</option>
-                  <option value="admin">Quản trị viên</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="status">Trạng thái:</label>
-                <select
-                  id="status"
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                >
-                  <option value="active">Hoạt động</option>
-                  <option value="inactive">Không hoạt động</option>
-                </select>
+
+                {/* Thông tin đăng nhập */}
+                {!editingUser && (
+                  <div className="form-section">
+                    <h3 className="form-section-title">Thông tin đăng nhập</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                      <div className="form-group">
+                        <label htmlFor="password">Mật khẩu: <span style={{ color: 'red' }}>*</span></label>
+                        <input
+                          type="password"
+                          id="password"
+                          name="password"
+                          value={formData.password}
+                          onChange={handleInputChange}
+                          placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
+                          className={errors.password ? 'error' : ''}
+                        />
+                        {errors.password && <span className="error-message">{errors.password}</span>}
+                      </div>
+                      
+                      <div className="form-group">
+                        <label htmlFor="avatar">Ảnh đại diện:</label>
+                        <input
+                          type="file"
+                          id="avatar"
+                          name="avatar"
+                          accept="image/*"
+                          onChange={handleAvatarChange}
+                          className={errors.avatar ? 'error' : ''}
+                        />
+                        {errors.avatar && <span className="error-message">{errors.avatar}</span>}
+                        {avatarPreview && (
+                          <div style={{ marginTop: '10px' }}>
+                            <img 
+                              src={avatarPreview} 
+                              alt="Preview" 
+                              style={{ 
+                                width: '100px', 
+                                height: '100px', 
+                                objectFit: 'cover', 
+                                borderRadius: '8px',
+                                border: '2px solid #e0e0e0'
+                              }} 
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Vai trò và trạng thái */}
+                <div className="form-section">
+                  <h3 className="form-section-title">Vai trò và trạng thái</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                    <div className="form-group">
+                      <label htmlFor="role">Vai trò:</label>
+                      <select
+                        id="role"
+                        name="role"
+                        value={formData.role}
+                        onChange={handleInputChange}
+                      >
+                        <option value="customer">Khách hàng</option>
+                        <option value="admin">Quản trị viên</option>
+                      </select>
+                    </div>
+                    
+                    <div className="form-group">
+                      <label htmlFor="status">Trạng thái:</label>
+                      <select
+                        id="status"
+                        name="status"
+                        value={formData.status}
+                        onChange={handleInputChange}
+                      >
+                        <option value="active">Hoạt động</option>
+                        <option value="inactive">Không hoạt động</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
               </div>
               
               <div className="modal-actions">
