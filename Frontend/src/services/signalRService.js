@@ -6,6 +6,8 @@ class SignalRService {
     this.connection = null;
     this.isConnected = false;
     this.listeners = new Map();
+    this.joinedGroups = new Set(); // Track groups that have been joined
+    this.isConnecting = false; // Prevent multiple simultaneous connections
   }
 
   // Get SignalR URL
@@ -24,6 +26,22 @@ class SignalRService {
       console.log('[SignalR] Already connected');
       return;
     }
+
+    // Prevent multiple simultaneous connection attempts
+    if (this.isConnecting) {
+      console.log('[SignalR] Connection already in progress, waiting...');
+      // Wait for existing connection attempt to complete
+      let attempts = 0;
+      while (this.isConnecting && attempts < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+      if (this.isConnected) {
+        return;
+      }
+    }
+
+    this.isConnecting = true;
 
     try {
       const url = this.getSignalRUrl();
@@ -55,6 +73,7 @@ class SignalRService {
       this.connection.onclose((error) => {
         console.log('[SignalR] Connection closed', error);
         this.isConnected = false;
+        this.isConnecting = false;
       });
 
       this.connection.onreconnecting((error) => {
@@ -62,9 +81,23 @@ class SignalRService {
         this.isConnected = false;
       });
 
-      this.connection.onreconnected((connectionId) => {
+      this.connection.onreconnected(async (connectionId) => {
         console.log('[SignalR] Reconnected:', connectionId);
         this.isConnected = true;
+        this.isConnecting = false;
+        
+        // Rejoin all groups that were previously joined
+        if (this.joinedGroups.size > 0) {
+          console.log('[SignalR] Rejoining groups after reconnect:', Array.from(this.joinedGroups));
+          const groupsToRejoin = Array.from(this.joinedGroups);
+          for (const gencode of groupsToRejoin) {
+            try {
+              await this.joinPaymentGroup(gencode, true); // Pass true to skip connection check
+            } catch (error) {
+              console.error(`[SignalR] Failed to rejoin group ${gencode}:`, error);
+            }
+          }
+        }
       });
 
       // Listen for payment success notifications
@@ -84,10 +117,12 @@ class SignalRService {
       // Start connection
       await this.connection.start();
       this.isConnected = true;
-      console.log('[SignalR] Connected successfully');
+      this.isConnecting = false;
+      console.log('[SignalR] Connected successfully, connection state:', this.connection.state);
     } catch (error) {
       console.error('[SignalR] Connection error:', error);
       this.isConnected = false;
+      this.isConnecting = false;
       throw error;
     }
   }
@@ -96,8 +131,10 @@ class SignalRService {
   async disconnect() {
     if (this.connection) {
       try {
+        this.joinedGroups.clear(); // Clear joined groups
         await this.connection.stop();
         this.isConnected = false;
+        this.isConnecting = false;
         console.log('[SignalR] Disconnected');
       } catch (error) {
         console.error('[SignalR] Disconnect error:', error);
@@ -106,28 +143,84 @@ class SignalRService {
   }
 
   // Join payment group by gencode
-  async joinPaymentGroup(gencode) {
-    if (!this.connection || !this.isConnected) {
-      await this.connect();
+  async joinPaymentGroup(gencode, skipConnectionCheck = false) {
+    if (!gencode || typeof gencode !== 'string' || gencode.trim() === '') {
+      console.warn('[SignalR] Invalid gencode provided:', gencode);
+      throw new Error('Invalid gencode');
+    }
+
+    // Ensure connection is established
+    if (!skipConnectionCheck) {
+      if (!this.connection || !this.isConnected) {
+        console.log('[SignalR] Not connected, connecting first...');
+        await this.connect();
+      }
+    }
+
+    // Wait for connection to be fully established
+    if (this.connection) {
+      let attempts = 0;
+      const maxAttempts = 30;
+      // Check connection state - can be 'Connected', 'Disconnected', 'Connecting', 'Reconnecting', or enum value
+      const isConnected = () => {
+        const state = this.connection.state;
+        // Handle both string and enum values
+        return state === 'Connected' || 
+               state === SignalR.HubConnectionState?.Connected || 
+               (typeof state === 'number' && state === 1); // Connected is typically 1
+      };
+
+      while (!isConnected() && attempts < maxAttempts) {
+        console.log('[SignalR] Waiting for connection to be ready, state:', this.connection.state);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+
+      if (!isConnected()) {
+        throw new Error(`SignalR connection not ready, state: ${this.connection.state}`);
+      }
     }
 
     if (this.connection && this.isConnected) {
       try {
+        console.log('[SignalR] Invoking JoinPaymentGroup with gencode:', gencode);
         await this.connection.invoke('JoinPaymentGroup', gencode);
-        console.log('[SignalR] Joined payment group for gencode:', gencode);
+        this.joinedGroups.add(gencode); // Track joined group
+        console.log('[SignalR] Successfully joined payment group for gencode:', gencode);
+        console.log('[SignalR] Current joined groups:', Array.from(this.joinedGroups));
       } catch (error) {
         console.error('[SignalR] Error joining payment group:', error);
+        console.error('[SignalR] Connection state:', this.connection?.state);
         throw error;
       }
+    } else {
+      throw new Error('SignalR connection not available');
     }
   }
 
   // Leave payment group
   async leavePaymentGroup(gencode) {
-    if (this.connection && this.isConnected) {
+    if (!gencode) {
+      return;
+    }
+
+    // Remove from tracking
+    this.joinedGroups.delete(gencode);
+
+    // Check if connection is ready
+    const isConnectionReady = () => {
+      if (!this.connection || !this.isConnected) return false;
+      const state = this.connection.state;
+      return state === 'Connected' || 
+             state === SignalR.HubConnectionState?.Connected || 
+             (typeof state === 'number' && state === 1);
+    };
+
+    if (isConnectionReady()) {
       try {
         await this.connection.invoke('LeavePaymentGroup', gencode);
         console.log('[SignalR] Left payment group for gencode:', gencode);
+        console.log('[SignalR] Remaining joined groups:', Array.from(this.joinedGroups));
       } catch (error) {
         console.error('[SignalR] Error leaving payment group:', error);
       }

@@ -53,8 +53,15 @@ const QRPaymentPage = () => {
   useEffect(() => {
     let listenerId = null;
     let gencode = null;
+    let isSetupComplete = false;
 
     const setupSignalR = async () => {
+      // Prevent multiple setups
+      if (isSetupComplete) {
+        console.log('[QRPaymentPage] SignalR already setup, skipping');
+        return;
+      }
+
       try {
         // Use orderData from state instead of re-reading from localStorage
         if (!orderData) {
@@ -64,44 +71,46 @@ const QRPaymentPage = () => {
 
         gencode = orderData.gencode || orderData.genCode;
         
-        if (!gencode) {
-          console.log('[QRPaymentPage] No gencode found in orderData, skipping SignalR');
+        if (!gencode || typeof gencode !== 'string' || gencode.trim() === '') {
+          console.log('[QRPaymentPage] No valid gencode found in orderData, skipping SignalR');
+          console.log('[QRPaymentPage] orderData:', orderData);
           return;
         }
 
-        console.log('[QRPaymentPage] Setting up SignalR for gencode:', gencode);
+        console.log('[QRPaymentPage] ===== Setting up SignalR =====');
+        console.log('[QRPaymentPage] Gencode:', gencode);
+        console.log('[QRPaymentPage] OrderId:', orderData.orderId || orderData.order_id || orderData.id);
         
-        // Connect to SignalR
+        // Step 1: Connect to SignalR first
+        console.log('[QRPaymentPage] Step 1: Connecting to SignalR...');
         await signalRService.connect();
+        console.log('[QRPaymentPage] Step 1: SignalR connected');
         
-        // Join payment group
-        await signalRService.joinPaymentGroup(gencode);
-        
-        // Listen for payment success
+        // Step 2: Register listener BEFORE joining group to ensure we don't miss notifications
+        console.log('[QRPaymentPage] Step 2: Registering payment success listener...');
         listenerId = signalRService.onPaymentSuccess((data) => {
           console.log('[QRPaymentPage] ===== Payment success notification received =====');
           console.log('[QRPaymentPage] Notification data:', JSON.stringify(data, null, 2));
           console.log('[QRPaymentPage] Current gencode:', gencode);
-          console.log('[QRPaymentPage] Notification gencode:', data.gencode);
-          console.log('[QRPaymentPage] Notification orderId:', data.orderId, 'type:', typeof data.orderId);
+          console.log('[QRPaymentPage] Notification gencode:', data?.gencode);
+          console.log('[QRPaymentPage] Notification orderId:', data?.orderId, 'type:', typeof data?.orderId);
           
           const orderId = orderData.orderId || orderData.order_id || orderData.id;
           console.log('[QRPaymentPage] Current orderId from orderData:', orderId, 'type:', typeof orderId);
-          console.log('[QRPaymentPage] Full orderData:', JSON.stringify(orderData, null, 2));
           
           // Check if gencode matches or orderId matches
-          const gencodeMatch = data.gencode === gencode;
-          const orderIdMatch = data.orderId == orderId ||  // Use == for type coercion
-                               String(data.orderId) === String(orderId) ||
-                               Number(data.orderId) === Number(orderId);
+          const gencodeMatch = data?.gencode === gencode;
+          const orderIdMatch = data?.orderId == orderId ||  // Use == for type coercion
+                               String(data?.orderId) === String(orderId) ||
+                               Number(data?.orderId) === Number(orderId);
           
           console.log('[QRPaymentPage] Gencode match:', gencodeMatch, 'OrderId match:', orderIdMatch);
           console.log('[QRPaymentPage] Comparison details:', {
-            'data.gencode': data.gencode,
+            'data.gencode': data?.gencode,
             'gencode': gencode,
-            'data.orderId': data.orderId,
+            'data.orderId': data?.orderId,
             'orderId': orderId,
-            'String(data.orderId)': String(data.orderId),
+            'String(data.orderId)': String(data?.orderId),
             'String(orderId)': String(orderId)
           });
           
@@ -127,11 +136,24 @@ const QRPaymentPage = () => {
             console.warn('[QRPaymentPage] Will not update payment status');
           }
         });
+        console.log('[QRPaymentPage] Step 2: Registered payment success listener with ID:', listenerId);
         
-        console.log('[QRPaymentPage] Registered payment success listener with ID:', listenerId);
+        // Step 3: Join payment group AFTER listener is registered
+        console.log('[QRPaymentPage] Step 3: Joining payment group...');
+        await signalRService.joinPaymentGroup(gencode);
+        console.log('[QRPaymentPage] Step 3: Successfully joined payment group');
+        
+        isSetupComplete = true;
+        console.log('[QRPaymentPage] ===== SignalR setup completed successfully =====');
       } catch (error) {
         console.error('[QRPaymentPage] SignalR setup error:', error);
+        console.error('[QRPaymentPage] Error details:', {
+          message: error.message,
+          stack: error.stack,
+          gencode: gencode
+        });
         // Continue without SignalR - user can still manually check
+        isSetupComplete = false;
       }
     };
 
@@ -142,12 +164,18 @@ const QRPaymentPage = () => {
 
     // Cleanup on unmount
     return () => {
+      console.log('[QRPaymentPage] Cleaning up SignalR...');
       if (listenerId) {
         signalRService.offPaymentSuccess(listenerId);
+        console.log('[QRPaymentPage] Removed payment success listener');
       }
       if (gencode) {
-        signalRService.leavePaymentGroup(gencode).catch(console.error);
+        signalRService.leavePaymentGroup(gencode).catch(err => {
+          console.error('[QRPaymentPage] Error leaving payment group:', err);
+        });
+        console.log('[QRPaymentPage] Left payment group for gencode:', gencode);
       }
+      isSetupComplete = false;
     };
   }, [orderData, navigate, success]);
 

@@ -11,6 +11,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 
 namespace ModernIssues.Services
 {
@@ -145,6 +146,8 @@ namespace ModernIssues.Services
             result.OrderId = cacheInfo.OrderId;
 
             // 10. Gửi SignalR notification đến client đang chờ thanh toán
+            // NOTE: Gửi SignalR TRƯỚC KHI xóa cache để đảm bảo client có thể nhận được notification
+            // ngay cả khi có delay nhỏ trong việc xử lý
             try
             {
                 var groupName = $"payment_{gencode}";
@@ -157,15 +160,29 @@ namespace ModernIssues.Services
                     timestamp = DateTime.UtcNow
                 };
                 
-                Console.WriteLine($"[SignalR] Sending payment notification to group: {groupName}, orderId: {cacheInfo.OrderId}, gencode: {gencode}");
+                Console.WriteLine($"[SignalR] ===== Preparing to send payment notification ===== ");
+                Console.WriteLine($"[SignalR] Group name: {groupName}");
+                Console.WriteLine($"[SignalR] OrderId: {cacheInfo.OrderId}");
+                Console.WriteLine($"[SignalR] Gencode: {gencode}");
+                Console.WriteLine($"[SignalR] Amount: {transaction.Transferamount}");
+                Console.WriteLine($"[SignalR] Notification data: {System.Text.Json.JsonSerializer.Serialize(notificationData)}");
+                
+                // Send notification to all clients in the group
                 await _hubContext.Clients.Group(groupName).SendAsync("PaymentSuccess", notificationData);
-                Console.WriteLine($"[SignalR] Payment notification sent successfully to group: {groupName}");
+                
+                Console.WriteLine($"[SignalR] ✅ Payment notification sent successfully to group: {groupName}");
+                Console.WriteLine($"[SignalR] Note: If no clients are in the group, the message is silently ignored");
             }
             catch (Exception ex)
             {
                 // Log error nhưng không fail toàn bộ process
-                Console.WriteLine($"[SignalR] Error sending payment notification: {ex.Message}");
+                Console.WriteLine($"[SignalR] ❌ Error sending payment notification: {ex.Message}");
+                Console.WriteLine($"[SignalR] Exception type: {ex.GetType().Name}");
                 Console.WriteLine($"[SignalR] StackTrace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[SignalR] Inner exception: {ex.InnerException.Message}");
+                }
             }
 
             return result;
