@@ -131,7 +131,9 @@ namespace ModernIssues.Controllers
                 await _hubContext.Clients.Group(groupName).SendAsync("PaymentSuccess", notificationData);
                 
                 Console.WriteLine($"[TestSignalR] ✅ Test SignalR notification sent successfully to group: {groupName}");
-                Console.WriteLine($"[TestSignalR] Note: If no clients are in the group, the message is silently ignored");
+                Console.WriteLine($"[TestSignalR] ⚠️ Note: If no clients are in the group, the message is silently ignored");
+                Console.WriteLine($"[TestSignalR] 💡 Make sure frontend is on QR Payment page and SignalR is connected");
+                Console.WriteLine($"[TestSignalR] 💡 Check frontend console for: '[SignalR] Successfully joined payment group'");
                 
                 return Ok(new
                 {

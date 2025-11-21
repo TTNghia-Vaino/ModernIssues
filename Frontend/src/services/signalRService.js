@@ -70,12 +70,15 @@ class SignalRService {
     // Listen for payment success notifications
     this.connection.on('PaymentSuccess', (data) => {
       console.log('[SignalR] ===== PaymentSuccess event received =====');
+      console.log('[SignalR] Raw data received:', data);
       console.log('[SignalR] Data:', JSON.stringify(data, null, 2));
       console.log('[SignalR] Data type:', typeof data);
       console.log('[SignalR] Listeners count:', this.listeners.get('PaymentSuccess')?.length || 0);
       console.log('[SignalR] All listeners:', Array.from(this.listeners.get('PaymentSuccess') || []).map(l => l.id));
       console.log('[SignalR] Connection state:', this.connection?.state);
       console.log('[SignalR] Is connected:', this.isConnected);
+      console.log('[SignalR] Connection ID:', this.connection?.connectionId);
+      console.log('[SignalR] Joined groups:', Array.from(this.joinedGroups));
       this.notifyListeners('PaymentSuccess', data);
     });
 
@@ -134,19 +137,28 @@ class SignalRService {
             return 30000;
           }
         })
-        .configureLogging(SignalR.LogLevel.Information) // Increase logging for debugging
+        .configureLogging(SignalR.LogLevel.Debug) // Maximum logging for debugging
         .build();
 
       // Register event handlers
       this.registerEventHandlers();
 
       // Start connection
+      console.log('[SignalR] Starting connection...');
       await this.connection.start();
       this.isConnected = true;
       this.isConnecting = false;
-      console.log('[SignalR] Connected successfully, connection state:', this.connection.state);
+      console.log('[SignalR] ✅ Connected successfully');
+      console.log('[SignalR] Connection state:', this.connection.state);
       console.log('[SignalR] Connection ID:', this.connection.connectionId);
       console.log('[SignalR] Joined groups:', Array.from(this.joinedGroups));
+      console.log('[SignalR] Event handlers registered:', {
+        'PaymentSuccess': 'registered',
+        'JoinedGroup': 'registered',
+        'close': 'registered',
+        'reconnecting': 'registered',
+        'reconnected': 'registered'
+      });
     } catch (error) {
       console.error('[SignalR] Connection error:', error);
       this.isConnected = false;
@@ -280,6 +292,8 @@ class SignalRService {
       this.listeners.set('PaymentSuccess', []);
     }
     this.listeners.get('PaymentSuccess').push({ id, callback });
+    console.log('[SignalR] onPaymentSuccess called, listener ID:', id);
+    console.log('[SignalR] Total listeners now:', this.listeners.get('PaymentSuccess')?.length || 0);
     return id;
   }
 
