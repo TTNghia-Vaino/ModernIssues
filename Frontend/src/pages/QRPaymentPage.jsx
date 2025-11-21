@@ -79,23 +79,35 @@ const QRPaymentPage = () => {
         
         // Listen for payment success
         listenerId = signalRService.onPaymentSuccess((data) => {
-          console.log('[QRPaymentPage] Payment success notification received:', data);
+          console.log('[QRPaymentPage] ===== Payment success notification received =====');
+          console.log('[QRPaymentPage] Notification data:', JSON.stringify(data, null, 2));
           console.log('[QRPaymentPage] Current gencode:', gencode);
           console.log('[QRPaymentPage] Notification gencode:', data.gencode);
-          console.log('[QRPaymentPage] Notification orderId:', data.orderId);
+          console.log('[QRPaymentPage] Notification orderId:', data.orderId, 'type:', typeof data.orderId);
           
           const orderId = orderData.orderId || orderData.order_id || orderData.id;
-          console.log('[QRPaymentPage] Current orderId:', orderId);
+          console.log('[QRPaymentPage] Current orderId from orderData:', orderId, 'type:', typeof orderId);
+          console.log('[QRPaymentPage] Full orderData:', JSON.stringify(orderData, null, 2));
           
           // Check if gencode matches or orderId matches
           const gencodeMatch = data.gencode === gencode;
-          const orderIdMatch = data.orderId === orderId || 
-                               String(data.orderId) === String(orderId);
+          const orderIdMatch = data.orderId == orderId ||  // Use == for type coercion
+                               String(data.orderId) === String(orderId) ||
+                               Number(data.orderId) === Number(orderId);
           
           console.log('[QRPaymentPage] Gencode match:', gencodeMatch, 'OrderId match:', orderIdMatch);
+          console.log('[QRPaymentPage] Comparison details:', {
+            'data.gencode': data.gencode,
+            'gencode': gencode,
+            'data.orderId': data.orderId,
+            'orderId': orderId,
+            'String(data.orderId)': String(data.orderId),
+            'String(orderId)': String(orderId)
+          });
           
+          // Accept notification if gencode matches OR orderId matches
           if (gencodeMatch || orderIdMatch) {
-            console.log('[QRPaymentPage] Payment confirmed for order:', orderId, 'gencode:', gencode);
+            console.log('[QRPaymentPage] ✅ Payment confirmed! Setting success status...');
             setPaymentStatus('success');
             success('Thanh toán thành công! Đơn hàng của bạn đã được xác nhận.');
             
@@ -111,7 +123,8 @@ const QRPaymentPage = () => {
               navigate('/order-confirmation');
             }, 2000);
           } else {
-            console.log('[QRPaymentPage] Payment notification received but gencode/orderId does not match');
+            console.warn('[QRPaymentPage] ⚠️ Payment notification received but gencode/orderId does not match');
+            console.warn('[QRPaymentPage] Will not update payment status');
           }
         });
         

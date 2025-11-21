@@ -69,8 +69,11 @@ class SignalRService {
 
       // Listen for payment success notifications
       this.connection.on('PaymentSuccess', (data) => {
-        console.log('[SignalR] Payment success received:', data);
-        console.log('[SignalR] Notifying listeners, count:', this.listeners.get('PaymentSuccess')?.length || 0);
+        console.log('[SignalR] ===== PaymentSuccess event received =====');
+        console.log('[SignalR] Data:', JSON.stringify(data, null, 2));
+        console.log('[SignalR] Data type:', typeof data);
+        console.log('[SignalR] Listeners count:', this.listeners.get('PaymentSuccess')?.length || 0);
+        console.log('[SignalR] All listeners:', Array.from(this.listeners.get('PaymentSuccess') || []).map(l => l.id));
         this.notifyListeners('PaymentSuccess', data);
       });
 
