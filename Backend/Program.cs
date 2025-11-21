@@ -9,15 +9,15 @@ using System.Reflection;
 using System.IO;
 using Microsoft.OpenApi.Models;
 using ModernIssues.Helpers;
+using Microsoft.AspNetCore.Http;
+using ModernIssues.Models.Common;
 
 
 
 var builder = WebApplication.CreateBuilder(args);
 
 
-builder.Services.AddHttpContextAccessor();
 // Add services to the container.
-
 builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<SepayConfig>(builder.Configuration.GetSection("SepayConfig"));
 builder.Services.Configure<HooksConfig>(builder.Configuration.GetSection("HooksConfig"));
@@ -89,6 +89,10 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// Set HttpContextAccessor for ApiResponse to access request ID
+var httpContextAccessor = app.Services.GetRequiredService<IHttpContextAccessor>();
+ApiResponse<object>.SetHttpContextAccessor(httpContextAccessor);
+
 // Configure the HTTP request pipeline.
 //if (app.Environment.IsDevelopment())
 //{
@@ -97,6 +101,10 @@ var app = builder.Build();
 //}
 
 app.UseSession();
+
+// Add request ID middleware early in the pipeline
+app.UseMiddleware<RequestIdMiddleware>();
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -106,13 +114,15 @@ app.UseSwaggerUI(c =>
 // Xử lý validation errors
 app.Use(async (context, next) =>
 {
+    var requestId = RequestIdHelper.GetRequestId(context);
     try
     {
         await next();
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Unhandled exception: {ex.Message}");
+        Console.WriteLine($"[{requestId}] Unhandled exception: {ex.Message}");
+        Console.WriteLine($"[{requestId}] StackTrace: {ex.StackTrace}");
         throw;
     }
 });
