@@ -77,3 +77,4 @@ ALTER TABLE warranty ALTER COLUMN serial_number DROP NOT NULL;
 COMMIT;
 ```
 
+
