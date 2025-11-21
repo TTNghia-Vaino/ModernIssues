@@ -157,10 +157,10 @@ const AdminProducts = () => {
           categoryId: product.categoryId || product.category,
           categoryName: product.categoryName || product.categoryName,
           price: product.price || 0,
-          originalPrice: product.onPrices || product.onPrice || product.price || 0,
-          onPrice: product.onPrices || product.onPrice,
-          discount: (product.onPrices || product.onPrice) > 0 && product.price 
-            ? Math.round((((product.onPrices || product.onPrice) - product.price) / (product.onPrices || product.onPrice)) * 100) 
+          originalPrice: product.price || 0,
+          onPrice: product.onPrices || product.onPrice || 0,
+          discount: (product.onPrices || product.onPrice) > 0 && product.price > 0
+            ? Math.round(((product.price - (product.onPrices || product.onPrice)) / product.price) * 100) 
             : 0,
           image: fullImageUrl,
           imageUrl: fullImageUrl,
@@ -261,7 +261,7 @@ const AdminProducts = () => {
       name: product.name || product.productName || '',
       category: product.categoryId || product.category || '',
       price: product.price || '',
-      originalPrice: product.onPrices || product.onPrice || product.originalPrice || product.price || '',
+      originalPrice: product.price || product.originalPrice || '',
       image: previewImageUrl || '',
       description: product.description || '',
       stock: product.stock || 0,
@@ -466,7 +466,7 @@ const AdminProducts = () => {
             categoryId: updatedProduct.categoryId,
             categoryName: updatedProduct.categoryName,
             price: updatedProduct.price,
-            originalPrice: updatedProduct.onPrices || updatedProduct.onPrice || updatedProduct.originalPrice || updatedProduct.price,
+            originalPrice: updatedProduct.price || updatedProduct.originalPrice,
             onPrices: updatedProduct.onPrices || 0,
             image: fullImageUrl,
             imageUrl: fullImageUrl,
@@ -532,7 +532,7 @@ const AdminProducts = () => {
             name: newProduct.productName || newProduct.name,
             category: newProduct.categoryId || newProduct.category,
             price: newProduct.price,
-            originalPrice: newProduct.onPrices || newProduct.onPrice || newProduct.originalPrice || newProduct.price,
+            originalPrice: newProduct.price || newProduct.originalPrice,
             image: fullImageUrl,
             imageUrl: fullImageUrl,
             description: newProduct.description,
