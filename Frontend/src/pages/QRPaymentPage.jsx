@@ -19,20 +19,40 @@ const QRPaymentPage = () => {
       try {
         const order = JSON.parse(savedOrder);
         setOrderData(order);
+        console.log('[QRPaymentPage] Loaded order data:', order);
+        
+        // Backend Checkout API now returns qrUrl directly in the response
+        // Use qrUrl from order data if available
+        const qrUrlFromOrder = order.qrUrl || order.qrCodeUrl;
+        
+        if (qrUrlFromOrder) {
+          console.log('[QRPaymentPage] Using QR URL from checkout response:', qrUrlFromOrder);
+          setQrCodeUrl(qrUrlFromOrder);
+          setLoading(false);
+        } else {
+          console.log('[QRPaymentPage] No QR URL in order data, will fetch from API');
+          setLoading(true);
+        }
       } catch (error) {
         console.error('[QRPaymentPage] Error parsing order data:', error);
+        setError('Lỗi khi tải thông tin đơn hàng.');
         navigate('/checkout');
       }
     } else {
       // If no order data, redirect to checkout
+      console.warn('[QRPaymentPage] No pending order found');
       navigate('/checkout');
     }
   }, [navigate]);
 
   useEffect(() => {
-    // Fetch QR code from API when orderData is available
+    // Only fetch QR code from API if qrUrl is not already set from checkout response
     const fetchQrCode = async () => {
-      if (!orderData) return;
+      if (!orderData || qrCodeUrl) {
+        // Skip if already have QR URL from checkout response
+        console.log('[QRPaymentPage] Skipping API fetch - already have QR URL or no order data');
+        return;
+      }
 
       try {
         setLoading(true);
@@ -42,8 +62,8 @@ const QRPaymentPage = () => {
         const rawAmount = orderData.totalPrice || orderData.total || orderData.amount || 0;
         const amount = typeof rawAmount === 'string' ? parseFloat(rawAmount) : Number(rawAmount);
         
-        // Get gencode/orderId - ensure it's a string
-        const rawGencode = orderData.orderId || orderData.id || orderData.order_id || orderData.gencode || '';
+        // Get gencode from order data (backend returns this in checkout response)
+        const rawGencode = orderData.gencode || orderData.genCode || orderData.orderId || '';
         const gencode = String(rawGencode).trim();
 
         console.log('[QRPaymentPage] Order data:', orderData);
@@ -197,8 +217,11 @@ const QRPaymentPage = () => {
       }
     };
 
-    fetchQrCode();
-  }, [orderData]);
+    // Only fetch if we don't already have QR URL from checkout response
+    if (orderData && !qrCodeUrl) {
+      fetchQrCode();
+    }
+  }, [orderData, qrCodeUrl]);
 
   const handleBackToCheckout = () => {
     navigate('/checkout');

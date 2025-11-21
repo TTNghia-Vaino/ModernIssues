@@ -44,14 +44,43 @@ const handleResponse = (response) => {
 };
 
 /**
+ * Map frontend payment method to backend PaymentType
+ * Frontend: 'vietqr', 'cod', 'transfer', 'atm'
+ * Backend: 'Transfer', 'ATM', 'COD'
+ */
+const mapPaymentType = (paymentMethod) => {
+  const mapping = {
+    'vietqr': 'Transfer',  // Default to Transfer for QR payment
+    'transfer': 'Transfer',
+    'atm': 'ATM',
+    'cod': 'COD'
+  };
+  return mapping[paymentMethod?.toLowerCase()] || 'COD';
+};
+
+/**
  * Checkout - Tạo đơn hàng từ giỏ hàng của user hiện tại
  * Endpoint: POST /v1/Checkout
- * Response format: { success: boolean, message: string, data: object|string, errors: string[] }
- * @param {object} checkoutData - Checkout data (shipping info, payment method)
- * @returns {Promise} - Created order data
+ * Request: { paymentType: "Transfer" | "ATM" | "COD" }
+ * Response format: { success: boolean, message: string, data: OrderDto, errors: string[] }
+ * OrderDto includes: orderId, qrUrl, gencode, totalAmount, status, etc.
+ * @param {object} checkoutData - Checkout data with paymentMethod or paymentType
+ * @returns {Promise} - Created order data with QrUrl and Gencode (if Transfer/ATM)
  */
 export const checkout = async (checkoutData) => {
-  const response = await apiPost('Checkout', checkoutData);
-  return handleResponse(response);
+  // Backend only needs PaymentType, not shipping info
+  // Shipping info can be stored separately or in order notes
+  const paymentType = checkoutData.paymentType || mapPaymentType(checkoutData.paymentMethod);
+  
+  const requestData = {
+    paymentType: paymentType
+  };
+  
+  console.log('[CheckoutService] Sending checkout request:', requestData);
+  const response = await apiPost('Checkout', requestData);
+  const orderData = handleResponse(response);
+  
+  console.log('[CheckoutService] Checkout response:', orderData);
+  return orderData;
 };
 

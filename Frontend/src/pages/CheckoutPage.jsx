@@ -76,17 +76,20 @@ const CheckoutPage = () => {
       setIsSubmitting(true);
       
       // Prepare checkout data for API
-      // Note: Checkout API will use items from the current user's cart
+      // Backend API only needs paymentType, cart items are taken from user's current cart
       const checkoutData = {
-        email: formData.email,
-        fullName: formData.fullName,
-        phone: formData.phone,
-        province: formData.province,
-        district: formData.district,
-        ward: formData.ward,
-        address: formData.address,
-        note: formData.note || '',
-        paymentMethod: paymentMethod
+        paymentMethod: paymentMethod,  // Frontend payment method (vietqr, cod, etc.)
+        // Shipping info can be stored in order notes or separate table
+        shippingInfo: {
+          email: formData.email,
+          fullName: formData.fullName,
+          phone: formData.phone,
+          province: formData.province,
+          district: formData.district,
+          ward: formData.ward,
+          address: formData.address,
+          note: formData.note || ''
+        }
       };
 
       // Call Checkout API
@@ -94,28 +97,41 @@ const CheckoutPage = () => {
         const createdOrder = await checkoutService.checkout(checkoutData);
         console.log('[CheckoutPage] Order created successfully:', createdOrder);
         
-        // Normalize order data to ensure consistent structure
+        // Backend returns OrderDto with: orderId, qrUrl, gencode, totalAmount, status, orderDetails, etc.
         const orderData = {
-          ...checkoutData,
-          orderId: createdOrder.orderId || createdOrder.id || createdOrder.order_id || 
-                   `ORD-${Date.now()}`,
-          items: createdOrder.items || createdOrder.orderItems || items.map(item => ({
+          // Order info from backend
+          orderId: createdOrder.orderId || createdOrder.order_id,
+          totalPrice: createdOrder.totalAmount || createdOrder.totalAmount || totalPrice,
+          totalAmount: createdOrder.totalAmount,
+          orderDate: createdOrder.orderDate || createdOrder.orderDate,
+          status: createdOrder.status || 'pending',
+          paymentType: createdOrder.types || createdOrder.types,
+          paymentTypeDisplay: createdOrder.typesDisplay || createdOrder.typesDisplay,
+          
+          // QR Payment info (only for Transfer/ATM)
+          qrUrl: createdOrder.qrUrl || createdOrder.qrCodeUrl,
+          gencode: createdOrder.gencode || createdOrder.genCode,
+          
+          // Order details
+          items: createdOrder.orderDetails || createdOrder.orderItems || items.map(item => ({
             name: item.name,
             productName: item.name,
             quantity: item.quantity,
             price: item.price,
-            image: item.image,
-            capacity: item.capacity,
-            variant: item.capacity
+            image: item.image
           })),
-          totalPrice: createdOrder.totalPrice || createdOrder.total || createdOrder.amount || totalPrice,
-          orderDate: createdOrder.orderDate || createdOrder.createdAt || new Date().toISOString(),
-          status: createdOrder.status || 'pending',
+          
+          // Shipping info (from form)
+          ...checkoutData.shippingInfo,
+          
+          // Additional fields from backend
           ...createdOrder
         };
         
+        console.log('[CheckoutPage] Normalized order data:', orderData);
+        
         // Reload cart from API to sync with backend
-        // Backend should clear the cart after successful checkout
+        // Backend clears the cart after successful checkout
         try {
           await reloadCart();
         } catch (cartError) {
@@ -123,9 +139,13 @@ const CheckoutPage = () => {
           // Continue anyway, cart will be reloaded on next page visit
         }
         
-        // If payment method is VietQR, redirect to QR payment page
-        // Otherwise, redirect to confirmation page
-        if (paymentMethod === 'vietqr') {
+        // Determine payment type from backend response or frontend selection
+        const isQrPayment = createdOrder.qrUrl && createdOrder.gencode && 
+                           (paymentMethod === 'vietqr' || paymentMethod === 'transfer' || paymentMethod === 'atm');
+        
+        // If payment method requires QR (Transfer/ATM), redirect to QR payment page
+        // Otherwise (COD), redirect to confirmation page
+        if (isQrPayment) {
           // Save order data to localStorage for QR payment page
           localStorage.setItem('pendingOrder', JSON.stringify(orderData));
           navigate('/qr-payment');
