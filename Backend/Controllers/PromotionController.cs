@@ -1682,36 +1682,31 @@ namespace ModernIssues.Controllers
         }
 
         /// <summary>
-        /// Tính toán giá sau khuyến mãi (onprices) dựa trên loại khuyến mãi
-        /// - Nếu promotion theo %: lấy giá gốc nhân với % ra bao nhiêu thì lưu vào on_prices
-        ///   onprices = price * (discountValue/100)
-        ///   Ví dụ: price = 100, discountValue = 20 (giảm 20%) => onprices = 100 * (20/100) = 20
-        ///   Lưu ý: Nếu discountValue là phần trăm giảm (20%), thì cần tính giá sau giảm
-        ///   => onprices = price * ((100 - discountValue)/100) = 100 * (80/100) = 80
-        /// - Nếu promotion theo tiền mặt: lấy giá gốc - tiền khuyến mãi rồi lưu vào on_prices
-        ///   onprices = price - discountValue
+        /// Tính toán giá sau khuyến mãi (on_prices) dựa trên loại khuyến mãi
+        /// - Nếu promotion theo %: on_prices = giá_gốc - (giá_gốc × %)
+        ///   Ví dụ: price = 1000, discountValue = 20 (giảm 20%) => on_prices = 1000 - (1000 × 0.2) = 800
+        /// - Nếu promotion theo tiền mặt: on_prices = giá_gốc - tiền_khuyến_mãi
+        ///   Ví dụ: price = 1000, discountValue = 200 => on_prices = 1000 - 200 = 800
+        /// - Nếu không có khuyến mãi: on_prices = 0
         /// </summary>
         private decimal CalculateOnPrice(decimal originalPrice, string discountType, decimal discountValue)
         {
             if (discountType == "percentage")
             {
-                // Giảm theo phần trăm: lấy giá gốc nhân với % (phần trăm giá còn lại sau khi giảm)
-                // Yêu cầu: "lấy giá gốc nhân với % ra bao nhiêu thì lưu vào on_prices"
-                // Hiểu là: nhân với phần trăm giá còn lại để có giá bán sau giảm
-                // Ví dụ: price = 100, discountValue = 20 (giảm 20%) 
-                // => phần trăm giá còn lại = 100 - 20 = 80%
-                // => onprices = 100 * (80/100) = 80
+                // Giảm theo phần trăm: on_prices = giá_gốc - (giá_gốc × %)
+                // Ví dụ: price = 1000, discountValue = 20 (giảm 20%) 
+                // => on_prices = 1000 - (1000 × 20/100) = 1000 - 200 = 800
                 var remainingPercentage = 100m - discountValue;
                 return Math.Max(0, originalPrice * (remainingPercentage / 100m));
             }
             else if (discountType == "fixed_amount")
             {
-                // Giảm theo số tiền trực tiếp: lấy giá gốc - tiền khuyến mãi
-                // Yêu cầu: "lấy giá gốc - tiền khuyến mãi rồi lưu vào on_prices"
-                // Ví dụ: price = 100, discountValue = 20 => onprices = 100 - 20 = 80
+                // Giảm theo số tiền trực tiếp: on_prices = giá_gốc - tiền_khuyến_mãi
+                // Ví dụ: price = 1000, discountValue = 200 => on_prices = 1000 - 200 = 800
                 return Math.Max(0, originalPrice - discountValue);
             }
-            return originalPrice;
+            // Không có khuyến mãi: on_prices = 0
+            return 0;
         }
 
         /// <summary>
@@ -1848,8 +1843,8 @@ namespace ModernIssues.Controllers
 
                     if (!applicablePromotions.Any())
                     {
-                        // Không có promotion nào, reset về giá gốc
-                        product.on_prices = product.price;
+                        // Không có promotion nào, reset về 0
+                        product.on_prices = 0;
                         product.updated_at = DateTime.UtcNow;
                         continue;
                     }
@@ -1939,13 +1934,13 @@ namespace ModernIssues.Controllers
                     }
                     else
                     {
-                        product.on_prices = product.price;
+                        product.on_prices = 0;
                     }
                 }
                 else
                 {
-                    // Không có promotion nào, reset về giá gốc
-                    product.on_prices = product.price;
+                    // Không có promotion nào, reset về 0
+                    product.on_prices = 0;
                 }
                 product.updated_at = DateTime.UtcNow;
             }
