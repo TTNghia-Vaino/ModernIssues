@@ -70,6 +70,7 @@ class SignalRService {
       // Listen for payment success notifications
       this.connection.on('PaymentSuccess', (data) => {
         console.log('[SignalR] Payment success received:', data);
+        console.log('[SignalR] Notifying listeners, count:', this.listeners.get('PaymentSuccess')?.length || 0);
         this.notifyListeners('PaymentSuccess', data);
       });
 
@@ -154,14 +155,18 @@ class SignalRService {
   // Notify all listeners
   notifyListeners(event, data) {
     const listeners = this.listeners.get(event);
+    console.log(`[SignalR] NotifyListeners called for event: ${event}, listeners count: ${listeners?.length || 0}`);
     if (listeners) {
-      listeners.forEach(({ callback }) => {
+      listeners.forEach(({ id, callback }) => {
         try {
+          console.log(`[SignalR] Calling listener ${id} with data:`, data);
           callback(data);
         } catch (error) {
           console.error('[SignalR] Listener callback error:', error);
         }
       });
+    } else {
+      console.warn(`[SignalR] No listeners registered for event: ${event}`);
     }
   }
 }

@@ -26,9 +26,12 @@ namespace ModernIssues.Controllers
         [HttpPost("transaction")]
         public async Task<IActionResult> ReceiveTransaction([FromBody] BankTransactionDto dto)
         {
+            Console.WriteLine($"[HooksController] Received webhook transaction: Referencecode={dto.Referencecode}, Amount={dto.Transferamount}, Description={dto.Description}");
+            
             // 1️⃣ Kiểm tra API key trong header
             if (!Request.Headers.TryGetValue("Authorization", out var authHeader))
             {
+                Console.WriteLine("[HooksController] Authorization header missing");
                 return Unauthorized("Authorization header missing");
             }
 
@@ -65,6 +68,8 @@ namespace ModernIssues.Controllers
             };
 
             var result = await _hooksService.ProcessTransactionAsync(entity);
+            
+            Console.WriteLine($"[HooksController] Process result: Message={result.Message}, OrderUpdated={result.OrderUpdated}, OrderId={result.OrderId}");
 
             return Ok(new
             {

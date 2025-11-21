@@ -79,13 +79,20 @@ const QRPaymentPage = () => {
         
         // Listen for payment success
         listenerId = signalRService.onPaymentSuccess((data) => {
-          console.log('[QRPaymentPage] Payment success notification:', data);
+          console.log('[QRPaymentPage] Payment success notification received:', data);
+          console.log('[QRPaymentPage] Current gencode:', gencode);
+          console.log('[QRPaymentPage] Notification gencode:', data.gencode);
+          console.log('[QRPaymentPage] Notification orderId:', data.orderId);
           
           const orderId = orderData.orderId || orderData.order_id || orderData.id;
+          console.log('[QRPaymentPage] Current orderId:', orderId);
+          
           // Check if gencode matches or orderId matches
           const gencodeMatch = data.gencode === gencode;
           const orderIdMatch = data.orderId === orderId || 
                                String(data.orderId) === String(orderId);
+          
+          console.log('[QRPaymentPage] Gencode match:', gencodeMatch, 'OrderId match:', orderIdMatch);
           
           if (gencodeMatch || orderIdMatch) {
             console.log('[QRPaymentPage] Payment confirmed for order:', orderId, 'gencode:', gencode);
@@ -103,8 +110,12 @@ const QRPaymentPage = () => {
             setTimeout(() => {
               navigate('/order-confirmation');
             }, 2000);
+          } else {
+            console.log('[QRPaymentPage] Payment notification received but gencode/orderId does not match');
           }
         });
+        
+        console.log('[QRPaymentPage] Registered payment success listener with ID:', listenerId);
       } catch (error) {
         console.error('[QRPaymentPage] SignalR setup error:', error);
         // Continue without SignalR - user can still manually check

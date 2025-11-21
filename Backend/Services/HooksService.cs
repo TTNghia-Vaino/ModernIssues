@@ -71,6 +71,10 @@ namespace ModernIssues.Services
             // SePay sẽ gửi gencode trong field Description hoặc Content
             string? gencode = ExtractGencodeFromTransaction(transaction);
             
+            Console.WriteLine($"[HooksService] Extracted gencode: {gencode ?? "null"}");
+            Console.WriteLine($"[HooksService] Transaction Description: {transaction.Description}");
+            Console.WriteLine($"[HooksService] Transaction Content: {transaction.Content}");
+            
             if (string.IsNullOrWhiteSpace(gencode))
             {
                 result.Message += ". No gencode found in transaction description/content";
@@ -79,11 +83,16 @@ namespace ModernIssues.Services
 
             // 4. Tìm thông tin đơn hàng từ cache bằng gencode
             var cacheKey = $"gencode_{gencode}";
+            Console.WriteLine($"[HooksService] Looking for cache key: {cacheKey}");
+            
             if (!_cache.TryGetValue(cacheKey, out OrderCacheInfo? cacheInfo) || cacheInfo == null)
             {
+                Console.WriteLine($"[HooksService] Gencode {gencode} not found in cache");
                 result.Message += $". Gencode {gencode} not found in cache (may be expired or invalid)";
                 return result;
             }
+            
+            Console.WriteLine($"[HooksService] Found cache info for orderId: {cacheInfo.OrderId}");
 
             // 5. Tìm order từ database
             var order = await _context.orders
@@ -138,19 +147,25 @@ namespace ModernIssues.Services
             // 10. Gửi SignalR notification đến client đang chờ thanh toán
             try
             {
-                await _hubContext.Clients.Group($"payment_{gencode}").SendAsync("PaymentSuccess", new
+                var groupName = $"payment_{gencode}";
+                var notificationData = new
                 {
                     orderId = cacheInfo.OrderId,
                     gencode = gencode,
                     amount = transaction.Transferamount,
                     message = "Thanh toán thành công! Đơn hàng của bạn đã được xác nhận.",
                     timestamp = DateTime.UtcNow
-                });
+                };
+                
+                Console.WriteLine($"[SignalR] Sending payment notification to group: {groupName}, orderId: {cacheInfo.OrderId}, gencode: {gencode}");
+                await _hubContext.Clients.Group(groupName).SendAsync("PaymentSuccess", notificationData);
+                Console.WriteLine($"[SignalR] Payment notification sent successfully to group: {groupName}");
             }
             catch (Exception ex)
             {
                 // Log error nhưng không fail toàn bộ process
                 Console.WriteLine($"[SignalR] Error sending payment notification: {ex.Message}");
+                Console.WriteLine($"[SignalR] StackTrace: {ex.StackTrace}");
             }
 
             return result;
