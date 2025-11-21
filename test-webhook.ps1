@@ -5,9 +5,9 @@ $webhookUrl = "http://35.232.61.38:5000/Hooks/transaction"
 $apiKey = "Acer-Aspire7-Vaino"
 
 # Test data với gencode từ QR
-$gencode = "ORDER_252_20251121224806_9C840934"
-$orderId = 252
-$amount = 2000.00
+$gencode = "ORDER_253_20251121225507_1802C241"
+$orderId = 253
+$amount = 4000.00
 
 $body = @{
     gateway = "sepay"
