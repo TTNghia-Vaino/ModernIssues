@@ -34,7 +34,7 @@ namespace ModernIssues.Controllers
         }
 
         // ============================================
-        // 1. GET ALL PROMOTIONS: GET api/v1/Promotion
+        // 1. GET ALL PROMOTIONS: GET api/v1/Promotion/GetAllPromotions
         // ============================================
         /// <summary>
         /// Lấy danh sách khuyến mãi (có phân trang, tìm kiếm, lọc).
@@ -44,7 +44,7 @@ namespace ModernIssues.Controllers
         /// <param name="search">Tìm kiếm theo tên hoặc mô tả</param>
         /// <param name="status">Lọc theo trạng thái: "active", "inactive", "expired"</param>
         /// <response code="200">Trả về danh sách khuyến mãi.</response>
-        [HttpGet]
+        [HttpGet("GetAllPromotions")]
         [ProducesResponseType(typeof(ApiResponse<PromotionListResponse>), 200)]
         public async Task<IActionResult> GetAllPromotions(
             [FromQuery] int page = 1,
@@ -387,11 +387,19 @@ namespace ModernIssues.Controllers
                 // Lưu vào database (tự động lưu vào bảng product_promotions)
                 await _context.SaveChangesAsync();
 
-                // Tự động cập nhật onprices cho tất cả sản phẩm trong promotion
-                await UpdateProductOnPricesAsync(promotion, products);
-
-                // Reload để lấy đầy đủ thông tin
+                // Reload promotion để lấy danh sách sản phẩm đầy đủ
+                await _context.Entry(promotion).ReloadAsync();
                 await _context.Entry(promotion).Collection(p => p.products).LoadAsync();
+
+                // Lấy lại danh sách sản phẩm từ database để đảm bảo có đầy đủ thông tin
+                var allProductsInPromotion = await _context.products
+                    .Where(p => promotion.products.Any(pr => pr.product_id == p.product_id))
+                    .ToListAsync();
+
+                // Tự động cập nhật onprices cho tất cả sản phẩm trong promotion
+                // Điều này đảm bảo khi tạo promotion mới, tất cả sản phẩm được cập nhật đúng
+                // và nếu sản phẩm đã có promotion khác, sẽ được xử lý đúng bởi UpdateProductOnPricesAsync
+                await UpdateProductOnPricesAsync(promotion, allProductsInPromotion);
 
                 var promotionDto = MapToDto(promotion);
 
@@ -604,14 +612,32 @@ namespace ModernIssues.Controllers
                 // Lưu vào database (tự động lưu vào bảng product_promotions)
                 await _context.SaveChangesAsync();
 
-                // Cập nhật onprices cho sản phẩm cũ (reset về giá gốc)
-                var oldProducts = await _context.products
-                    .Where(p => oldProductIds.Contains(p.product_id) && !validProductIds.Contains(p.product_id))
-                    .ToListAsync();
-                await ResetProductOnPricesAsync(oldProducts);
+                // Reload promotion để lấy danh sách sản phẩm mới nhất
+                await _context.Entry(promotion).ReloadAsync();
+                await _context.Entry(promotion).Collection(p => p.products).LoadAsync();
 
-                // Tự động cập nhật onprices cho tất cả sản phẩm mới trong promotion
-                await UpdateProductOnPricesAsync(promotion, products);
+                // Lấy danh sách sản phẩm hiện tại trong promotion sau khi update
+                var currentProductIds = promotion.products.Select(p => p.product_id).ToList();
+
+                // Reset onprices cho sản phẩm bị loại bỏ khỏi promotion (có trong old nhưng không có trong new)
+                var removedProductIds = oldProductIds.Where(id => !currentProductIds.Contains(id)).ToList();
+                if (removedProductIds.Any())
+                {
+                    var removedProducts = await _context.products
+                        .Where(p => removedProductIds.Contains(p.product_id))
+                        .ToListAsync();
+                    await ResetProductOnPricesAsync(removedProducts);
+                }
+
+                // Cập nhật onprices cho TẤT CẢ sản phẩm hiện tại trong promotion
+                // (bao gồm cả sản phẩm mới và sản phẩm đã có từ trước)
+                // Điều này đảm bảo khi thay đổi discount_value, discount_type, start_date, end_date, is_active
+                // thì tất cả sản phẩm đều được cập nhật đúng
+                var allCurrentProducts = await _context.products
+                    .Where(p => currentProductIds.Contains(p.product_id))
+                    .ToListAsync();
+                
+                await UpdateProductOnPricesAsync(promotion, allCurrentProducts);
 
                 // Reload để lấy đầy đủ thông tin
                 await _context.Entry(promotion).Collection(p => p.products).LoadAsync();
@@ -635,6 +661,414 @@ namespace ModernIssues.Controllers
                 return StatusCode(500, ApiResponse<object>.ErrorResponse(
                     "Lỗi hệ thống khi cập nhật khuyến mãi.",
                     errorMessages));
+            }
+        }
+
+        // ============================================
+        // 5. TOGGLE PROMOTION STATUS: PUT api/v1/Promotion/{id}/toggle
+        // ============================================
+        /// <summary>
+        /// Vô hiệu hóa hoặc kích hoạt khuyến mãi. Chỉ dành cho Admin.
+        /// Khi vô hiệu hóa, tự động reset giá sản phẩm về giá gốc.
+        /// </summary>
+        /// <param name="id">ID của khuyến mãi cần thay đổi trạng thái</param>
+        /// <response code="200">Thay đổi trạng thái thành công.</response>
+        /// <response code="404">Không tìm thấy khuyến mãi.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpPut("{id}/toggle")]
+        [ProducesResponseType(typeof(ApiResponse<PromotionDto>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        public async Task<IActionResult> TogglePromotionStatus(int id)
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được thay đổi trạng thái khuyến mãi."));
+            }
+
+            try
+            {
+                var promotion = await _context.promotions
+                    .Include(p => p.products)
+                    .Where(p => p.promotion_id == id)
+                    .FirstOrDefaultAsync();
+
+                if (promotion == null)
+                {
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {id}."));
+                }
+
+                // Lưu trạng thái cũ
+                var oldStatus = promotion.is_active ?? false;
+                
+                // Toggle trạng thái
+                promotion.is_active = !oldStatus;
+                promotion.updated_by = GetAdminId();
+                promotion.updated_at = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                // Reload products để đảm bảo có danh sách đầy đủ
+                await _context.Entry(promotion).Collection(p => p.products).LoadAsync();
+                var products = promotion.products.ToList();
+
+                // Nếu đang vô hiệu hóa (từ active -> inactive), reset giá sản phẩm về giá gốc
+                var newStatus = promotion.is_active ?? false;
+                if (oldStatus && !newStatus)
+                {
+                    // Vô hiệu hóa: reset onprices cho tất cả sản phẩm
+                    // ResetProductOnPricesAsync sẽ tự động tìm promotion active khác nếu có
+                    await ResetProductOnPricesAsync(products);
+                }
+                // Nếu đang kích hoạt (từ inactive -> active), cập nhật giá khuyến mãi
+                else if (!oldStatus && newStatus)
+                {
+                    // Kích hoạt: cập nhật onprices cho tất cả sản phẩm
+                    // UpdateProductOnPricesAsync sẽ tự động xử lý trường hợp có nhiều promotions
+                    await UpdateProductOnPricesAsync(promotion, products);
+                }
+                // Nếu không thay đổi trạng thái (có thể do toggle lại), vẫn cập nhật để đảm bảo onprices đúng
+                else
+                {
+                    // Đảm bảo onprices luôn đúng với trạng thái hiện tại
+                    await UpdateProductOnPricesAsync(promotion, products);
+                }
+
+                // Reload để lấy đầy đủ thông tin
+                await _context.Entry(promotion).Collection(p => p.products).LoadAsync();
+
+                var promotionDto = MapToDto(promotion);
+
+                var statusText = (promotion.is_active ?? false) ? "kích hoạt" : "vô hiệu hóa";
+                return Ok(ApiResponse<PromotionDto>.SuccessResponse(
+                    promotionDto,
+                    $"Đã {statusText} khuyến mãi thành công."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] TogglePromotionStatus: {ex.Message}");
+                Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
+                return StatusCode(500, ApiResponse<object>.ErrorResponse(
+                    "Lỗi hệ thống khi thay đổi trạng thái khuyến mãi.",
+                    new List<string> { ex.Message }));
+            }
+        }
+
+        // ============================================
+        // 6. AUTO UPDATE PRODUCT PRICES: POST api/v1/Promotion/UpdatePrices
+        // ============================================
+        /// <summary>
+        /// Tự động cập nhật onprices cho tất cả sản phẩm có promotion đang active.
+        /// API này có thể được gọi thủ công hoặc schedule để chạy tự động định kỳ.
+        /// Chỉ dành cho Admin.
+        /// </summary>
+        /// <param name="promotionId">ID của promotion cụ thể (tùy chọn). Nếu không có, sẽ cập nhật cho tất cả promotions đang active.</param>
+        /// <response code="200">Cập nhật giá sản phẩm thành công.</response>
+        /// <response code="404">Không tìm thấy promotion (nếu có promotionId).</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpPost("UpdatePrices")]
+        [ProducesResponseType(typeof(ApiResponse<UpdatePricesResponse>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        public async Task<IActionResult> AutoUpdateProductPrices([FromQuery] int? promotionId = null)
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được cập nhật giá sản phẩm."));
+            }
+
+            try
+            {
+                var now = DateTime.UtcNow;
+                var updatedProductCount = 0;
+                var processedPromotionCount = 0;
+                var resetProductCount = 0;
+                var promotionDetails = new List<PromotionUpdateDetail>();
+
+                if (promotionId.HasValue)
+                {
+                    // Cập nhật cho một promotion cụ thể
+                    var promotion = await _context.promotions
+                        .Include(p => p.products)
+                        .Where(p => p.promotion_id == promotionId.Value)
+                        .FirstOrDefaultAsync();
+
+                    if (promotion == null)
+                    {
+                        return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {promotionId.Value}."));
+                    }
+
+                    var products = promotion.products.ToList();
+                    var productCount = products.Count;
+
+                    // Kiểm tra nếu promotion đang active và trong thời gian hiệu lực
+                    if (promotion.is_active == true && promotion.start_date <= now && promotion.end_date >= now)
+                    {
+                        await UpdateProductOnPricesAsync(promotion, products);
+                        updatedProductCount = productCount;
+                        promotionDetails.Add(new PromotionUpdateDetail
+                        {
+                            PromotionId = promotion.promotion_id,
+                            PromotionName = promotion.promotion_name,
+                            UpdatedProductCount = productCount,
+                            Status = "updated"
+                        });
+                    }
+                    else
+                    {
+                        // Promotion không active hoặc hết hạn, reset giá về giá gốc
+                        await ResetProductOnPricesAsync(products);
+                        resetProductCount = productCount;
+                        promotionDetails.Add(new PromotionUpdateDetail
+                        {
+                            PromotionId = promotion.promotion_id,
+                            PromotionName = promotion.promotion_name,
+                            UpdatedProductCount = productCount,
+                            Status = "reset"
+                        });
+                    }
+                    processedPromotionCount = 1;
+                }
+                else
+                {
+                    // Cập nhật cho tất cả promotions
+                    var allPromotions = await _context.promotions
+                        .Include(p => p.products)
+                        .ToListAsync();
+
+                    var activePromotions = allPromotions
+                        .Where(p => p.is_active == true 
+                            && p.start_date <= now 
+                            && p.end_date >= now
+                            && p.discount_value.HasValue)
+                        .OrderByDescending(p => p.created_at)
+                        .ToList();
+
+                    // Lấy tất cả sản phẩm có trong promotions
+                    var allProductIds = allPromotions
+                        .SelectMany(p => p.products.Select(pr => pr.product_id))
+                        .Distinct()
+                        .ToList();
+
+                    if (allProductIds.Any())
+                    {
+                        var allProducts = await _context.products
+                            .Where(p => allProductIds.Contains(p.product_id))
+                            .ToListAsync();
+
+                        // Dictionary để track promotion được áp dụng cho mỗi sản phẩm
+                        // Ưu tiên promotion mới nhất (đã sort ở trên)
+                        var productPromotionMap = new Dictionary<int, promotion>();
+
+                        // Với mỗi sản phẩm, tìm promotion active mới nhất
+                        foreach (var product in allProducts)
+                        {
+                            var applicablePromotion = activePromotions
+                                .FirstOrDefault(p => p.products.Any(pr => pr.product_id == product.product_id));
+
+                            if (applicablePromotion != null && !productPromotionMap.ContainsKey(product.product_id))
+                            {
+                                productPromotionMap[product.product_id] = applicablePromotion;
+                            }
+                        }
+
+                        // Nhóm sản phẩm theo promotion để cập nhật
+                        var promotionGroups = productPromotionMap
+                            .GroupBy(kvp => kvp.Value.promotion_id)
+                            .ToList();
+
+                        foreach (var group in promotionGroups)
+                        {
+                            var promotion = group.First().Value;
+                            var productIds = group.Select(g => g.Key).ToList();
+                            var products = allProducts.Where(p => productIds.Contains(p.product_id)).ToList();
+
+                            if (products.Any())
+                            {
+                                await UpdateProductOnPricesAsync(promotion, products);
+                                updatedProductCount += products.Count;
+                                promotionDetails.Add(new PromotionUpdateDetail
+                                {
+                                    PromotionId = promotion.promotion_id,
+                                    PromotionName = promotion.promotion_name,
+                                    UpdatedProductCount = products.Count,
+                                    Status = "updated"
+                                });
+                            }
+                        }
+
+                        // Reset giá cho sản phẩm không có promotion active nào
+                        var productsWithoutActivePromotion = allProducts
+                            .Where(p => !productPromotionMap.ContainsKey(p.product_id))
+                            .ToList();
+
+                        if (productsWithoutActivePromotion.Any())
+                        {
+                            await ResetProductOnPricesAsync(productsWithoutActivePromotion);
+                            resetProductCount += productsWithoutActivePromotion.Count;
+                        }
+
+                        // Thêm thông tin về promotions đã hết hạn hoặc inactive
+                        var expiredOrInactivePromotions = allPromotions
+                            .Where(p => p.is_active == false || p.end_date < now || p.start_date > now)
+                            .ToList();
+
+                        foreach (var promotion in expiredOrInactivePromotions)
+                        {
+                            var products = promotion.products.ToList();
+                            if (products.Any())
+                            {
+                                var alreadyCounted = promotionDetails.Any(d => d.PromotionId == promotion.promotion_id);
+                                if (!alreadyCounted)
+                                {
+                                    promotionDetails.Add(new PromotionUpdateDetail
+                                    {
+                                        PromotionId = promotion.promotion_id,
+                                        PromotionName = promotion.promotion_name,
+                                        UpdatedProductCount = 0,
+                                        Status = "expired_or_inactive"
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    processedPromotionCount = allPromotions.Count;
+                }
+
+                var response = new UpdatePricesResponse
+                {
+                    ProcessedPromotionCount = processedPromotionCount,
+                    UpdatedProductCount = updatedProductCount,
+                    ResetProductCount = resetProductCount,
+                    TotalAffectedProducts = updatedProductCount + resetProductCount,
+                    PromotionDetails = promotionDetails,
+                    ProcessedAt = DateTime.UtcNow
+                };
+
+                var message = promotionId.HasValue
+                    ? $"Đã cập nhật giá cho {updatedProductCount} sản phẩm và reset {resetProductCount} sản phẩm của promotion {promotionId.Value}."
+                    : $"Đã cập nhật giá cho {updatedProductCount} sản phẩm và reset {resetProductCount} sản phẩm từ {processedPromotionCount} promotions.";
+
+                return Ok(ApiResponse<UpdatePricesResponse>.SuccessResponse(
+                    response,
+                    message));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] AutoUpdateProductPrices: {ex.Message}");
+                Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
+                return StatusCode(500, ApiResponse<object>.ErrorResponse(
+                    "Lỗi hệ thống khi cập nhật giá sản phẩm.",
+                    new List<string> { ex.Message }));
+            }
+        }
+
+        // ============================================
+        // 7. DELETE PROMOTION: DELETE api/v1/Promotion/{id}
+        // ============================================
+        /// <summary>
+        /// Xóa khuyến mãi. Chỉ dành cho Admin.
+        /// Khi xóa, tự động reset giá sản phẩm về giá gốc và xóa banner nếu có.
+        /// </summary>
+        /// <param name="id">ID của khuyến mãi cần xóa</param>
+        /// <response code="200">Xóa khuyến mãi thành công.</response>
+        /// <response code="404">Không tìm thấy khuyến mãi.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        [HttpDelete("{id}")]
+        [ProducesResponseType(typeof(ApiResponse<object>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        public async Task<IActionResult> DeletePromotion(int id)
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được xóa khuyến mãi."));
+            }
+
+            try
+            {
+                var promotion = await _context.promotions
+                    .Include(p => p.products)
+                    .Where(p => p.promotion_id == id)
+                    .FirstOrDefaultAsync();
+
+                if (promotion == null)
+                {
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy khuyến mãi với ID: {id}."));
+                }
+
+                // Lưu danh sách sản phẩm để reset giá sau khi xóa
+                var products = promotion.products.ToList();
+                var productIds = products.Select(p => p.product_id).ToList();
+
+                // Xóa banner nếu có
+                if (!string.IsNullOrEmpty(promotion.banner_url))
+                {
+                    try
+                    {
+                        var uploadPath = _webHostEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                        var bannerPath = Path.Combine(uploadPath, "Uploads", "Images", promotion.banner_url);
+                        if (System.IO.File.Exists(bannerPath))
+                        {
+                            System.IO.File.Delete(bannerPath);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[WARNING] Cannot delete banner: {ex.Message}");
+                        // Tiếp tục xóa promotion dù không xóa được banner
+                    }
+                }
+
+                // Xóa promotion (sẽ tự động xóa các bản ghi trong product_promotions)
+                _context.promotions.Remove(promotion);
+                await _context.SaveChangesAsync();
+
+                // Reset giá sản phẩm về giá gốc
+                if (products.Any())
+                {
+                    await ResetProductOnPricesAsync(products);
+                }
+
+                return Ok(ApiResponse<object>.SuccessResponse(
+                    new { promotionId = id },
+                    "Xóa khuyến mãi thành công. Giá sản phẩm đã được reset về giá gốc."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] DeletePromotion: {ex.Message}");
+                Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
+                return StatusCode(500, ApiResponse<object>.ErrorResponse(
+                    "Lỗi hệ thống khi xóa khuyến mãi.",
+                    new List<string> { ex.Message }));
             }
         }
 
@@ -747,6 +1181,7 @@ namespace ModernIssues.Controllers
 
         /// <summary>
         /// Cập nhật onprices cho các sản phẩm trong promotion
+        /// Tự động xử lý trường hợp sản phẩm có nhiều promotions (ưu tiên promotion mới nhất)
         /// </summary>
         private async Task UpdateProductOnPricesAsync(promotion promotion, List<product> products)
         {
@@ -754,21 +1189,60 @@ namespace ModernIssues.Controllers
                 return;
 
             var now = DateTime.UtcNow;
+            var productIds = products.Select(p => p.product_id).ToList();
+
             // Chỉ cập nhật nếu promotion đang active và trong thời gian hiệu lực
             if (promotion.is_active == true && promotion.start_date <= now && promotion.end_date >= now)
             {
+                // Lấy tất cả promotions active cho các sản phẩm này để tối ưu query
+                // Include products để có thể check relationship
+                var allActivePromotions = await _context.promotions
+                    .Include(p => p.products)
+                    .Where(p => p.is_active == true
+                        && p.start_date <= now
+                        && p.end_date >= now
+                        && p.discount_value.HasValue)
+                    .ToListAsync();
+
                 foreach (var product in products)
                 {
-                    var newOnPrice = CalculateOnPrice(
-                        product.price,
-                        promotion.discount_type ?? "percentage",
-                        promotion.discount_value.Value
-                    );
-                    product.on_prices = newOnPrice;
-                    product.updated_at = DateTime.UtcNow;
+                    // Tìm promotion mới nhất (theo created_at) đang active cho sản phẩm này
+                    var bestPromotion = allActivePromotions
+                        .Where(p => p.products.Any(pr => pr.product_id == product.product_id))
+                        .OrderByDescending(p => p.created_at)
+                        .FirstOrDefault();
+
+                    // Nếu promotion hiện tại là promotion tốt nhất (mới nhất) hoặc không có promotion nào khác
+                    if (bestPromotion == null || bestPromotion.promotion_id == promotion.promotion_id)
+                    {
+                        // Cập nhật onprices theo promotion hiện tại
+                        var newOnPrice = CalculateOnPrice(
+                            product.price,
+                            promotion.discount_type ?? "percentage",
+                            promotion.discount_value.Value
+                        );
+                        product.on_prices = newOnPrice;
+                        product.updated_at = DateTime.UtcNow;
+                    }
+                    else if (bestPromotion != null && bestPromotion.discount_value.HasValue)
+                    {
+                        // Có promotion khác mới hơn, cập nhật theo promotion đó để đảm bảo luôn áp dụng promotion mới nhất
+                        var newOnPrice = CalculateOnPrice(
+                            product.price,
+                            bestPromotion.discount_type ?? "percentage",
+                            bestPromotion.discount_value.Value
+                        );
+                        product.on_prices = newOnPrice;
+                        product.updated_at = DateTime.UtcNow;
+                    }
                 }
 
                 await _context.SaveChangesAsync();
+            }
+            else
+            {
+                // Promotion không active hoặc hết hạn, reset onprices cho sản phẩm
+                await ResetProductOnPricesAsync(products);
             }
         }
 

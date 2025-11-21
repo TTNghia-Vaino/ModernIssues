@@ -98,5 +98,29 @@ namespace ModernIssues.Models.DTOs
         public int Limit { get; set; }
         public List<PromotionListDto> Data { get; set; } = new List<PromotionListDto>();
     }
+
+    /// <summary>
+    /// Chi tiết cập nhật giá cho từng promotion
+    /// </summary>
+    public class PromotionUpdateDetail
+    {
+        public int PromotionId { get; set; }
+        public string PromotionName { get; set; } = string.Empty;
+        public int UpdatedProductCount { get; set; }
+        public string Status { get; set; } = string.Empty; // "updated" hoặc "reset"
+    }
+
+    /// <summary>
+    /// Response cho API tự động cập nhật giá sản phẩm
+    /// </summary>
+    public class UpdatePricesResponse
+    {
+        public int ProcessedPromotionCount { get; set; }
+        public int UpdatedProductCount { get; set; }
+        public int ResetProductCount { get; set; }
+        public int TotalAffectedProducts { get; set; }
+        public List<PromotionUpdateDetail> PromotionDetails { get; set; } = new List<PromotionUpdateDetail>();
+        public DateTime ProcessedAt { get; set; }
+    }
 }
 
