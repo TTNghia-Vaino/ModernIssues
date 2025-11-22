@@ -198,22 +198,58 @@ namespace ModernIssues.Services
             if (!string.IsNullOrWhiteSpace(transaction.Description))
             {
                 // Tìm gencode pattern: ORDER_{order_id}_{timestamp}_{uniqueId}
-                var regex = new Regex(@"ORDER_\d+_\d+_[A-Z0-9]+", RegexOptions.IgnoreCase);
-                var match = regex.Match(transaction.Description);
+                // Hỗ trợ cả format có underscore (ORDER_257_20251122000434_5D77FE6C)
+                // và không có underscore (ORDER257202511220004345D77FE6C)
+                var regexWithUnderscore = new Regex(@"ORDER_\d+_\d+_[A-Z0-9]+", RegexOptions.IgnoreCase);
+                var match = regexWithUnderscore.Match(transaction.Description);
                 if (match.Success)
                 {
                     return match.Value;
+                }
+                
+                // Nếu không tìm thấy với underscore, thử format không underscore
+                var regexWithoutUnderscore = new Regex(@"ORDER\d{1,10}\d{14}[A-Z0-9]{8,}", RegexOptions.IgnoreCase);
+                match = regexWithoutUnderscore.Match(transaction.Description);
+                if (match.Success)
+                {
+                    // Convert về format có underscore để đồng nhất
+                    var value = match.Value;
+                    // ORDER257202511220004345D77FE6C -> ORDER_257_20251122000434_5D77FE6C
+                    var orderId = new Regex(@"ORDER(\d+)", RegexOptions.IgnoreCase).Match(value).Groups[1].Value;
+                    var rest = value.Substring(5 + orderId.Length); // Bỏ "ORDER" + orderId
+                    if (rest.Length >= 22) // timestamp(14) + uniqueId(8+)
+                    {
+                        var timestamp = rest.Substring(0, 14);
+                        var uniqueId = rest.Substring(14);
+                        return $"ORDER_{orderId}_{timestamp}_{uniqueId}";
+                    }
                 }
             }
 
             // Nếu không tìm thấy trong Description, kiểm tra Content
             if (!string.IsNullOrWhiteSpace(transaction.Content))
             {
-                var regex = new Regex(@"ORDER_\d+_\d+_[A-Z0-9]+", RegexOptions.IgnoreCase);
-                var match = regex.Match(transaction.Content);
+                var regexWithUnderscore = new Regex(@"ORDER_\d+_\d+_[A-Z0-9]+", RegexOptions.IgnoreCase);
+                var match = regexWithUnderscore.Match(transaction.Content);
                 if (match.Success)
                 {
                     return match.Value;
+                }
+                
+                // Thử format không underscore
+                var regexWithoutUnderscore = new Regex(@"ORDER\d{1,10}\d{14}[A-Z0-9]{8,}", RegexOptions.IgnoreCase);
+                match = regexWithoutUnderscore.Match(transaction.Content);
+                if (match.Success)
+                {
+                    var value = match.Value;
+                    var orderId = new Regex(@"ORDER(\d+)", RegexOptions.IgnoreCase).Match(value).Groups[1].Value;
+                    var rest = value.Substring(5 + orderId.Length);
+                    if (rest.Length >= 22)
+                    {
+                        var timestamp = rest.Substring(0, 14);
+                        var uniqueId = rest.Substring(14);
+                        return $"ORDER_{orderId}_{timestamp}_{uniqueId}";
+                    }
                 }
             }
 

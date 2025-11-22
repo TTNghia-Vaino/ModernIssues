@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test SignalR</title>
+</head>
+<body>
+    <h1>Test SignalR Payment Notification</h1>
+    <div>
+        <label>Gencode:</label>
+        <input type="text" id="gencode" value="ORDER_257_20251122000434_5D77FE6C" style="width: 400px;">
+    </div>
+    <div>
+        <label>OrderId:</label>
+        <input type="number" id="orderId" value="257">
+    </div>
+    <div>
+        <label>Amount:</label>
+        <input type="number" id="amount" value="2000.00" step="0.01">
+    </div>
+    <br>
+    <button onclick="testSignalR()">Send Test SignalR Notification</button>
+    <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;"></div>
+
+    <script>
+        async function testSignalR() {
+            const gencode = document.getElementById('gencode').value;
+            const orderId = document.getElementById('orderId').value;
+            const amount = document.getElementById('amount').value;
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.innerHTML = 'Sending...';
+            
+            try {
+                const response = await fetch(`http://35.232.61.38:5000/Hooks/test-signalr?gencode=${encodeURIComponent(gencode)}&orderId=${orderId}&amount=${amount}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div style="color: green;">
+                        <strong>✅ Success!</strong><br>
+                        Message: ${data.message}<br>
+                        Group Name: ${data.groupName}<br>
+                        Data: <pre>${JSON.stringify(data.data, null, 2)}</pre>
+                        <br>
+                        <strong>Now check your frontend QR Payment page to see if it received the notification!</strong>
+                    </div>`;
+                } else {
+                    resultDiv.innerHTML = `<div style="color: red;">
+                        <strong>❌ Error!</strong><br>
+                        ${JSON.stringify(data, null, 2)}
+                    </div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div style="color: red;">
+                    <strong>❌ Network Error!</strong><br>
+                    ${error.message}
+                </div>`;
+            }
+        }
+    </script>
+</body>
+</html>
