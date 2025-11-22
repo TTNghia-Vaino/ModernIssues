@@ -190,69 +190,76 @@ namespace ModernIssues.Services
 
         /// <summary>
         /// Extract gencode từ transaction description hoặc content
-        /// SePay sẽ gửi gencode trong Description hoặc Content
+        /// Lấy từ chữ "ORDER" đến hết chuỗi, bỏ qua phần text phía trước
+        /// Ví dụ: 
+        /// - "ORDER_257_20251122000434_5D77FE6C" → "ORDER_257_20251122000434_5D77FE6C"
+        /// - "ORDER257202511220004345D77FE6C" → "ORDER_257_20251122000434_5D77FE6C"
+        /// - "ZALOPAY-CHUYENTIEN-O5CH7BRNKLR4-ORDER25920251122002147B1913476" → "ORDER_259_20251122002147_B1913476"
         /// </summary>
         private string? ExtractGencodeFromTransaction(BankTransaction transaction)
         {
-            // Ưu tiên kiểm tra Description trước (SePay thường gửi trong Description)
-            if (!string.IsNullOrWhiteSpace(transaction.Description))
-            {
-                // Tìm gencode pattern: ORDER_{order_id}_{timestamp}_{uniqueId}
-                // Hỗ trợ cả format có underscore (ORDER_257_20251122000434_5D77FE6C)
-                // và không có underscore (ORDER257202511220004345D77FE6C)
-                var regexWithUnderscore = new Regex(@"ORDER_\d+_\d+_[A-Z0-9]+", RegexOptions.IgnoreCase);
-                var match = regexWithUnderscore.Match(transaction.Description);
-                if (match.Success)
-                {
-                    return match.Value;
-                }
-                
-                // Nếu không tìm thấy với underscore, thử format không underscore
-                var regexWithoutUnderscore = new Regex(@"ORDER\d{1,10}\d{14}[A-Z0-9]{8,}", RegexOptions.IgnoreCase);
-                match = regexWithoutUnderscore.Match(transaction.Description);
-                if (match.Success)
-                {
-                    // Convert về format có underscore để đồng nhất
-                    var value = match.Value;
-                    // ORDER257202511220004345D77FE6C -> ORDER_257_20251122000434_5D77FE6C
-                    var orderId = new Regex(@"ORDER(\d+)", RegexOptions.IgnoreCase).Match(value).Groups[1].Value;
-                    var rest = value.Substring(5 + orderId.Length); // Bỏ "ORDER" + orderId
-                    if (rest.Length >= 22) // timestamp(14) + uniqueId(8+)
-                    {
-                        var timestamp = rest.Substring(0, 14);
-                        var uniqueId = rest.Substring(14);
-                        return $"ORDER_{orderId}_{timestamp}_{uniqueId}";
-                    }
-                }
-            }
-
-            // Nếu không tìm thấy trong Description, kiểm tra Content
+            string? gencode = null;
+            
+            // Ưu tiên kiểm tra Content trước (ZaloPay, Momo thường gửi trong Content)
             if (!string.IsNullOrWhiteSpace(transaction.Content))
             {
-                var regexWithUnderscore = new Regex(@"ORDER_\d+_\d+_[A-Z0-9]+", RegexOptions.IgnoreCase);
-                var match = regexWithUnderscore.Match(transaction.Content);
-                if (match.Success)
-                {
-                    return match.Value;
-                }
-                
-                // Thử format không underscore
-                var regexWithoutUnderscore = new Regex(@"ORDER\d{1,10}\d{14}[A-Z0-9]{8,}", RegexOptions.IgnoreCase);
-                match = regexWithoutUnderscore.Match(transaction.Content);
-                if (match.Success)
-                {
-                    var value = match.Value;
-                    var orderId = new Regex(@"ORDER(\d+)", RegexOptions.IgnoreCase).Match(value).Groups[1].Value;
-                    var rest = value.Substring(5 + orderId.Length);
-                    if (rest.Length >= 22)
-                    {
-                        var timestamp = rest.Substring(0, 14);
-                        var uniqueId = rest.Substring(14);
-                        return $"ORDER_{orderId}_{timestamp}_{uniqueId}";
-                    }
-                }
+                gencode = ExtractGencodeFromString(transaction.Content);
+                if (gencode != null) return gencode;
+            }
+            
+            // Nếu không tìm thấy trong Content, kiểm tra Description
+            if (!string.IsNullOrWhiteSpace(transaction.Description))
+            {
+                gencode = ExtractGencodeFromString(transaction.Description);
+                if (gencode != null) return gencode;
             }
 
+            return null;
+        }
+
+        /// <summary>
+        /// Extract gencode từ một chuỗi bất kỳ
+        /// Tìm từ chữ "ORDER" (case-insensitive) và lấy toàn bộ phần còn lại
+        /// </summary>
+        private string? ExtractGencodeFromString(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return null;
+
+            // Tìm vị trí của chữ "ORDER" (case-insensitive)
+            var orderIndex = input.IndexOf("ORDER", StringComparison.OrdinalIgnoreCase);
+            if (orderIndex == -1) return null;
+
+            // Lấy từ "ORDER" đến hết chuỗi
+            var gencodeRaw = input.Substring(orderIndex);
+            
+            Console.WriteLine($"[ExtractGencode] Raw gencode from input: {gencodeRaw}");
+
+            // Kiểm tra format có underscore: ORDER_257_20251122000434_5D77FE6C
+            var regexWithUnderscore = new Regex(@"^ORDER_\d+_\d{14}_[A-Z0-9]+", RegexOptions.IgnoreCase);
+            var match = regexWithUnderscore.Match(gencodeRaw);
+            if (match.Success)
+            {
+                Console.WriteLine($"[ExtractGencode] Found gencode with underscore: {match.Value}");
+                return match.Value.ToUpper();
+            }
+
+            // Kiểm tra format không underscore: ORDER257202511220004345D77FE6C
+            // Pattern: ORDER + orderId(1-10 digits) + timestamp(14 digits) + uniqueId(8+ chars)
+            var regexWithoutUnderscore = new Regex(@"^ORDER(\d{1,10})(\d{14})([A-Z0-9]{8,})", RegexOptions.IgnoreCase);
+            match = regexWithoutUnderscore.Match(gencodeRaw);
+            if (match.Success)
+            {
+                var orderId = match.Groups[1].Value;
+                var timestamp = match.Groups[2].Value;
+                var uniqueId = match.Groups[3].Value;
+                
+                // Convert về format có underscore để đồng nhất
+                var normalizedGencode = $"ORDER_{orderId}_{timestamp}_{uniqueId}";
+                Console.WriteLine($"[ExtractGencode] Converted gencode without underscore: {match.Value} → {normalizedGencode}");
+                return normalizedGencode.ToUpper();
+            }
+
+            Console.WriteLine($"[ExtractGencode] No valid gencode pattern found in: {gencodeRaw}");
             return null;
         }
     }
