@@ -13,6 +13,7 @@ using ModernIssues.Repositories.Service;
 using Microsoft.AspNetCore.Hosting;
 using ModernIssues.Models.Entities;
 using Microsoft.EntityFrameworkCore;
+using ModernIssues.Services;
 
 // Loại bỏ các using không cần thiết ở Controller như Dapper, Npgsql, System.Data
 
@@ -25,12 +26,14 @@ namespace ModernIssues.Controllers
         private readonly IProductService _productService;
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly WebDbContext _context;
+        private readonly ILogService _logService;
 
-        public ProductController(IProductService productService, IWebHostEnvironment webHostEnvironment, WebDbContext context)
+        public ProductController(IProductService productService, IWebHostEnvironment webHostEnvironment, WebDbContext context, ILogService logService)
         {
             _productService = productService;
             _webHostEnvironment = webHostEnvironment;
             _context = context;
+            _logService = logService;
         }
 
         private int GetAdminId() => 1; // Giả lập lấy ID Admin
@@ -201,6 +204,10 @@ namespace ModernIssues.Controllers
                 // TRẢ VỀ LỖI: 404 Not Found
                 return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy sản phẩm với ID: {id}."));
             }
+
+            // Track log: User xem sản phẩm (fire-and-forget với scope mới)
+            var userId = AuthHelper.GetCurrentUserId(HttpContext);
+            _ = _logService.CreateLogInNewScopeAsync(userId, id, "view_product");
 
             // TRẢ VỀ THÀNH CÔNG: 200 OK
             return Ok(ApiResponse<ProductDto>.SuccessResponse(product));
