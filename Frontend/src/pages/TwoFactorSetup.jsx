@@ -65,12 +65,17 @@ const TwoFactorSetup = () => {
       setError('');
       const result = await verify2FASetup(verifyCode);
       
-      if (result.success) {
-        setRecoveryCodes(result.recoveryCodes);
-        setSuccess(result.message);
+      // Handle response format (could be wrapped in data or direct)
+      const response = result?.data || result;
+      
+      if (response.success || response.message) {
+        setRecoveryCodes(response.recoveryCodes || result.recoveryCodes);
+        setSuccess(response.message || result.message || '2FA has been enabled successfully!');
         setStep('complete');
-        // Refresh status
+        // Refresh status to update UI
         await fetchStatus();
+      } else {
+        setError('Failed to verify 2FA setup. Please try again.');
       }
     } catch (err) {
       setError(err.message || 'Invalid code. Please try again.');
