@@ -126,7 +126,7 @@ export const apiRequest = async (endpoint, options = {}) => {
       // Check if it's a CORS error
       if (error.message.includes('CORS') || error.message.includes('Failed to fetch')) {
         const errorMsg = import.meta.env.DEV 
-          ? 'Lỗi kết nối: Backend server có thể chưa chạy hoặc không thể truy cập. Vui lòng:\n1. Kiểm tra backend có đang chạy ở http://35.232.61.38:5000\n2. Kiểm tra Vite proxy trong vite.config.js\n3. Xem console để biết thêm chi tiết'
+          ? 'Lỗi kết nối: Backend server có thể chưa chạy hoặc không thể truy cập. Vui lòng:\n1. Kiểm tra backend có đang chạy ở http://localhost:5273\n2. Kiểm tra Vite proxy trong vite.config.js\n3. Xem console để biết thêm chi tiết'
           : 'Lỗi CORS: Backend server chưa cấu hình CORS.';
         throw new Error(errorMsg);
       }
