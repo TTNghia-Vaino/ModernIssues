@@ -47,12 +47,14 @@ const ProfilePage = () => {
   
   // User profile data
   const [profileData, setProfileData] = useState(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     phone: '',
     address: '',
     avatarUrl: null,
+    confirmPassword: '', // Mật khẩu xác nhận khi chỉnh sửa
   });
   
   // Consumption data
@@ -111,6 +113,7 @@ const ProfilePage = () => {
           phone: profile.phone || '',
           address: profile.address || '',
           avatarUrl: profile.avatarUrl || null,
+          confirmPassword: '',
         });
       } catch (err) {
         console.error('Error loading profile:', err);
@@ -208,6 +211,11 @@ const ProfilePage = () => {
   const handleSaveProfile = async () => {
     if (!user?.id) return;
     
+    if (!formData.confirmPassword) {
+      showError('Vui lòng nhập mật khẩu để xác nhận thay đổi');
+      return;
+    }
+    
     try {
       setLoading(true);
       const updateData = {
@@ -215,15 +223,17 @@ const ProfilePage = () => {
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
+        confirmPassword: formData.confirmPassword,
       };
       
       const updated = await userService.updateUserProfile(user.id, updateData, avatarFile);
       setProfileData(updated);
       if (updated.avatarUrl) {
-        setFormData(prev => ({ ...prev, avatarUrl: updated.avatarUrl }));
+        setFormData(prev => ({ ...prev, avatarUrl: updated.avatarUrl, confirmPassword: '' }));
       }
       setAvatarFile(null);
       setAvatarPreview(null);
+      setIsEditingProfile(false);
       success('Cập nhật thông tin thành công');
     } catch (err) {
       showError(err.message || 'Không thể cập nhật thông tin');
@@ -498,40 +508,44 @@ const ProfilePage = () => {
             <Card className="shadow-lg border-0">
               <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
                 <CardTitle>Thông tin cá nhân</CardTitle>
-                <CardDescription className="text-white/80">Cập nhật thông tin tài khoản của bạn</CardDescription>
+                <CardDescription className="text-white/80">
+                  {isEditingProfile ? 'Chỉnh sửa thông tin tài khoản của bạn' : 'Xem thông tin tài khoản của bạn'}
+                </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="flex flex-col items-center mb-8">
                   <Avatar className="h-32 w-32 mb-4 ring-4 ring-emerald-100">
                     <AvatarImage src={getAvatarUrl()} />
                     <AvatarFallback className="text-3xl bg-emerald-100 text-emerald-700">
-                      {formData.username?.charAt(0)?.toUpperCase() || 'U'}
+                      {formData.username?.charAt(0)?.toUpperCase() || profileData?.username?.charAt(0)?.toUpperCase() || 'U'}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="relative">
-                    <input
-                      type="file"
-                      id="avatar-upload"
-                      accept="image/*"
-                      onChange={handleAvatarChange}
-                      className="hidden"
-                    />
-                    <Button
-                      variant="outline"
-                      className="gap-2 border-emerald-500 text-emerald-700 hover:bg-emerald-50 bg-transparent"
-                      onClick={() => document.getElementById('avatar-upload').click()}
-                    >
-                      <Upload className="h-4 w-4" />
-                      Thay đổi ảnh đại diện
-                    </Button>
-                  </div>
+                  {isEditingProfile && (
+                    <div className="relative">
+                      <input
+                        type="file"
+                        id="avatar-upload"
+                        accept="image/*"
+                        onChange={handleAvatarChange}
+                        className="hidden"
+                      />
+                      <Button
+                        variant="outline"
+                        className="gap-2 border-emerald-500 text-emerald-700 hover:bg-emerald-50 bg-transparent"
+                        onClick={() => document.getElementById('avatar-upload').click()}
+                      >
+                        <Upload className="h-4 w-4" />
+                        Thay đổi ảnh đại diện
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="username">Tên đăng nhập</Label>
                     <Input
                       id="username"
-                      value={formData.username}
+                      value={isEditingProfile ? formData.username : (profileData?.username || profileData?.name || '')}
                       onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
                       disabled
                       className="bg-gray-50"
@@ -542,9 +556,10 @@ const ProfilePage = () => {
                     <Input
                       id="email-info"
                       type="email"
-                      value={formData.email}
+                      value={isEditingProfile ? formData.email : (profileData?.email || '')}
                       onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      className="border-gray-300"
+                      disabled={!isEditingProfile}
+                      className={isEditingProfile ? "border-gray-300" : "bg-gray-50"}
                     />
                   </div>
                   <div className="space-y-2">
@@ -552,42 +567,84 @@ const ProfilePage = () => {
                     <Input
                       id="phone-info"
                       type="tel"
-                      value={formData.phone}
+                      value={isEditingProfile ? formData.phone : (profileData?.phone || '')}
                       onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="border-gray-300"
+                      disabled={!isEditingProfile}
+                      className={isEditingProfile ? "border-gray-300" : "bg-gray-50"}
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="address">Địa chỉ</Label>
                     <Input
                       id="address"
-                      value={formData.address}
+                      value={isEditingProfile ? formData.address : (profileData?.address || '')}
                       onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                      className="border-gray-300"
+                      disabled={!isEditingProfile}
+                      className={isEditingProfile ? "border-gray-300" : "bg-gray-50"}
                     />
                   </div>
+                  {isEditingProfile && (
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="confirm-password-profile">Mật khẩu xác nhận *</Label>
+                      <Input
+                        id="confirm-password-profile"
+                        type="password"
+                        value={formData.confirmPassword}
+                        onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                        placeholder="Nhập mật khẩu để xác nhận thay đổi"
+                        className="border-gray-300"
+                      />
+                      <p className="text-sm text-gray-500">Vui lòng nhập mật khẩu để xác nhận thay đổi thông tin</p>
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-end gap-3 mt-6">
-                  <Button variant="outline" onClick={() => {
-                    setFormData({
-                      username: profileData?.username || profileData?.name || '',
-                      email: profileData?.email || '',
-                      phone: profileData?.phone || '',
-                      address: profileData?.address || '',
-                      avatarUrl: profileData?.avatarUrl || null,
-                    });
-                    setAvatarFile(null);
-                    setAvatarPreview(null);
-                  }}>
-                    Hủy
-                  </Button>
-                  <Button
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                    onClick={handleSaveProfile}
-                    disabled={loading}
-                  >
-                    {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
-                  </Button>
+                  {!isEditingProfile ? (
+                    <Button
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                      onClick={() => {
+                        setIsEditingProfile(true);
+                        setFormData({
+                          username: profileData?.username || profileData?.name || '',
+                          email: profileData?.email || '',
+                          phone: profileData?.phone || '',
+                          address: profileData?.address || '',
+                          avatarUrl: profileData?.avatarUrl || null,
+                          confirmPassword: '',
+                        });
+                      }}
+                    >
+                      Chỉnh sửa
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsEditingProfile(false);
+                          setFormData({
+                            username: profileData?.username || profileData?.name || '',
+                            email: profileData?.email || '',
+                            phone: profileData?.phone || '',
+                            address: profileData?.address || '',
+                            avatarUrl: profileData?.avatarUrl || null,
+                            confirmPassword: '',
+                          });
+                          setAvatarFile(null);
+                          setAvatarPreview(null);
+                        }}
+                      >
+                        Hủy
+                      </Button>
+                      <Button
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                        onClick={handleSaveProfile}
+                        disabled={loading || !formData.confirmPassword}
+                      >
+                        {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>

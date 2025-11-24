@@ -784,21 +784,30 @@ export const updateUserProfile = async (userId, userData, avatarFile = null) => 
   
   let body;
   
-  if (avatarFile) {
-    // Use FormData for file upload
+  if (avatarFile || userData.confirmPassword) {
+    // Use FormData for file upload or when confirmPassword is present (API uses [FromForm])
     const formData = new FormData();
     if (userData.username) formData.append('username', userData.username);
     if (userData.email) formData.append('email', userData.email);
     if (userData.phone) formData.append('phone', userData.phone);
     if (userData.address) formData.append('address', userData.address);
-    formData.append('avatarFile', avatarFile);
+    if (userData.confirmPassword) formData.append('confirmPassword', userData.confirmPassword);
+    if (avatarFile) formData.append('avatarFile', avatarFile);
     
     // Remove Content-Type header to let browser set it with boundary
     delete headers['Content-Type'];
     body = formData;
   } else {
-    // Use JSON for regular update
-    body = JSON.stringify(userData);
+    // Use JSON for regular update (but API expects FormData, so use FormData anyway)
+    const formData = new FormData();
+    if (userData.username) formData.append('username', userData.username);
+    if (userData.email) formData.append('email', userData.email);
+    if (userData.phone) formData.append('phone', userData.phone);
+    if (userData.address) formData.append('address', userData.address);
+    if (userData.confirmPassword) formData.append('confirmPassword', userData.confirmPassword);
+    
+    delete headers['Content-Type'];
+    body = formData;
   }
   
   const response = await fetch(url, {
