@@ -50,8 +50,45 @@ namespace ModernIssues.Services
     public class TwoFactorAuthService : ITwoFactorAuthService
     {
         // TODO: Move these to appsettings.json or environment variables
-        private const string EncryptionKey = "ModernIssues2FA_SecretKey_32Byt"; // Exactly 32 chars for AES-256
-        private const string EncryptionIV = "ModernIssues2FA!"; // Exactly 16 chars for AES
+        private const string EncryptionKeyString = "ModernIssues2FA_SecretKey_32Byt"; // Base string for key derivation
+        private const string EncryptionIVString = "ModernIssues2FA!"; // Base string for IV derivation
+        
+        // AES-256 requires exactly 32 bytes (256 bits) for key
+        private static readonly byte[] EncryptionKey = GetKeyBytes(EncryptionKeyString, 32);
+        // AES requires exactly 16 bytes (128 bits) for IV
+        private static readonly byte[] EncryptionIV = GetKeyBytes(EncryptionIVString, 16);
+        
+        /// <summary>
+        /// Convert string to byte array with exact size requirement
+        /// Uses SHA256 for key derivation to ensure consistent size
+        /// </summary>
+        private static byte[] GetKeyBytes(string input, int requiredSize)
+        {
+            if (requiredSize == 32)
+            {
+                // For 32 bytes, use SHA256 hash (always 32 bytes)
+                using var sha256 = SHA256.Create();
+                return sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
+            }
+            else if (requiredSize == 16)
+            {
+                // For 16 bytes, use first 16 bytes of SHA256 hash
+                using var sha256 = SHA256.Create();
+                var hash = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
+                var result = new byte[16];
+                Array.Copy(hash, 0, result, 0, 16);
+                return result;
+            }
+            else
+            {
+                // For other sizes, pad or truncate
+                var bytes = System.Text.Encoding.UTF8.GetBytes(input);
+                var result = new byte[requiredSize];
+                Array.Copy(bytes, 0, result, 0, Math.Min(bytes.Length, requiredSize));
+                // If input is shorter, pad with zeros (not ideal, but works)
+                return result;
+            }
+        }
 
         public string GenerateSecret()
         {
@@ -123,8 +160,8 @@ namespace ModernIssues.Services
                 return string.Empty;
 
             using var aes = Aes.Create();
-            aes.Key = System.Text.Encoding.UTF8.GetBytes(EncryptionKey);
-            aes.IV = System.Text.Encoding.UTF8.GetBytes(EncryptionIV);
+            aes.Key = EncryptionKey;
+            aes.IV = EncryptionIV;
 
             using var encryptor = aes.CreateEncryptor();
             var plainBytes = System.Text.Encoding.UTF8.GetBytes(secret);
@@ -141,8 +178,8 @@ namespace ModernIssues.Services
             try
             {
                 using var aes = Aes.Create();
-                aes.Key = System.Text.Encoding.UTF8.GetBytes(EncryptionKey);
-                aes.IV = System.Text.Encoding.UTF8.GetBytes(EncryptionIV);
+                aes.Key = EncryptionKey;
+                aes.IV = EncryptionIV;
 
                 using var decryptor = aes.CreateDecryptor();
                 var encryptedBytes = Convert.FromBase64String(encryptedSecret);
