@@ -10,7 +10,7 @@ export default defineConfig({
       '/v1': {
         target: 'http://35.232.61.38:5000',
         changeOrigin: true,
-        secure: false, // Allow self-signed certificates
+        secure: false, // Allow HTTP
         rewrite: (path) => path, // Keep the path as is
         configure: (proxy) => {
           proxy.on('error', (err) => {

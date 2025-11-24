@@ -45,8 +45,8 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromMinutes(30); 
     options.Cookie.HttpOnly = true; 
     options.Cookie.IsEssential = true;
-    options.Cookie.SameSite = SameSiteMode.None; // Allow cross-origin for Vite dev server
-    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Allow HTTP for localhost
+    options.Cookie.SameSite = SameSiteMode.None; // Allow cross-origin from localhost
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Allow HTTP for development
 });
 
 // Add SignalR for real-time notifications
@@ -57,7 +57,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSePayWebhook", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173") // Allow Vite dev server
+        policy.WithOrigins(
+                  "http://localhost:5173",
+                  "http://127.0.0.1:5173",
+                  "http://35.232.61.38:5000") // Allow server itself
               .AllowAnyMethod()   // Allow POST for webhook, GET/POST for SignalR
               .AllowAnyHeader()   // Allow Authorization header
               .AllowCredentials() // Allow cookies/session for 2FA
