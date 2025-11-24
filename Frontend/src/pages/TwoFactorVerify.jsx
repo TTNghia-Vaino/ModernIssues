@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { verify2FALogin } from '../services/twoFactorService';
 import './TwoFactorVerify.css';
 
 const TwoFactorVerify = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { setUser } = useAuth();
   const [code, setCode] = useState('');
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -35,16 +37,33 @@ const TwoFactorVerify = () => {
     try {
       const response = await verify2FALogin(email, code, useRecoveryCode);
       
-      if (response.twoFactorVerified) {
-        // Store user info in localStorage
-        localStorage.setItem('user', JSON.stringify({
-          username: response.username,
-          role: response.role
-        }));
+      // Check response format (could be wrapped in data or direct)
+      const result = response?.data || response;
+      
+      if (result.twoFactorVerified || result.message === "Login successful!") {
+        // Update AuthContext with user info
+        const userData = {
+          username: result.username || email?.split('@')[0],
+          role: result.role || 'customer',
+          email: email
+        };
+        
+        // Update AuthContext
+        if (setUser) {
+          setUser(userData);
+        }
+        
+        // Store user info in localStorage (for AuthContext)
+        localStorage.setItem('modernissues_auth_v1', JSON.stringify(userData));
+        
+        // Dispatch event to sync AuthContext
+        window.dispatchEvent(new Event('authStorageSync'));
         
         // Redirect to home or previous page
         const from = location.state?.from?.pathname || '/';
         navigate(from, { replace: true });
+      } else {
+        setError('Login verification failed. Please try again.');
       }
     } catch (err) {
       setError(err.message || 'Invalid verification code. Please try again.');
