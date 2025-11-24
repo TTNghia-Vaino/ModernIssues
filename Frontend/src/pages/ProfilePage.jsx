@@ -1130,19 +1130,6 @@ const ProfilePage = () => {
                         Thiết lập 2FA
                       </Button>
                     </div>
-                  )}>
-                        <p className="text-sm text-emerald-800">
-                          <strong>Phương thức:</strong> Email - Mã OTP sẽ được gửi đến email của bạn khi đăng nhập.
-                        </p>
-                      </div>
-                      <Button
-                        className="w-full bg-emerald-600 hover:bg-emerald-700"
-                        onClick={() => handleToggle2FA(true)}
-                        disabled={loading}
-                      >
-                        {loading ? 'Đang xử lý...' : 'Kích hoạt 2FA'}
-                      </Button>
-                    </div>
                   )}
                 </div>
               </CardContent>

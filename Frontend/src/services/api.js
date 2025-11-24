@@ -14,6 +14,7 @@ export const apiRequest = async (endpoint, options = {}) => {
   const defaultOptions = {
     method: 'GET',
     headers: getDefaultHeaders(),
+    credentials: 'include', // Send cookies/session for 2FA
     ...options,
   };
 
