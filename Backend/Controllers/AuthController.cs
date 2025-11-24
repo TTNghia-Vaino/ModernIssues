@@ -22,15 +22,18 @@ namespace ModernIssues.Controllers
         private readonly WebDbContext _context;
         private readonly IEmailService _emailService;
         private readonly ITwoFactorAuthService _twoFactorAuthService;
+        private readonly ILogService _logService;
 
         public AuthController(
             WebDbContext context, 
             IEmailService emailService,
-            ITwoFactorAuthService twoFactorAuthService)
+            ITwoFactorAuthService twoFactorAuthService,
+            ILogService logService)
         {
             _context = context;
             _emailService = emailService;
             _twoFactorAuthService = twoFactorAuthService;
+            _logService = logService;
         }
 
         // POST: api/Auth/Register
@@ -92,13 +95,23 @@ namespace ModernIssues.Controllers
         [HttpPost("Login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest? request)
         {
+            // Debug logging
+            Console.WriteLine($"[AuthController.Login] Request received at {DateTime.UtcNow}");
+            Console.WriteLine($"[AuthController.Login] Request is null: {request == null}");
+            Console.WriteLine($"[AuthController.Login] Content-Type: {Request.ContentType}");
+            Console.WriteLine($"[AuthController.Login] Content-Length: {Request.ContentLength}");
+            
             if (request == null)
             {
-                return BadRequest(new { message = "Dữ liệu đăng nhập không hợp lệ." });
+                Console.WriteLine($"[AuthController.Login] Request body is null - returning BadRequest");
+                return BadRequest(new { message = "Dữ liệu đăng nhập không hợp lệ. Vui lòng kiểm tra lại định dạng JSON." });
             }
+
+            Console.WriteLine($"[AuthController.Login] Email: {request.Email ?? "null"}, Password: {(string.IsNullOrEmpty(request.Password) ? "empty" : "***")}");
 
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
+                Console.WriteLine($"[AuthController.Login] Validation failed - Email empty: {string.IsNullOrWhiteSpace(request.Email)}, Password empty: {string.IsNullOrWhiteSpace(request.Password)}");
                 return BadRequest(new { message = "Email và mật khẩu không được để trống." });
             }
 
@@ -157,6 +170,9 @@ namespace ModernIssues.Controllers
             Console.WriteLine($"[Login] User ID set: {user.user_id}");
             Console.WriteLine($"[Login] Session available: {HttpContext.Session.IsAvailable}");
 
+            // Track log: User đăng nhập (fire-and-forget với scope mới)
+            _ = _logService.CreateLogInNewScopeAsync(user.user_id, null, "login");
+
             return Ok(new { 
                 message = "Login successful!", 
                 username = user.username, 
@@ -169,6 +185,13 @@ namespace ModernIssues.Controllers
         [HttpPost("Logout")]
         public IActionResult Logout()
         {
+            // Track log: User đăng xuất (trước khi clear session)
+            var userId = Helpers.AuthHelper.GetCurrentUserId(HttpContext);
+            if (userId.HasValue)
+            {
+                _ = _logService.CreateLogInNewScopeAsync(userId.Value, null, "logout");
+            }
+
             HttpContext.Session.Clear();
             return Ok(new { message = "You have been logged out." });
         }
@@ -466,6 +489,9 @@ namespace ModernIssues.Controllers
             HttpContext.Session.SetString("username", user.username);
             HttpContext.Session.SetString("role", user.role ?? "customer");
             HttpContext.Session.SetString("userId", user.user_id.ToString());
+
+            // Track log: User đăng nhập với 2FA (fire-and-forget với scope mới)
+            _ = _logService.CreateLogInNewScopeAsync(user.user_id, null, "login_2fa");
 
             return Ok(new 
             { 

@@ -29,7 +29,13 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Emai
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IHooksService, HooksService>();
 builder.Services.AddScoped<ITwoFactorAuthService, TwoFactorAuthService>();
+builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    })
     .ConfigureApiBehaviorOptions(options =>
     {
         options.SuppressModelStateInvalidFilter = true;

@@ -13,10 +13,12 @@ namespace ModernIssues.Controllers
     public class CartController : ControllerBase
     {
         private readonly ICartService _cartService;
+        private readonly ILogService _logService;
 
-        public CartController(ICartService cartService)
+        public CartController(ICartService cartService, ILogService logService)
         {
             _cartService = cartService;
+            _logService = logService;
         }
 
         // ============================================
@@ -127,6 +129,9 @@ namespace ModernIssues.Controllers
                 {
                     return BadRequest(ApiResponse<object>.ErrorResponse("Không thể thêm sản phẩm vào giỏ hàng."));
                 }
+
+                // Track log: User thêm sản phẩm vào giỏ hàng (fire-and-forget với scope mới)
+                _ = _logService.CreateLogInNewScopeAsync(userId, addToCartDto.ProductId, "add_to_cart");
                 
                 return Ok(ApiResponse<CartDto>.SuccessResponse(cart, "Thêm sản phẩm vào giỏ hàng thành công."));
             }
