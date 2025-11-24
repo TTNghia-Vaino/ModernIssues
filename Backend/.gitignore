@@ -16,6 +16,7 @@
 .vscode/
 .history/
 *.code-workspace
+.vs
 
 # Build output
 *.dll
