@@ -152,7 +152,17 @@ namespace ModernIssues.Controllers
             HttpContext.Session.SetString("role", user.role ?? "customer");
             HttpContext.Session.SetString("userId", user.user_id.ToString());
 
-            return Ok(new { message = "Login successful!", username = user.username, role = user.role });
+            // Debug: Log session info
+            Console.WriteLine($"[Login] Session ID: {HttpContext.Session.Id}");
+            Console.WriteLine($"[Login] User ID set: {user.user_id}");
+            Console.WriteLine($"[Login] Session available: {HttpContext.Session.IsAvailable}");
+
+            return Ok(new { 
+                message = "Login successful!", 
+                username = user.username, 
+                role = user.role,
+                sessionId = HttpContext.Session.Id // Return session ID for debugging
+            });
         }
 
         // POST: api/Auth/Logout

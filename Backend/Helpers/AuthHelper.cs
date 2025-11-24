@@ -55,6 +55,14 @@ namespace ModernIssues.Helpers
         public static int? GetCurrentUserId(HttpContext httpContext)
         {
             var userIdString = httpContext.Session.GetString("userId");
+            
+            // Debug logging
+            Console.WriteLine($"[AuthHelper] Session ID: {httpContext.Session.Id}");
+            Console.WriteLine($"[AuthHelper] Session available: {httpContext.Session.IsAvailable}");
+            Console.WriteLine($"[AuthHelper] UserId from session: {userIdString}");
+            Console.WriteLine($"[AuthHelper] Request Path: {httpContext.Request.Path}");
+            Console.WriteLine($"[AuthHelper] Has session cookie: {httpContext.Request.Cookies.ContainsKey(".AspNetCore.Session")}");
+            
             if (int.TryParse(userIdString, out int userId))
             {
                 return userId;
