@@ -21,6 +21,13 @@ export const apiRequest = async (endpoint, options = {}) => {
   // Handle request body
   if (options.body && typeof options.body === 'object') {
     defaultOptions.body = JSON.stringify(options.body);
+    // Ensure Content-Type is set for JSON body
+    if (!defaultOptions.headers) {
+      defaultOptions.headers = {};
+    }
+    if (!defaultOptions.headers['Content-Type']) {
+      defaultOptions.headers['Content-Type'] = 'application/json';
+    }
   }
   
   // Debug logging in development (after body is stringified)
