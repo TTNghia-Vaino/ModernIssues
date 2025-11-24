@@ -48,4 +48,81 @@ namespace ModernIssues.Models.DTOs
         public bool EmailConfirmed { get; set; }
         // public DateTime CreatedAt { get; set; } // Tùy chọn
     }
+
+    // DTO cho Đổi mật khẩu
+    public class ChangePasswordDto
+    {
+        public string CurrentPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+
+    // DTO cho Đổi email
+    public class ChangeEmailDto
+    {
+        public string NewEmail { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+        public string OtpCode { get; set; } = string.Empty; // OTP code để xác thực email mới
+    }
+
+    // DTO cho Gửi OTP đổi email
+    public class SendEmailOtpDto
+    {
+        public string NewEmail { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty; // Cần xác nhận mật khẩu trước khi gửi OTP
+        // OTP sẽ được gửi đến email cũ (email hiện tại) để xác thực
+    }
+
+    // Class để lưu OTP data trong cache
+    public class EmailOtpCacheData
+    {
+        public string Otp { get; set; } = string.Empty;
+        public string NewEmail { get; set; } = string.Empty;
+    }
+
+    // DTO cho Đổi số điện thoại
+    public class ChangePhoneDto
+    {
+        public string NewPhone { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+        public string? OtpCode { get; set; } // Mã OTP xác nhận (tùy chọn)
+    }
+
+    // DTO cho Quản lý 2FA
+    public class TwoFactorAuthDto
+    {
+        public bool Enabled { get; set; }
+        public string Method { get; set; } = "Email"; // Chỉ hỗ trợ "Email"
+    }
+
+    // DTO cho Chi tiêu theo tháng
+    public class ConsumptionMonthlyDto
+    {
+        public string Month { get; set; } = string.Empty; // "T1", "T2", ..., "T12" hoặc "YYYY-MM"
+        public decimal Amount { get; set; }
+        public int OrderCount { get; set; }
+    }
+
+    // DTO cho Response Chi tiêu
+    public class ConsumptionResponse
+    {
+        public decimal TotalConsumption { get; set; }
+        public decimal AverageMonthly { get; set; }
+        public int TotalProducts { get; set; }
+        public List<ConsumptionMonthlyDto> MonthlyData { get; set; } = new List<ConsumptionMonthlyDto>();
+    }
+
+    // DTO cho Sản phẩm đã mua
+    public class PurchasedProductDto
+    {
+        public int OrderId { get; set; }
+        public int ProductId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
+        public decimal PriceAtPurchase { get; set; }
+        public int Quantity { get; set; }
+        public DateTime? PurchaseDate { get; set; }
+    }
+
+    // DTO cho Bảo hành sản phẩm (sử dụng lại WarrantyDto từ WarrantyController)
 }

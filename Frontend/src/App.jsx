@@ -35,6 +35,7 @@ import ContactPage from './pages/ContactPage';
 import CustomerSupportPage from './pages/CustomerSupportPage';
 import PaymentMethodsPage from './pages/PaymentMethodsPage';
 import NewsPage from './pages/NewsPage';
+import ProfilePage from './pages/ProfilePage';
 import TestListProducts from './components/TestListProducts';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
@@ -127,6 +128,7 @@ function App() {
                 <Route path="/payment-methods" element={<div className="main-content"><PaymentMethodsPage /></div>} />
                 <Route path="/news" element={<div className="main-content"><NewsPage /></div>} />
                 <Route path="/news/:id" element={<div className="main-content"><NewsPage /></div>} />
+                <Route path="/profile" element={<div className="main-content"><ProfilePage /></div>} />
                 
                 {/* Test Route - Remove in production */}
                 <Route path="/test-api" element={<div className="main-content"><TestListProducts /></div>} />

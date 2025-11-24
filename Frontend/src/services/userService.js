@@ -568,3 +568,281 @@ export const getUserReport = async (params = {}) => {
   }
 };
 
+/**
+ * Get consumption data (12 months spending)
+ * Endpoint: GET /v1/User/Consumption
+ * Response format: { success: boolean, message: string, data: { totalConsumption, averageMonthly, totalProducts, monthlyData: [] }, errors: string[] }
+ * @returns {Promise} - Consumption data
+ */
+export const getConsumption = async () => {
+  const response = await apiGet('User/Consumption');
+  
+  // Handle Swagger response format
+  if (response && typeof response === 'object') {
+    if (response.success === false) {
+      throw new Error(response.message || 'Failed to get consumption data');
+    }
+    
+    // Return data if available
+    if (response.data) {
+      return typeof response.data === 'string' ? (() => {
+        try { return JSON.parse(response.data); } catch { return response.data; }
+      })() : response.data;
+    }
+  }
+  
+  return response;
+};
+
+/**
+ * Get purchased products list
+ * Endpoint: GET /v1/User/Purchases
+ * Response format: { success: boolean, message: string, data: [], errors: string[] }
+ * @returns {Promise} - List of purchased products
+ */
+export const getPurchases = async () => {
+  const response = await apiGet('User/Purchases');
+  
+  // Handle Swagger response format
+  if (response && typeof response === 'object') {
+    if (response.success === false) {
+      throw new Error(response.message || 'Failed to get purchases');
+    }
+    
+    // Return data if available
+    if (response.data) {
+      return Array.isArray(response.data) ? response.data : [];
+    }
+  }
+  
+  return Array.isArray(response) ? response : [];
+};
+
+/**
+ * Change password
+ * Endpoint: PUT /v1/User/Password
+ * Response format: { success: boolean, message: string, data: object, errors: string[] }
+ * @param {object} passwordData - { currentPassword, newPassword, confirmPassword }
+ * @returns {Promise}
+ */
+export const changePassword = async (passwordData) => {
+  const response = await apiPut('User/Password', passwordData);
+  
+  // Handle Swagger response format
+  if (response && typeof response === 'object') {
+    if (response.success === false) {
+      throw new Error(response.message || 'Failed to change password');
+    }
+    
+    return response;
+  }
+  
+  return response;
+};
+
+/**
+ * Send OTP to current email for email change
+ * Endpoint: POST /v1/User/Email/SendOtp
+ * Response format: { success: boolean, message: string, data: object, errors: string[] }
+ * @param {object} emailData - { newEmail, confirmPassword }
+ * @returns {Promise}
+ */
+export const sendEmailOtp = async (emailData) => {
+  const response = await apiPost('User/Email/SendOtp', emailData);
+  
+  // Handle Swagger response format
+  if (response && typeof response === 'object') {
+    if (response.success === false) {
+      throw new Error(response.message || 'Failed to send OTP');
+    }
+    
+    return response;
+  }
+  
+  return response;
+};
+
+/**
+ * Change email with OTP verification
+ * Endpoint: PUT /v1/User/Email
+ * Response format: { success: boolean, message: string, data: object, errors: string[] }
+ * @param {object} emailData - { newEmail, confirmPassword, otpCode }
+ * @returns {Promise} - Updated user data
+ */
+export const changeEmail = async (emailData) => {
+  const response = await apiPut('User/Email', emailData);
+  
+  // Handle Swagger response format
+  if (response && typeof response === 'object') {
+    if (response.success === false) {
+      throw new Error(response.message || 'Failed to change email');
+    }
+    
+    // Return data if available
+    if (response.data) {
+      return typeof response.data === 'string' ? (() => {
+        try { return JSON.parse(response.data); } catch { return response.data; }
+      })() : response.data;
+    }
+  }
+  
+  return response;
+};
+
+/**
+ * Change phone number
+ * Endpoint: PUT /v1/User/Phone
+ * Response format: { success: boolean, message: string, data: object, errors: string[] }
+ * @param {object} phoneData - { newPhone, confirmPassword, otpCode? }
+ * @returns {Promise} - Updated user data
+ */
+export const changePhone = async (phoneData) => {
+  const response = await apiPut('User/Phone', phoneData);
+  
+  // Handle Swagger response format
+  if (response && typeof response === 'object') {
+    if (response.success === false) {
+      throw new Error(response.message || 'Failed to change phone');
+    }
+    
+    // Return data if available
+    if (response.data) {
+      return typeof response.data === 'string' ? (() => {
+        try { return JSON.parse(response.data); } catch { return response.data; }
+      })() : response.data;
+    }
+  }
+  
+  return response;
+};
+
+/**
+ * Get 2FA status
+ * Endpoint: GET /v1/User/2FA
+ * Response format: { success: boolean, message: string, data: { enabled, method }, errors: string[] }
+ * @returns {Promise} - 2FA status
+ */
+export const get2FAStatus = async () => {
+  const response = await apiGet('User/2FA');
+  
+  // Handle Swagger response format
+  if (response && typeof response === 'object') {
+    if (response.success === false) {
+      throw new Error(response.message || 'Failed to get 2FA status');
+    }
+    
+    // Return data if available
+    if (response.data) {
+      return typeof response.data === 'string' ? (() => {
+        try { return JSON.parse(response.data); } catch { return response.data; }
+      })() : response.data;
+    }
+  }
+  
+  return response;
+};
+
+/**
+ * Update 2FA status
+ * Endpoint: PUT /v1/User/2FA
+ * Response format: { success: boolean, message: string, data: { enabled, method }, errors: string[] }
+ * @param {object} twoFactorData - { enabled, method }
+ * @returns {Promise} - Updated 2FA status
+ */
+export const update2FA = async (twoFactorData) => {
+  const response = await apiPut('User/2FA', twoFactorData);
+  
+  // Handle Swagger response format
+  if (response && typeof response === 'object') {
+    if (response.success === false) {
+      throw new Error(response.message || 'Failed to update 2FA');
+    }
+    
+    // Return data if available
+    if (response.data) {
+      return typeof response.data === 'string' ? (() => {
+        try { return JSON.parse(response.data); } catch { return response.data; }
+      })() : response.data;
+    }
+  }
+  
+  return response;
+};
+
+/**
+ * Update user profile with FormData (for avatar upload)
+ * Endpoint: PUT /v1/User/{userId}
+ * @param {string|number} userId - User ID
+ * @param {object} userData - Updated user data
+ * @param {File} avatarFile - Avatar image file (optional)
+ * @returns {Promise} - Updated user data
+ */
+export const updateUserProfile = async (userId, userData, avatarFile = null) => {
+  const { getApiUrl, getDefaultHeaders } = await import('../config/api');
+  const url = getApiUrl(`User/${userId}`);
+  const headers = getDefaultHeaders();
+  
+  let body;
+  
+  if (avatarFile) {
+    // Use FormData for file upload
+    const formData = new FormData();
+    if (userData.username) formData.append('username', userData.username);
+    if (userData.email) formData.append('email', userData.email);
+    if (userData.phone) formData.append('phone', userData.phone);
+    if (userData.address) formData.append('address', userData.address);
+    formData.append('avatarFile', avatarFile);
+    
+    // Remove Content-Type header to let browser set it with boundary
+    delete headers['Content-Type'];
+    body = formData;
+  } else {
+    // Use JSON for regular update
+    body = JSON.stringify(userData);
+  }
+  
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers,
+    body
+  });
+  
+  const contentType = response.headers.get('content-type');
+  const isJson = contentType && contentType.includes('application/json');
+  
+  let data;
+  if (isJson) {
+    data = await response.json();
+  } else {
+    const text = await response.text();
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { message: text };
+    }
+  }
+  
+  if (!response.ok) {
+    const error = new Error(data.message || `HTTP error! status: ${response.status}`);
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+  
+  // Handle Swagger response format
+  if (data && typeof data === 'object') {
+    if (data.success === false) {
+      throw new Error(data.message || 'Failed to update profile');
+    }
+    
+    // Return data if available
+    if (data.data) {
+      return typeof data.data === 'string' ? (() => {
+        try { return JSON.parse(data.data); } catch { return data.data; }
+      })() : data.data;
+    }
+  }
+  
+  return data;
+};
+

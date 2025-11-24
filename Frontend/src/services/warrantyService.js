@@ -206,3 +206,14 @@ export const deleteWarranty = async (id) => {
   return handleResponse(response);
 };
 
+/**
+ * Get my warranties (current user)
+ * Endpoint: GET /v1/Warranty/GetMyWarranties
+ * Response format: { success: boolean, message: string, data: [], errors: string[] }
+ * @returns {Promise} - List of warranties for current user
+ */
+export const getMyWarranties = async () => {
+  const response = await apiGet('Warranty/GetMyWarranties');
+  return handleResponse(response);
+};
+
