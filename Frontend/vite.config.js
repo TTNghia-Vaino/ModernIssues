@@ -8,7 +8,7 @@ export default defineConfig({
     open: true, // Tự động mở browser khi chạy dev server
     proxy: {
       '/v1': {
-        target: 'http://35.232.61.38:5000',
+        target: 'http://35.232.61.38:5000', // Server backend
         changeOrigin: true,
         secure: false, // Allow HTTP
         rewrite: (path) => path, // Keep the path as is
@@ -31,7 +31,7 @@ export default defineConfig({
         },
       },
       '/GenerateQr': {
-        target: 'http://35.232.61.38:5000',
+        target: 'http://35.232.61.38:5000', // Server backend
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path,
@@ -45,7 +45,7 @@ export default defineConfig({
         },
       },
       '/Payment/GenerateQr': {
-        target: 'http://35.232.61.38:5000',
+        target: 'http://35.232.61.38:5000', // Server backend
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path,
@@ -59,7 +59,7 @@ export default defineConfig({
         },
       },
       '/paymentHub': {
-        target: 'http://35.232.61.38:5000',
+        target: 'http://35.232.61.38:5000', // Server backend
         ws: true,
         changeOrigin: true,
         secure: false,
