@@ -9,7 +9,19 @@ import { apiGet, apiPost } from './api';
 export const get2FAStatus = async () => {
   try {
     const response = await apiGet('Auth/2fa/status');
-    return response?.data || response;
+    // Handle both wrapped and direct response formats
+    if (response && typeof response === 'object') {
+      if (response.data !== undefined) {
+        return typeof response.data === 'string' 
+          ? (() => { try { return JSON.parse(response.data); } catch { return response.data; } })()
+          : response.data;
+      }
+      // Check if it's already the status object
+      if (response.enabled !== undefined || response.Enabled !== undefined) {
+        return response;
+      }
+    }
+    return response;
   } catch (error) {
     console.error('[2FA] Error getting 2FA status:', error);
     throw error;
