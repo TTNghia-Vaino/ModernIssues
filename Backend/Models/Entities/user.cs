@@ -42,6 +42,17 @@ public partial class user
 
     public int? updated_by { get; set; }
 
+    // Two-Factor Authentication fields
+    public bool two_factor_enabled { get; set; } = false;
+
+    public string? two_factor_method { get; set; } // 'authenticator', 'email', 'both'
+
+    public string? two_factor_secret { get; set; } // Encrypted TOTP secret
+
+    public string? two_factor_recovery_codes { get; set; } // JSON array of backup codes
+
+    public DateTime? two_factor_enabled_at { get; set; } // When 2FA was enabled
+
     public virtual ICollection<user> Inversecreated_byNavigation { get; set; } = new List<user>();
 
     public virtual ICollection<user> Inverseupdated_byNavigation { get; set; } = new List<user>();

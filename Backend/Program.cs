@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using ModernIssues.Models.Configurations;
 using ModernIssues.Services;
 using ModernIssues.Models.Entities;
 using ModernIssues.Repositories; // Cần cho IProductRepository và ProductRepository
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Repositories.Service;
+using ModernIssues.Hubs;
 using System.Reflection;
 using System.IO;
 using Microsoft.OpenApi.Models;
@@ -26,6 +28,7 @@ builder.Services.AddDbContext<WebDbContext>(options =>
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IHooksService, HooksService>();
+builder.Services.AddScoped<ITwoFactorAuthService, TwoFactorAuthService>();
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
     {
@@ -40,8 +43,31 @@ builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromMinutes(30); 
-    options.Cookie.HttpOnly = true; 
-    options.Cookie.IsEssential = true; 
+    options.Cookie.HttpOnly = false; // Allow JavaScript access for debugging
+    options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax; // Lax mode for same-site + CORS
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Allow HTTP
+    options.Cookie.Path = "/"; // Ensure cookie is sent for all paths
+    options.Cookie.Domain = null; // Don't set domain restriction
+});
+
+// Add SignalR for real-time notifications
+builder.Services.AddSignalR();
+
+// Add CORS to allow SePay webhook and SignalR connections
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSePayWebhook", policy =>
+    {
+        policy.WithOrigins(
+                  "http://localhost:5173",
+                  "http://127.0.0.1:5173",
+                  "http://35.232.61.38:5000") // Allow server itself
+              .AllowAnyMethod()   // Allow POST for webhook, GET/POST for SignalR
+              .AllowAnyHeader()   // Allow Authorization header
+              .AllowCredentials() // Allow cookies/session for 2FA
+              .WithExposedHeaders("Content-Type", "Authorization");
+    });
 });
 
 
@@ -129,10 +155,16 @@ app.Use(async (context, next) =>
 
 app.UseHttpsRedirection();
 
+// Enable CORS for SePay webhook (must be before UseAuthorization)
+app.UseCors("AllowSePayWebhook");
+
 // Cấu hình static files để truy cập ảnh
 app.UseStaticFiles();
 
 app.UseAuthorization();
+
+// Map SignalR Hub
+app.MapHub<PaymentHub>("/paymentHub");
 
 app.MapControllers();
 

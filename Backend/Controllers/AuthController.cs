@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using ModernIssues.Services;
 using Microsoft.Extensions.Caching.Memory;
 using BCrypt.Net;
+using System.Text.Json;
+using System.Linq;
 
 
 namespace ModernIssues.Controllers
@@ -19,11 +21,16 @@ namespace ModernIssues.Controllers
     {
         private readonly WebDbContext _context;
         private readonly IEmailService _emailService;
+        private readonly ITwoFactorAuthService _twoFactorAuthService;
 
-        public AuthController(WebDbContext context, IEmailService emailService)
+        public AuthController(
+            WebDbContext context, 
+            IEmailService emailService,
+            ITwoFactorAuthService twoFactorAuthService)
         {
             _context = context;
             _emailService = emailService;
+            _twoFactorAuthService = twoFactorAuthService;
         }
 
         // POST: api/Auth/Register
@@ -127,12 +134,35 @@ namespace ModernIssues.Controllers
                 return BadRequest(new { message = "Sai email hoặc mật khẩu." });
             }
 
-            // Lưu session
+            // Check if 2FA is enabled
+            if (user.two_factor_enabled)
+            {
+                // Don't complete login yet - return requires2FA flag
+                return Ok(new 
+                { 
+                    requires2FA = true, 
+                    email = user.email,
+                    message = "Please enter your 2FA code to complete login.",
+                    method = user.two_factor_method
+                });
+            }
+
+            // No 2FA - Complete login immediately
             HttpContext.Session.SetString("username", user.username);
             HttpContext.Session.SetString("role", user.role ?? "customer");
             HttpContext.Session.SetString("userId", user.user_id.ToString());
 
-            return Ok(new { message = "Login successful!", username = user.username, role = user.role });
+            // Debug: Log session info
+            Console.WriteLine($"[Login] Session ID: {HttpContext.Session.Id}");
+            Console.WriteLine($"[Login] User ID set: {user.user_id}");
+            Console.WriteLine($"[Login] Session available: {HttpContext.Session.IsAvailable}");
+
+            return Ok(new { 
+                message = "Login successful!", 
+                username = user.username, 
+                role = user.role,
+                sessionId = HttpContext.Session.Id // Return session ID for debugging
+            });
         }
 
         // POST: api/Auth/Logout
@@ -213,6 +243,270 @@ namespace ModernIssues.Controllers
 
             return Ok(new { message = "Password has been reset successfully." });
         }
+
+        // ========== TWO-FACTOR AUTHENTICATION ENDPOINTS ==========
+
+        /// <summary>
+        /// Get 2FA status for current user
+        /// </summary>
+        [HttpGet("2fa/status")]
+        public async Task<IActionResult> Get2FAStatus()
+        {
+            var userId = Helpers.AuthHelper.GetCurrentUserId(HttpContext);
+            if (userId == null)
+                return Unauthorized(new { message = "Please login first." });
+
+            var user = await _context.users.FindAsync(userId);
+            if (user == null)
+                return NotFound(new { message = "User not found." });
+
+            return Ok(new TwoFactorStatusResponse
+            {
+                Enabled = user.two_factor_enabled,
+                Method = user.two_factor_method,
+                EnabledAt = user.two_factor_enabled_at,
+                HasRecoveryCodes = !string.IsNullOrWhiteSpace(user.two_factor_recovery_codes)
+            });
+        }
+
+        /// <summary>
+        /// Setup 2FA - Generate QR code for authenticator app
+        /// </summary>
+        [HttpPost("2fa/setup")]
+        public async Task<IActionResult> Setup2FA([FromBody] Enable2FARequest request)
+        {
+            try
+            {
+                var userId = Helpers.AuthHelper.GetCurrentUserId(HttpContext);
+                if (userId == null)
+                    return Unauthorized(new { message = "Please login first." });
+
+                var user = await _context.users.FindAsync(userId);
+                if (user == null)
+                    return NotFound(new { message = "User not found." });
+
+                if (user.two_factor_enabled)
+                    return BadRequest(new { message = "2FA is already enabled for this account." });
+
+                Console.WriteLine($"[2FA Setup] Starting 2FA setup for user: {user.email}");
+
+                // Generate secret and QR code
+                var secret = _twoFactorAuthService.GenerateSecret();
+                var qrCodeData = _twoFactorAuthService.GenerateQrCode(user.email, secret);
+
+                Console.WriteLine($"[2FA Setup] Generated secret (first 10 chars): {secret.Substring(0, Math.Min(10, secret.Length))}...");
+                Console.WriteLine($"[2FA Setup] QR Code URL length: {qrCodeData.QrCodeDataUrl?.Length ?? 0}");
+
+                // IMPORTANT: Save encrypted secret to DB immediately (not enabled yet)
+                var encryptedSecret = _twoFactorAuthService.EncryptSecret(secret);
+                user.two_factor_secret = encryptedSecret;
+                user.two_factor_method = request.Method;
+                user.two_factor_enabled = false; // Not enabled until verified
+                user.updated_at = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                Console.WriteLine($"[2FA Setup] Secret saved to DB for user {user.email}. Enabled: false");
+
+                return Ok(qrCodeData);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[2FA Setup] Error: {ex.Message}");
+                Console.WriteLine($"[2FA Setup] Stack trace: {ex.StackTrace}");
+                return StatusCode(500, new { message = "An error occurred during 2FA setup.", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Verify 2FA setup - Confirm the code from authenticator app
+        /// </summary>
+        [HttpPost("2fa/verify-setup")]
+        public async Task<IActionResult> Verify2FASetup([FromBody] Verify2FASetupRequest request)
+        {
+            try
+            {
+                var userId = Helpers.AuthHelper.GetCurrentUserId(HttpContext);
+                if (userId == null)
+                    return Unauthorized(new { message = "Please login first." });
+
+                var user = await _context.users.FindAsync(userId);
+                if (user == null)
+                    return NotFound(new { message = "User not found." });
+
+                // Check if secret exists in DB (from setup step)
+                if (string.IsNullOrWhiteSpace(user.two_factor_secret))
+                {
+                    Console.WriteLine($"[2FA Verify] No secret found in DB for user {user.email}");
+                    return BadRequest(new { message = "2FA setup not initiated. Please run setup first." });
+                }
+
+                Console.WriteLine($"[2FA Verify] User: {user.email}, Secret exists in DB: true, Code: {request.Code}");
+
+                // Decrypt secret from DB
+                var encryptedSecret = user.two_factor_secret;
+                var secret = _twoFactorAuthService.DecryptSecret(encryptedSecret);
+
+                // Verify the code
+                if (!_twoFactorAuthService.VerifyCode(secret, request.Code))
+                {
+                    Console.WriteLine($"[2FA Verify] Code verification failed for user {user.email}");
+                    return BadRequest(new { message = "Invalid verification code. Please try again." });
+                }
+
+                // Code is valid - Enable 2FA and generate recovery codes
+                var recoveryCodes = _twoFactorAuthService.GenerateRecoveryCodes();
+
+                Console.WriteLine($"[2FA Verify] Code verified! Enabling 2FA for user {user.email}");
+
+                user.two_factor_enabled = true;
+                user.two_factor_recovery_codes = JsonSerializer.Serialize(recoveryCodes);
+                user.two_factor_enabled_at = DateTime.UtcNow;
+                user.updated_at = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                Console.WriteLine($"[2FA Verify] 2FA enabled successfully for user {user.email}");
+
+                return Ok(new Enable2FAResponse
+                {
+                    Success = true,
+                    Message = "Two-factor authentication has been enabled successfully!",
+                    RecoveryCodes = recoveryCodes
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[2FA Verify] Error: {ex.Message}");
+                Console.WriteLine($"[2FA Verify] Stack trace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[2FA Verify] Inner exception: {ex.InnerException.Message}");
+                }
+                return StatusCode(500, new { message = "An error occurred while enabling 2FA.", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Disable 2FA - Requires password confirmation
+        /// </summary>
+        [HttpPost("2fa/disable")]
+        public async Task<IActionResult> Disable2FA([FromBody] Disable2FARequest request)
+        {
+            var userId = Helpers.AuthHelper.GetCurrentUserId(HttpContext);
+            if (userId == null)
+                return Unauthorized(new { message = "Please login first." });
+
+            var user = await _context.users.FindAsync(userId);
+            if (user == null)
+                return NotFound(new { message = "User not found." });
+
+            if (!user.two_factor_enabled)
+                return BadRequest(new { message = "2FA is not enabled for this account." });
+
+            // Verify password
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.password))
+                return BadRequest(new { message = "Incorrect password." });
+
+            // Disable 2FA
+            user.two_factor_enabled = false;
+            user.two_factor_method = null;
+            user.two_factor_secret = null;
+            user.two_factor_recovery_codes = null;
+            user.two_factor_enabled_at = null;
+            user.updated_at = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Two-factor authentication has been disabled." });
+        }
+
+        /// <summary>
+        /// Verify 2FA code during login
+        /// </summary>
+        [HttpPost("2fa/verify-login")]
+        public async Task<IActionResult> Verify2FALogin([FromBody] Verify2FALoginRequest request, [FromServices] IMemoryCache cache)
+        {
+            var user = await _context.users.FirstOrDefaultAsync(u => u.email == request.Email);
+            if (user == null)
+                return BadRequest(new { message = "Invalid request." });
+
+            if (!user.two_factor_enabled)
+                return BadRequest(new { message = "2FA is not enabled for this account." });
+
+            bool isValid = false;
+            string? updatedRecoveryCodes = null;
+
+            if (request.UseRecoveryCode)
+            {
+                // Verify recovery code
+                isValid = _twoFactorAuthService.VerifyRecoveryCode(
+                    user.two_factor_recovery_codes ?? "[]",
+                    request.Code,
+                    out updatedRecoveryCodes);
+
+                if (isValid)
+                {
+                    // Update recovery codes (remove used one)
+                    user.two_factor_recovery_codes = updatedRecoveryCodes;
+                    await _context.SaveChangesAsync();
+                }
+            }
+            else
+            {
+                // Verify TOTP code
+                var secret = _twoFactorAuthService.DecryptSecret(user.two_factor_secret ?? "");
+                isValid = _twoFactorAuthService.VerifyCode(secret, request.Code);
+            }
+
+            if (!isValid)
+                return BadRequest(new { message = "Invalid verification code." });
+
+            // Code is valid - Complete login
+            HttpContext.Session.SetString("username", user.username);
+            HttpContext.Session.SetString("role", user.role ?? "customer");
+            HttpContext.Session.SetString("userId", user.user_id.ToString());
+
+            return Ok(new 
+            { 
+                message = "Login successful!", 
+                username = user.username, 
+                role = user.role,
+                twoFactorVerified = true
+            });
+        }
+
+        /// <summary>
+        /// Regenerate recovery codes
+        /// </summary>
+        [HttpPost("2fa/regenerate-recovery-codes")]
+        public async Task<IActionResult> RegenerateRecoveryCodes()
+        {
+            var userId = Helpers.AuthHelper.GetCurrentUserId(HttpContext);
+            if (userId == null)
+                return Unauthorized(new { message = "Please login first." });
+
+            var user = await _context.users.FindAsync(userId);
+            if (user == null)
+                return NotFound(new { message = "User not found." });
+
+            if (!user.two_factor_enabled)
+                return BadRequest(new { message = "2FA is not enabled for this account." });
+
+            // Generate new recovery codes
+            var recoveryCodes = _twoFactorAuthService.GenerateRecoveryCodes();
+            user.two_factor_recovery_codes = JsonSerializer.Serialize(recoveryCodes);
+            user.updated_at = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { 
+                message = "Recovery codes have been regenerated.", 
+                recoveryCodes = recoveryCodes 
+            });
+        }
+
+        // ========== END TWO-FACTOR AUTHENTICATION ENDPOINTS ==========
     }
 
 
