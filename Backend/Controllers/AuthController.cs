@@ -265,36 +265,47 @@ namespace ModernIssues.Controllers
         [HttpPost("2fa/setup")]
         public async Task<IActionResult> Setup2FA([FromBody] Enable2FARequest request)
         {
-            var userId = Helpers.AuthHelper.GetCurrentUserId(HttpContext);
-            if (userId == null)
-                return Unauthorized(new { message = "Please login first." });
+            try
+            {
+                var userId = Helpers.AuthHelper.GetCurrentUserId(HttpContext);
+                if (userId == null)
+                    return Unauthorized(new { message = "Please login first." });
 
-            var user = await _context.users.FindAsync(userId);
-            if (user == null)
-                return NotFound(new { message = "User not found." });
+                var user = await _context.users.FindAsync(userId);
+                if (user == null)
+                    return NotFound(new { message = "User not found." });
 
-            if (user.two_factor_enabled)
-                return BadRequest(new { message = "2FA is already enabled for this account." });
+                if (user.two_factor_enabled)
+                    return BadRequest(new { message = "2FA is already enabled for this account." });
 
-            Console.WriteLine($"[2FA Setup] Starting 2FA setup for user: {user.email}");
+                Console.WriteLine($"[2FA Setup] Starting 2FA setup for user: {user.email}");
 
-            // Generate secret and QR code
-            var secret = _twoFactorAuthService.GenerateSecret();
-            var qrCodeData = _twoFactorAuthService.GenerateQrCode(user.email, secret);
+                // Generate secret and QR code
+                var secret = _twoFactorAuthService.GenerateSecret();
+                var qrCodeData = _twoFactorAuthService.GenerateQrCode(user.email, secret);
 
-            Console.WriteLine($"[2FA Setup] Generated secret (first 10 chars): {secret.Substring(0, Math.Min(10, secret.Length))}...");
-            Console.WriteLine($"[2FA Setup] QR Code URL length: {qrCodeData.QrCodeDataUrl?.Length ?? 0}");
+                Console.WriteLine($"[2FA Setup] Generated secret (first 10 chars): {secret.Substring(0, Math.Min(10, secret.Length))}...");
+                Console.WriteLine($"[2FA Setup] QR Code URL length: {qrCodeData.QrCodeDataUrl?.Length ?? 0}");
 
-            // Store secret temporarily in session (will be saved to DB after verification)
-            HttpContext.Session.SetString("2FA_TEMP_SECRET", secret);
-            HttpContext.Session.SetString("2FA_TEMP_METHOD", request.Method);
-            
-            // Ensure session is committed
-            await HttpContext.Session.CommitAsync();
+                // IMPORTANT: Save encrypted secret to DB immediately (not enabled yet)
+                var encryptedSecret = _twoFactorAuthService.EncryptSecret(secret);
+                user.two_factor_secret = encryptedSecret;
+                user.two_factor_method = request.Method;
+                user.two_factor_enabled = false; // Not enabled until verified
+                user.updated_at = DateTime.UtcNow;
 
-            Console.WriteLine($"[2FA Setup] Secret stored in session. Session ID: {HttpContext.Session.Id}");
+                await _context.SaveChangesAsync();
 
-            return Ok(qrCodeData);
+                Console.WriteLine($"[2FA Setup] Secret saved to DB for user {user.email}. Enabled: false");
+
+                return Ok(qrCodeData);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[2FA Setup] Error: {ex.Message}");
+                Console.WriteLine($"[2FA Setup] Stack trace: {ex.StackTrace}");
+                return StatusCode(500, new { message = "An error occurred during 2FA setup.", error = ex.Message });
+            }
         }
 
         /// <summary>
@@ -313,14 +324,18 @@ namespace ModernIssues.Controllers
                 if (user == null)
                     return NotFound(new { message = "User not found." });
 
-                // Get temp secret from session
-                var secret = HttpContext.Session.GetString("2FA_TEMP_SECRET");
-                var method = HttpContext.Session.GetString("2FA_TEMP_METHOD");
-                
-                Console.WriteLine($"[2FA Verify] User: {user.email}, Secret exists: {!string.IsNullOrWhiteSpace(secret)}, Code: {request.Code}");
-                
-                if (string.IsNullOrWhiteSpace(secret))
-                    return BadRequest(new { message = "2FA setup session expired. Please start again." });
+                // Check if secret exists in DB (from setup step)
+                if (string.IsNullOrWhiteSpace(user.two_factor_secret))
+                {
+                    Console.WriteLine($"[2FA Verify] No secret found in DB for user {user.email}");
+                    return BadRequest(new { message = "2FA setup not initiated. Please run setup first." });
+                }
+
+                Console.WriteLine($"[2FA Verify] User: {user.email}, Secret exists in DB: true, Code: {request.Code}");
+
+                // Decrypt secret from DB
+                var encryptedSecret = user.two_factor_secret;
+                var secret = _twoFactorAuthService.DecryptSecret(encryptedSecret);
 
                 // Verify the code
                 if (!_twoFactorAuthService.VerifyCode(secret, request.Code))
@@ -329,15 +344,12 @@ namespace ModernIssues.Controllers
                     return BadRequest(new { message = "Invalid verification code. Please try again." });
                 }
 
-                // Code is valid - Save to database
-                var encryptedSecret = _twoFactorAuthService.EncryptSecret(secret);
+                // Code is valid - Enable 2FA and generate recovery codes
                 var recoveryCodes = _twoFactorAuthService.GenerateRecoveryCodes();
 
-                Console.WriteLine($"[2FA Verify] Saving 2FA settings to database for user {user.email}");
+                Console.WriteLine($"[2FA Verify] Code verified! Enabling 2FA for user {user.email}");
 
                 user.two_factor_enabled = true;
-                user.two_factor_method = method ?? "authenticator";
-                user.two_factor_secret = encryptedSecret;
                 user.two_factor_recovery_codes = JsonSerializer.Serialize(recoveryCodes);
                 user.two_factor_enabled_at = DateTime.UtcNow;
                 user.updated_at = DateTime.UtcNow;
@@ -345,10 +357,6 @@ namespace ModernIssues.Controllers
                 await _context.SaveChangesAsync();
 
                 Console.WriteLine($"[2FA Verify] 2FA enabled successfully for user {user.email}");
-
-                // Clear session
-                HttpContext.Session.Remove("2FA_TEMP_SECRET");
-                HttpContext.Session.Remove("2FA_TEMP_METHOD");
 
                 return Ok(new Enable2FAResponse
                 {
