@@ -53,6 +53,21 @@ const LoginForm = () => {
       });
       
       if (result.success) {
+        // Check if 2FA is required
+        if (result.requires2FA) {
+          console.log('[LoginForm] 2FA required, redirecting to 2FA verification');
+          setIsLoggingIn(false);
+          navigate('/2fa/verify', { 
+            state: { 
+              email: result.email,
+              message: result.message,
+              method: result.method
+            },
+            replace: true 
+          });
+          return;
+        }
+        
         // Đợi một chút để đảm bảo AuthContext đã cập nhật user
         await new Promise(resolve => setTimeout(resolve, 200));
         

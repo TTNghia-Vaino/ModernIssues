@@ -25,6 +25,7 @@ namespace ModernIssues.Models.DTOs
         public IFormFile? AvatarFile { get; set; } // File ảnh đại diện mới
         public string? CurrentAvatarUrl { get; set; } // Ảnh hiện tại (để xóa khi upload mới)
         public string? AvatarUrl { get; set; } // Đường dẫn ảnh đại diện (được set trong controller)
+        public string? ConfirmPassword { get; set; } // Mật khẩu xác nhận để thay đổi thông tin
     }
 
     // DTO cho Upload Avatar riêng biệt

@@ -49,7 +49,7 @@ export const register = async (userData) => {
  * Login user
  * Response format: { success: boolean, message: string, data: object|string, errors: string[] }
  * @param {object} credentials - { email, password }
- * @returns {Promise} - User data and token
+ * @returns {Promise} - User data and token, or 2FA requirement { requires2FA: true, email, message, method }
  */
 export const login = async (credentials) => {
   const response = await apiPost('Auth/Login', credentials);
@@ -75,6 +75,18 @@ export const login = async (credentials) => {
     if (response.success === false) {
       throw new Error(response.message || 'Login failed');
     }
+  }
+  
+  // Check if 2FA is required (check both response and data)
+  const requires2FA = data?.requires2FA || response?.requires2FA;
+  if (requires2FA) {
+    // Return 2FA requirement without storing token
+    return {
+      requires2FA: true,
+      email: data?.email || response?.email,
+      message: data?.message || response?.message || 'Please enter your 2FA code to complete login.',
+      method: data?.method || response?.method
+    };
   }
   
   // Store token if provided (check both response and data)

@@ -36,6 +36,8 @@ import CustomerSupportPage from './pages/CustomerSupportPage';
 import PaymentMethodsPage from './pages/PaymentMethodsPage';
 import NewsPage from './pages/NewsPage';
 import ProfilePage from './pages/ProfilePage';
+import TwoFactorVerify from './pages/TwoFactorVerify';
+import TwoFactorSetup from './pages/TwoFactorSetup';
 import TestListProducts from './components/TestListProducts';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
@@ -129,6 +131,8 @@ function App() {
                 <Route path="/news" element={<div className="main-content"><NewsPage /></div>} />
                 <Route path="/news/:id" element={<div className="main-content"><NewsPage /></div>} />
                 <Route path="/profile" element={<div className="main-content"><ProfilePage /></div>} />
+                <Route path="/2fa/verify" element={<div className="main-content"><TwoFactorVerify /></div>} />
+                <Route path="/2fa/setup" element={<div className="main-content"><TwoFactorSetup /></div>} />
                 
                 {/* Test Route - Remove in production */}
                 <Route path="/test-api" element={<div className="main-content"><TestListProducts /></div>} />

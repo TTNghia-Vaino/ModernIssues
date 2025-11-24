@@ -189,6 +189,37 @@ namespace ModernIssues.Controllers
 
             try
             {
+                // Lấy thông tin user hiện tại từ database để verify password
+                var user = await _context.users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(ApiResponse<object>.ErrorResponse("Không tìm thấy người dùng để cập nhật."));
+                }
+
+                // Verify password nếu có ConfirmPassword
+                if (!string.IsNullOrWhiteSpace(profile.ConfirmPassword))
+                {
+                    bool isPasswordValid;
+                    try
+                    {
+                        isPasswordValid = BCrypt.Net.BCrypt.Verify(profile.ConfirmPassword, user.password);
+                    }
+                    catch
+                    {
+                        isPasswordValid = false;
+                    }
+
+                    if (!isPasswordValid)
+                    {
+                        return BadRequest(ApiResponse<object>.ErrorResponse("Mật khẩu xác nhận không đúng."));
+                    }
+                }
+                else
+                {
+                    // Nếu không có mật khẩu xác nhận, yêu cầu nhập
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Vui lòng nhập mật khẩu để xác nhận thay đổi thông tin."));
+                }
+
                 // Lấy thông tin user hiện tại để có avatar_url
                 var currentUser = await _userService.GetCustomerProfileAsync(userId);
                 if (currentUser == null)

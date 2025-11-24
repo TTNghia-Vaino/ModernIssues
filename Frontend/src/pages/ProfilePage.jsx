@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../context/NotificationContext';
 import * as userService from '../services/userService';
 import * as warrantyService from '../services/warrantyService';
@@ -1100,16 +1101,15 @@ const ProfilePage = () => {
                       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                         <h3 className="font-medium text-emerald-900 mb-2">2FA đã được kích hoạt</h3>
                         <p className="text-sm text-emerald-700">
-                          Tài khoản của bạn đang được bảo vệ bởi xác thực hai yếu tố qua Email.
+                          Tài khoản của bạn đang được bảo vệ bởi xác thực hai yếu tố.
                         </p>
                       </div>
                       <Button
-                        variant="outline"
-                        className="w-full border-red-300 text-red-700 hover:bg-red-50 bg-transparent"
-                        onClick={() => handleToggle2FA(false)}
-                        disabled={loading}
+                        variant="default"
+                        className="w-full"
+                        onClick={() => window.location.href = '/2fa/setup'}
                       >
-                        Vô hiệu hóa 2FA
+                        Quản lý 2FA
                       </Button>
                     </div>
                   ) : (
@@ -1119,10 +1119,18 @@ const ProfilePage = () => {
                         <ul className="list-disc list-inside space-y-1 text-blue-700">
                           <li>Bảo vệ tài khoản khỏi truy cập trái phép</li>
                           <li>Thêm lớp bảo mật ngoài mật khẩu</li>
-                          <li>Nhận thông báo khi có đăng nhập bất thường</li>
+                          <li>Hỗ trợ Microsoft Authenticator</li>
                         </ul>
                       </div>
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                      <Button
+                        variant="default"
+                        className="w-full"
+                        onClick={() => window.location.href = '/2fa/setup'}
+                      >
+                        Thiết lập 2FA
+                      </Button>
+                    </div>
+                  )}>
                         <p className="text-sm text-emerald-800">
                           <strong>Phương thức:</strong> Email - Mã OTP sẽ được gửi đến email của bạn khi đăng nhập.
                         </p>

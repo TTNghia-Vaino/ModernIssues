@@ -73,6 +73,17 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.login(credentials);
       
+      // Check if 2FA is required
+      if (response.requires2FA) {
+        return {
+          success: true,
+          requires2FA: true,
+          email: response.email,
+          message: response.message,
+          method: response.method
+        };
+      }
+      
       // Extract user data from response
       const userData = {
         id: response.userId || response.id,
