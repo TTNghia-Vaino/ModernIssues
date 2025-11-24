@@ -50,8 +50,8 @@ namespace ModernIssues.Services
     public class TwoFactorAuthService : ITwoFactorAuthService
     {
         // TODO: Move these to appsettings.json or environment variables
-        private const string EncryptionKey = "ModernIssues2FA_SecretKey_2025"; // 32 chars for AES-256
-        private const string EncryptionIV = "ModernIssues2FA!"; // 16 chars for AES
+        private const string EncryptionKey = "ModernIssues2FA_SecretKey_32Byt"; // Exactly 32 chars for AES-256
+        private const string EncryptionIV = "ModernIssues2FA!"; // Exactly 16 chars for AES
 
         public string GenerateSecret()
         {
