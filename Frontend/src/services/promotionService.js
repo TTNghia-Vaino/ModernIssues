@@ -776,3 +776,47 @@ export const getAvailableProducts = async (params = {}) => {
   }
 };
 
+/**
+ * Get products by promotion ID
+ * Endpoint: GET /v1/Promotion/{id}/products
+ * Response format: { success: boolean, message: string, data: ProductListResponse, errors: string[] }
+ * @param {number} promotionId - Promotion ID
+ * @param {object} params - Query parameters (page, limit)
+ * @returns {Promise} - List of products in the promotion
+ */
+export const getProductsByPromotion = async (promotionId, params = {}) => {
+  const { page = 1, limit = 20 } = params;
+  
+  try {
+    const response = await apiGet(`Promotion/${promotionId}/products`, { page, limit });
+    const data = handleResponse(response);
+    
+    // Handle response structure: { totalCount, currentPage, limit, data: [...] }
+    if (data && typeof data === 'object') {
+      if (data.data && Array.isArray(data.data)) {
+        return {
+          totalCount: data.totalCount || 0,
+          currentPage: data.currentPage || page,
+          limit: data.limit || limit,
+          data: data.data
+        };
+      }
+      
+      // If data is directly the response object
+      if (data.totalCount !== undefined) {
+        return data;
+      }
+    }
+    
+    return {
+      totalCount: 0,
+      currentPage: page,
+      limit: limit,
+      data: []
+    };
+  } catch (error) {
+    console.error('[PromotionService.getProductsByPromotion] Error:', error);
+    throw error;
+  }
+};
+

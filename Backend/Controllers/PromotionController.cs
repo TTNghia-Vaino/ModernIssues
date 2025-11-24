@@ -141,7 +141,110 @@ namespace ModernIssues.Controllers
         }
 
         // ============================================
-        // 2. GET PROMOTION BY ID: GET api/v1/Promotion/{id}
+        // 2. GET PRODUCTS BY PROMOTION: GET api/v1/Promotion/{id}/products
+        // ============================================
+        /// <summary>
+        /// Lấy danh sách sản phẩm của một promotion cụ thể.
+        /// </summary>
+        /// <param name="id">ID của promotion</param>
+        /// <param name="page">Số trang (mặc định: 1)</param>
+        /// <param name="limit">Số lượng mỗi trang (mặc định: 20)</param>
+        /// <response code="200">Trả về danh sách sản phẩm của promotion.</response>
+        /// <response code="404">Không tìm thấy promotion.</response>
+        [HttpGet("{id}/products")]
+        [ProducesResponseType(typeof(ApiResponse<ProductListResponse>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        public async Task<IActionResult> GetProductsByPromotion(
+            int id,
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 20)
+        {
+            try
+            {
+                limit = Math.Clamp(limit, 1, 100);
+                page = Math.Max(1, page);
+                int offset = (page - 1) * limit;
+
+                var promotion = await _context.promotions
+                    .Include(p => p.products)
+                    .FirstOrDefaultAsync(p => p.promotion_id == id);
+
+                if (promotion == null)
+                {
+                    return NotFound(ApiResponse<object>.ErrorResponse(
+                        $"Không tìm thấy khuyến mãi với ID: {id}.",
+                        null,
+                        HttpContext));
+                }
+
+                var productIds = promotion.products.Select(p => p.product_id).ToList();
+                
+                if (!productIds.Any())
+                {
+                    return Ok(ApiResponse<ProductListResponse>.SuccessResponse(
+                        new ProductListResponse
+                        {
+                            TotalCount = 0,
+                            CurrentPage = page,
+                            Limit = limit,
+                            Data = new List<ProductDto>()
+                        },
+                        $"Promotion {id} không có sản phẩm nào.",
+                        HttpContext));
+                }
+
+                var products = await _context.products
+                    .Include(p => p.category)
+                    .Where(p => productIds.Contains(p.product_id) && (p.is_disabled == null || p.is_disabled == false))
+                    .OrderByDescending(p => p.created_at)
+                    .Skip(offset)
+                    .Take(limit)
+                    .Select(p => new ProductDto
+                    {
+                        ProductId = p.product_id,
+                        CategoryId = p.category_id ?? 0,
+                        ProductName = p.product_name,
+                        Description = p.description ?? string.Empty,
+                        Price = p.price,
+                        Stock = p.stock ?? 0,
+                        WarrantyPeriod = p.warranty_period ?? 0,
+                        ImageUrl = p.image_url ?? string.Empty,
+                        OnPrices = p.on_prices ?? 0,
+                        CategoryName = p.category != null ? p.category.category_name ?? "Chưa phân loại" : "Chưa phân loại",
+                        IsDisabled = p.is_disabled ?? false
+                    })
+                    .ToListAsync();
+
+                var totalCount = await _context.products
+                    .Where(p => productIds.Contains(p.product_id) && (p.is_disabled == null || p.is_disabled == false))
+                    .CountAsync();
+
+                var response = new ProductListResponse
+                {
+                    TotalCount = totalCount,
+                    CurrentPage = page,
+                    Limit = limit,
+                    Data = products
+                };
+
+                return Ok(ApiResponse<ProductListResponse>.SuccessResponse(
+                    response,
+                    $"Lấy danh sách {products.Count} sản phẩm của promotion {id} thành công.",
+                    HttpContext));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] GetProductsByPromotion: {ex.Message}");
+                Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
+                return StatusCode(500, ApiResponse<object>.ErrorResponse(
+                    "Lỗi hệ thống khi lấy danh sách sản phẩm của promotion.",
+                    new List<string> { ex.Message },
+                    HttpContext));
+            }
+        }
+
+        // ============================================
+        // 3. GET PROMOTION BY ID: GET api/v1/Promotion/{id}
         // ============================================
         /// <summary>
         /// Lấy chi tiết khuyến mãi theo ID.

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as productService from '../services/productService';
+import * as promotionService from '../services/promotionService';
 import { transformProducts } from '../utils/productUtils';
 import './ProductsList.css';
 
@@ -15,6 +16,7 @@ const ProductsList = () => {
   const initialQ = params.get('q') || '';
   const urlCategory = params.get('category') || ''; // Đọc category từ URL
   const urlSubcategory = params.get('subcategory') || ''; // Đọc subcategory từ URL
+  const urlPromotion = params.get('promotion') || ''; // Đọc promotion từ URL
 
   // Map subcategory ID to category name
   const subcategoryMap = {
@@ -39,12 +41,13 @@ const ProductsList = () => {
   const [maxPrice, setMaxPrice] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Cập nhật category và query khi URL thay đổi
+  // Cập nhật category, query và promotion khi URL thay đổi
   useEffect(() => {
     const currentParams = new URLSearchParams(search);
     const newCategory = currentParams.get('category') || '';
     const newSubcategory = currentParams.get('subcategory') || '';
     const newQ = currentParams.get('q') || '';
+    const newPromotion = currentParams.get('promotion') || '';
     
     // Map subcategory to category name if exists
     const effectiveNewCategory = newSubcategory && subcategoryMap[newSubcategory]
@@ -65,8 +68,8 @@ const ProductsList = () => {
       shouldReload = true;
     }
     
-    // Reload products khi category hoặc query từ URL thay đổi
-    if (shouldReload) {
+    // Reload products khi category, query hoặc promotion từ URL thay đổi
+    if (shouldReload || newPromotion !== urlPromotion) {
       loadProducts(effectiveNewCategory || null, newQ);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,7 +116,40 @@ const ProductsList = () => {
       // Check if we have subcategory - if so, we'll filter client-side by category name
       const currentParams = new URLSearchParams(search);
       const currentSubcategory = currentParams.get('subcategory') || '';
+      const currentPromotion = currentParams.get('promotion') || '';
       const hasSubcategory = !!currentSubcategory;
+      const hasPromotion = !!currentPromotion;
+      
+      // If we have promotion filter, load products from promotion endpoint
+      if (hasPromotion) {
+        try {
+          const promotionId = parseInt(currentPromotion, 10);
+          if (!isNaN(promotionId)) {
+            console.log('[ProductsList] Loading products from promotion:', promotionId);
+            const productsData = await promotionService.getProductsByPromotion(promotionId, {
+              page: 1,
+              limit: 200
+            });
+            
+            let productsArray = [];
+            if (productsData && typeof productsData === 'object') {
+              if (Array.isArray(productsData.data)) {
+                productsArray = productsData.data;
+              } else if (Array.isArray(productsData)) {
+                productsArray = productsData;
+              }
+            }
+            
+            const transformed = transformProducts(productsArray);
+            setProducts(transformed);
+            setLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error('[ProductsList] Error loading products from promotion:', error);
+          // Fall through to regular product loading
+        }
+      }
       
       // Try API first
       try {
