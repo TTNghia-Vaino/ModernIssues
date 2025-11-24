@@ -43,10 +43,12 @@ builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromMinutes(30); 
-    options.Cookie.HttpOnly = true; 
+    options.Cookie.HttpOnly = false; // Allow JavaScript access for debugging
     options.Cookie.IsEssential = true;
-    options.Cookie.SameSite = SameSiteMode.None; // Allow cross-origin from localhost
-    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Allow HTTP for development
+    options.Cookie.SameSite = SameSiteMode.Lax; // Lax mode for same-site + CORS
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Allow HTTP
+    options.Cookie.Path = "/"; // Ensure cookie is sent for all paths
+    options.Cookie.Domain = null; // Don't set domain restriction
 });
 
 // Add SignalR for real-time notifications

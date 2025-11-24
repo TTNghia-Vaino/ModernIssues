@@ -12,12 +12,21 @@ export default defineConfig({
         changeOrigin: true,
         secure: false, // Allow HTTP
         rewrite: (path) => path, // Keep the path as is
+        cookieDomainRewrite: 'localhost', // Rewrite cookie domain to localhost
+        cookiePathRewrite: '/', // Rewrite cookie path
         configure: (proxy) => {
           proxy.on('error', (err) => {
             console.log('[Proxy Error]', err.message);
           });
           proxy.on('proxyReq', (proxyReq, req) => {
             console.log('[Proxy Request]', req.method, req.url, '→', proxyReq.path);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            // Log cookies from backend
+            const cookies = proxyRes.headers['set-cookie'];
+            if (cookies) {
+              console.log('[Proxy Response] Set-Cookie:', cookies);
+            }
           });
         },
       },
