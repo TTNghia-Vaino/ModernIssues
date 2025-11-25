@@ -15,14 +15,14 @@ export const getBaseURL = () => {
   // Để dùng proxy, return ''; Để dùng direct, return server URL
   if (import.meta.env.DEV) {
     // Development: dùng Vite proxy để tránh lỗi CORS
-    // Proxy đã được cấu hình trong vite.config.js: /v1 → http://localhost:5273
+    // Proxy đã được cấu hình trong vite.config.js: /v1 → http://35.232.61.38:5000
     return '';
     // Nếu muốn dùng direct URL (cần backend có CORS enabled):
-    // return 'http://localhost:5273';
+    // return 'http://35.232.61.38:5000';
   }
   
   // Default for production
-  return 'http://localhost:5273';
+  return 'http://35.232.61.38:5000';
 };
 
 // API Base URL
@@ -47,7 +47,7 @@ if (import.meta.env.DEV) {
     API_BASE_URL: API_BASE_URL || '(using Vite proxy)',
     API_VERSION: API_VERSION || '(no version)',
     API_URL: API_URL,
-    Backend: API_BASE_URL ? `Direct: ${API_BASE_URL}` : 'Proxy: http://localhost:5273'
+    Backend: API_BASE_URL ? `Direct: ${API_BASE_URL}` : 'Proxy: http://35.232.61.38:5000'
   });
 }
 
