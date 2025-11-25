@@ -11,8 +11,8 @@ conn = psycopg2.connect(
 )
 cursor = conn.cursor()
 
-cursor.execute("SELECT productid, description, embedding, " \
-        "price, stock, product_name, warranty_period FROM product WHERE embedding IS NOT NULL and is_disabled = false")
+cursor.execute("SELECT product_id, description, embedding, " \
+        "price, stock, product_name, warranty_period FROM products WHERE embedding IS NOT NULL and is_disabled = false")
 
 data = cursor.fetchall()
 
