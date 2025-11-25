@@ -82,8 +82,8 @@ jobs:
           script: |
             cd /var/www/modernissues/Python
 
-            # Luôn đảm bảo start.sh có quyền chạy
-            chmod +x start.sh
+            # Luôn đảm bảo start.sh có quyền chạy (start.sh nằm trong app)
+            chmod +x ./app/start.sh
 
             # Tạo venv nếu chưa có
             python3 -m venv venv || true
@@ -102,7 +102,7 @@ jobs:
             export GENAI_API_CHAT="${{ secrets.GENAI_API_CHAT }}"
 
             # Start FastAPI bằng PM2
-            pm2 start start.sh --name rag_api
+            pm2 start ./app/start.sh --name rag_api
 
             # Save để boot lại tự chạy
             pm2 save
