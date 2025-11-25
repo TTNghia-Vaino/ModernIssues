@@ -34,7 +34,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           source: Backend/publish/*
-          target: /var/www/modernissues/backend/
+          target: /var/www/modernissues/
           overwrite: true
 
       # 5️⃣ Restart .NET bằng PM2
@@ -45,13 +45,22 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /var/www/modernissues/backend
+            cd /var/www/modernissues/Backend/publish
+      
+            # Xoá process cũ để đảm bảo biến môi trường mới được nhận
             pm2 delete modernissues_be || true
+      
+            # Export biến môi trường cho dotnet
             export ASPNETCORE_URLS="http://0.0.0.0:5000"
+      
+            # Start lại service với PM2
             pm2 start ModernIssues.dll --name modernissues_be --interpreter dotnet
+      
+            # Lưu cấu hình PM2 để tự start khi reboot
             pm2 save
+      
+            # Kiểm tra trạng thái service
             pm2 status modernissues_be
-
       # 6️⃣ Copy Python App to server
       - name: Copy Python App to server
         uses: appleboy/scp-action@v0.1.7
@@ -60,7 +69,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           source: Python/*
-          target: /var/www/modernissues/python/
+          target: /var/www/modernissues/
           overwrite: true
 
       # 7️⃣ Setup Python env + restart FastAPI service
@@ -71,7 +80,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /var/www/modernissues/python
+            cd /var/www/modernissues/Python
 
             # Luôn đảm bảo start.sh có quyền chạy
             chmod +x start.sh
