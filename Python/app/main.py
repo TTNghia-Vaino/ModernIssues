@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from app.decision import decide_chat
 from app.retriever import retrieve_products
-from chat import chat_with_gemini
+from app.chat import chat_with_gemini
 
 # ============================
 # FastAPI App
