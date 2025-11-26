@@ -2,10 +2,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from uuid import uuid4
+import psycopg2
+from fastapi import FastAPI, HTTPException
+
+from google import genai
+from google.genai import types
+import os
 
 from app.decision import decide_chat
 from app.retriever import retrieve_products
 from app.chat import chat_with_gemini
+from app.api_key import client_embed
 
 # ============================
 # FastAPI App
@@ -26,6 +33,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+conn = psycopg2.connect(
+    host="localhost",
+    dbname="mi-project",
+    user="postgres",
+    password="123321Es",
+    port=5432
+)
+cursor = conn.cursor()
 
 # ============================
 # Session histories
@@ -86,4 +102,47 @@ def chat_api(msg: Message):
         "answer": answer,
         "conversation_history": conversation_history,
         "decision": decision,
+    }
+
+
+class UpdateEmbeddingRequest(BaseModel):
+    product_id: int
+
+
+@app.post("/update-vector-by-product-id")
+def update_vector(req: UpdateEmbeddingRequest):
+    product_id = req.product_id
+
+    # 1. Lấy description
+    cursor.execute("SELECT description FROM products WHERE product_id = %s", (product_id,))
+    row = cursor.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    description = row[0]
+
+    if not description:
+        raise HTTPException(status_code=400, detail="Description is empty, cannot generate embedding")
+
+    # 2. Gọi API embedding
+    result = client_embed.models.embed_content(
+        model="gemini-embedding-001",
+        contents=[description],
+        config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
+    )
+
+    embedding_vector = result.embeddings[0].values
+
+    # 3. Update DB
+    cursor.execute(
+        "UPDATE products SET embedding = %s WHERE product_id = %s",
+        (embedding_vector, product_id)
+    )
+    conn.commit()
+
+    return {
+        "status": "success",
+        "product_id": product_id,
+        "embedding_length": len(embedding_vector),
     }
