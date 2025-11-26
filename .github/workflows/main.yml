@@ -108,3 +108,30 @@ jobs:
             pm2 save
 
             pm2 status rag_api
+      # 8️⃣ Build Frontend (Vite/React)
+      - name: Build Frontend
+        run: |
+          cd Frontend
+          npm ci
+          npm run build
+
+      # 9️⃣ Deploy Frontend lên server
+      - name: Deploy Frontend to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: Frontend/dist/*
+          target: /var/www/modernissues/
+          overwrite: true
+
+      # 🔟 Reload Nginx để serve FE mới
+      - name: Reload Nginx
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            sudo systemctl reload nginx
