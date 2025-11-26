@@ -68,6 +68,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                   "http://localhost:5173",
                   "http://127.0.0.1:5173",
+                  "http://35.232.61.38",
                   "http://35.232.61.38:5000") // Allow server itself
               .AllowAnyMethod()   // Allow POST for webhook, GET/POST for SignalR
               .AllowAnyHeader()   // Allow Authorization header
@@ -76,24 +77,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-var allowedOrigins = new[]
-{
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://35.232.61.38"
-};
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("FrontendPolicy", policy =>
-    {
-        policy.WithOrigins(allowedOrigins)
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials()
-              .WithExposedHeaders("Content-Type", "Authorization");
-    });
-});
 
 // 1. Đăng ký Repository (Tầng Data Access)
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
