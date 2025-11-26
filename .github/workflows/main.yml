@@ -114,6 +114,7 @@ jobs:
           cd Frontend
           npm ci
           npm run build
+          ls 
 
       # 9️⃣ Deploy Frontend lên server
       - name: Deploy Frontend to server
