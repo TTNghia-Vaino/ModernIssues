@@ -41,6 +41,7 @@ const AdminProducts = () => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [dropdownOpen, setDropdownOpen] = useState(null);
+  const [updatingVector, setUpdatingVector] = useState(null); // Track which product is updating vector
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -372,6 +373,25 @@ const AdminProducts = () => {
     }
   };
 
+  const handleUpdateVector = async (productId, productName) => {
+    if (window.confirm(`Bạn có chắc chắn muốn cập nhật vector cho sản phẩm "${productName}"?\n\nVector được dùng cho hệ thống tìm kiếm và gợi ý sản phẩm.`)) {
+      try {
+        setUpdatingVector(productId);
+        console.log('[AdminProducts.handleUpdateVector] Updating vector for product:', productId);
+        
+        const result = await productService.updateVectorByProductId(productId);
+        
+        console.log('[AdminProducts.handleUpdateVector] Vector updated successfully:', result);
+        showNotification(`Cập nhật vector thành công cho sản phẩm "${productName}"!`);
+      } catch (error) {
+        console.error('[AdminProducts.handleUpdateVector] Error updating vector:', error);
+        showNotification(`Lỗi khi cập nhật vector: ${error.message || 'Unknown error'}`, 'error');
+      } finally {
+        setUpdatingVector(null);
+      }
+    }
+  };
+
   const validateForm = () => {
     const newErrors = {};
     
@@ -544,18 +564,43 @@ const AdminProducts = () => {
           const mappedProduct = {
             id: newProduct.productId || newProduct.id || (products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1),
             name: newProduct.productName || newProduct.name,
+            productName: newProduct.productName || newProduct.name,
             category: newProduct.categoryId || newProduct.category,
-            price: newProduct.price,
-            originalPrice: newProduct.price || newProduct.originalPrice,
+            categoryId: newProduct.categoryId || newProduct.category,
+            categoryName: newProduct.categoryName || categories.find(c => (c.id || c.categoryId) === (newProduct.categoryId || newProduct.category))?.categoryName || categories.find(c => (c.id || c.categoryId) === (newProduct.categoryId || newProduct.category))?.name || 'Chưa phân loại',
+            price: newProduct.price || 0,
+            originalPrice: newProduct.price || 0,
+            onPrice: newProduct.onPrices || newProduct.onPrice || 0,
+            discount: (newProduct.onPrices || newProduct.onPrice) > 0 && newProduct.price > 0
+              ? Math.round(((newProduct.price - (newProduct.onPrices || newProduct.onPrice)) / newProduct.price) * 100) 
+              : 0,
             image: fullImageUrl,
             imageUrl: fullImageUrl,
-            description: newProduct.description,
-            stock: newProduct.stock,
-            ...newProduct
+            description: newProduct.description || '',
+            stock: newProduct.stock || 0,
+            warrantyPeriod: newProduct.warrantyPeriod || 12,
+            status: (newProduct.stock || 0) > 0 ? 'active' : 'inactive',
+            isDisabled: newProduct.isDisabled || false,
+            badge: newProduct.badge || '',
+            featured: newProduct.featured || false,
+            specs: newProduct.specs || {}
           };
           
           console.log('[AdminProducts] Mapped Product:', mappedProduct);
           console.log('[AdminProducts] Image URL:', fullImageUrl);
+          
+          // Optimistic update: Add to list immediately for better UX
+          setProducts(prevProducts => {
+            // Check if product already exists (shouldn't happen for new products)
+            const exists = prevProducts.find(p => p.id === mappedProduct.id);
+            if (exists) {
+              // Update existing
+              return prevProducts.map(p => p.id === mappedProduct.id ? mappedProduct : p);
+            } else {
+              // Add new product to the beginning of the list
+              return [mappedProduct, ...prevProducts];
+            }
+          });
           
           // Clear form after successful create
           setFormData({
@@ -582,11 +627,23 @@ const AdminProducts = () => {
           });
           setImageFile(null);
           setImagePreview(null);
+          setErrors({});
           
-          // Reload products list to get the latest data from server
-          await loadProducts();
-          showNotification('Thêm sản phẩm mới thành công!');
+          // Close modal first for better UX
           setShowModal(false);
+          
+          // Show success notification
+          showNotification('Thêm sản phẩm mới thành công! Sản phẩm đã được lưu vào database.');
+          
+          // Reload products list in background to ensure sync with server
+          // This will update the list with any server-side changes
+          try {
+            await loadProducts();
+            console.log('[AdminProducts] ✅ Products list reloaded successfully after creating new product');
+          } catch (reloadError) {
+            console.error('[AdminProducts] ⚠️ Failed to reload products list after create, but product was added:', reloadError);
+            // Don't show error to user since product was already added optimistically
+          }
         } catch (apiError) {
           console.error('[AdminProducts] ❌ API create product FAILED!');
           console.error('[AdminProducts] Error Details:', {
@@ -740,9 +797,35 @@ const AdminProducts = () => {
       
       <div className="page-header">
         <h2>Quản lý sản phẩm</h2>
-        <button className="add-btn" onClick={handleAddNew}>
-          ➕ Thêm sản phẩm mới
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <button 
+            className="add-btn" 
+            onClick={handleAddNew}
+            id="add-product-btn"
+            style={{ 
+              display: 'inline-flex !important', 
+              visibility: 'visible !important', 
+              opacity: '1 !important',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%) !important',
+              color: 'white !important',
+              border: 'none !important',
+              padding: '12px 24px !important',
+              borderRadius: '8px !important',
+              cursor: 'pointer !important',
+              fontSize: '16px !important',
+              fontWeight: '600 !important',
+              boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4) !important',
+              whiteSpace: 'nowrap !important',
+              flexShrink: 0,
+              minWidth: '180px !important',
+              height: 'auto !important',
+              position: 'relative !important',
+              zIndex: 1000
+            }}
+          >
+            ➕ Thêm sản phẩm mới
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -799,7 +882,17 @@ const AdminProducts = () => {
         {paginatedProducts.map((product) => (
           <div key={product.id} className="table-row">
             <div className="col-image">
-              <img src={product.image} alt={product.name} />
+              <img 
+                src={product.image || 'https://via.placeholder.com/100?text=No+Image'} 
+                alt={product.name}
+                onError={(event) => {
+                  if (event.currentTarget.dataset.fallbackApplied === 'true') {
+                    return;
+                  }
+                  event.currentTarget.dataset.fallbackApplied = 'true';
+                  event.currentTarget.src = 'https://via.placeholder.com/100?text=No+Image';
+                }}
+              />
             </div>
             <div className="col-name">
               <div 
@@ -880,6 +973,20 @@ const AdminProducts = () => {
                       }}
                     >
                       {product.isDisabled ? '✅ Kích hoạt' : '🗑️ Ngừng bán'}
+                    </button>
+                    <button
+                      className="dropdown-item"
+                      onClick={() => {
+                        handleUpdateVector(product.id, product.name || product.productName);
+                        setDropdownOpen(null);
+                      }}
+                      disabled={updatingVector === product.id}
+                      style={{
+                        opacity: updatingVector === product.id ? 0.6 : 1,
+                        cursor: updatingVector === product.id ? 'wait' : 'pointer'
+                      }}
+                    >
+                      {updatingVector === product.id ? '⏳ Đang cập nhật...' : '🔄 Cập nhật Vector'}
                     </button>
                   </div>
                 )}

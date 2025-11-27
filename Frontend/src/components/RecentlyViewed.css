@@ -71,6 +71,7 @@
   border: 1px solid #e9ecef;
   display: flex;
   flex-direction: column;
+  text-align: left !important;
 }
 
 .recently-viewed .product-card:hover {
@@ -156,6 +157,8 @@
   flex-direction: column;
   gap: 6px;
   border-top: 1px solid #f0f0f0;
+  text-align: left !important;
+  align-items: flex-start !important;
 }
 
 .recently-viewed .product-name {
@@ -173,14 +176,38 @@
 }
 
 /* ===== PRICE ===== */
-.recently-viewed .price-container {
+.recently-viewed .product-info .price-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px;
   margin-bottom: 4px;
+  text-align: left !important;
+  width: 100%;
+}
+
+.recently-viewed .product-info .price-container * {
+  text-align: left !important;
 }
 
 .recently-viewed .current-price {
-  font-size: 1rem;
+  font-size: 18px;
   font-weight: 700;
   color: #0a804a;
+  text-align: left !important;
+  display: inline-block;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.recently-viewed .original-price {
+  font-size: 14px;
+  color: #868e96;
+  text-decoration: line-through;
+  text-align: left !important;
+  display: inline-block;
+  margin: 0;
+  line-height: 1.2;
 }
 
 /* ===== RATING ===== */
@@ -208,6 +235,70 @@
 .recently-viewed .review-count {
   font-size: 0.7rem;
   color: #666;
+}
+
+/* ===== LARGE DESKTOP SCREENS ===== */
+@media (min-width: 1600px) {
+  .recently-viewed .container {
+    max-width: 1600px;
+  }
+
+  .recently-viewed .products-grid {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 20px;
+  }
+
+  .recently-viewed .product-image {
+    height: 180px;
+  }
+
+  .recently-viewed .product-name {
+    font-size: 0.9rem;
+    height: 2.8em;
+  }
+
+  .recently-viewed .current-price {
+    font-size: 20px;
+  }
+
+  .recently-viewed .original-price {
+    font-size: 16px;
+  }
+
+  .recently-viewed .section-title {
+    font-size: 1.7rem;
+  }
+}
+
+@media (min-width: 1920px) {
+  .recently-viewed .container {
+    max-width: 1800px;
+  }
+
+  .recently-viewed .products-grid {
+    grid-template-columns: repeat(7, 1fr);
+    gap: 24px;
+  }
+
+  .recently-viewed .product-image {
+    height: 200px;
+  }
+
+  .recently-viewed .product-name {
+    font-size: 0.95rem;
+  }
+
+  .recently-viewed .current-price {
+    font-size: 22px;
+  }
+
+  .recently-viewed .original-price {
+    font-size: 17px;
+  }
+
+  .recently-viewed .section-title {
+    font-size: 1.9rem;
+  }
 }
 
 /* ===== RESPONSIVE ===== */
@@ -250,7 +341,7 @@
   }
 
   .recently-viewed .current-price {
-    font-size: 1rem;
+    font-size: 24px;
   }
 }
 

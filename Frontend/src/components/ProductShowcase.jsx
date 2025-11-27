@@ -126,16 +126,19 @@ function ProductShowcase() {
         <div className="category-icons-section">
           <div className="category-icons-grid">
             {categoryIcons.map((category) => (
-              <a 
+              <div 
                 key={category.id} 
-                href={category.link} 
                 className="category-icon-card"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
               >
                 <div className="category-icon-image">
                   <img src={category.image} alt={category.name} />
                 </div>
                 <h3 className="category-icon-name">{category.name}</h3>
-              </a>
+              </div>
             ))}
           </div>
         </div>
@@ -146,10 +149,13 @@ function ProductShowcase() {
             {/* Top Row - 3 large banners */}
             <div className="banner-row banner-row-top">
               {promotionalBanners.slice(0, 3).map((banner) => (
-                <a 
+                <div 
                   key={banner.id} 
-                  href={banner.link} 
                   className={`promo-banner promo-banner-${banner.size}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                 >
                   <div className="promo-banner-content">
                     <img 
@@ -171,17 +177,20 @@ function ProductShowcase() {
                       </div>
                     </div>
                   </div>
-                </a>
+                </div>
               ))}
             </div>
 
             {/* Bottom Row - 2 medium banners */}
             <div className="banner-row banner-row-bottom">
               {promotionalBanners.slice(3, 5).map((banner) => (
-                <a 
+                <div 
                   key={banner.id} 
-                  href={banner.link} 
                   className={`promo-banner promo-banner-${banner.size}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                 >
                   <div className="promo-banner-content">
                     <img 
@@ -200,7 +209,7 @@ function ProductShowcase() {
                       </div>
                     </div>
                   </div>
-                </a>
+                </div>
               ))}
             </div>
           </div>

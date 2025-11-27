@@ -3,9 +3,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as productService from '../services/productService';
 import { transformProducts } from '../utils/productUtils';
+import { handleProductImageError, getPlaceholderImage } from '../utils/imageUtils';
 import './ProductsList.css';
 
 const formatPrice = v => v.toLocaleString('vi-VN') + '₫';
+const placeholderImage = getPlaceholderImage('product');
 
 const ProductsList = () => {
   const { search } = useLocation();
@@ -167,10 +169,22 @@ const ProductsList = () => {
         console.log('[ProductsList] Transformed products:', transformedProducts.length);
         
         // Filter out disabled products (API should already filter, but double-check for safety)
-        const activeProducts = transformedProducts.filter(
+        let activeProducts = transformedProducts.filter(
           product => product.isDisabled !== true && product.isDisabled !== 'true'
         );
         console.log('[ProductsList] Active products (after filtering disabled):', activeProducts.length);
+        
+        // If we have subcategory, filter by category name client-side
+        if (hasSubcategory && currentSubcategory && subcategoryMap[currentSubcategory]) {
+          const categoryNameToFilter = subcategoryMap[currentSubcategory];
+          console.log('[ProductsList] Filtering by subcategory category name:', categoryNameToFilter);
+          const beforeFilterCount = activeProducts.length;
+          activeProducts = activeProducts.filter(
+            product => product.category === categoryNameToFilter
+          );
+          console.log('[ProductsList] Products after subcategory filter:', activeProducts.length, 'out of', beforeFilterCount);
+        }
+        
         setProducts(activeProducts);
       } catch (apiError) {
         console.error('[ProductsList] API failed:', apiError);
@@ -296,7 +310,12 @@ const ProductsList = () => {
                 onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
               >
                 <div style={{height:220, background:'#f7f7f7', borderRadius:6, marginBottom:8, overflow:'hidden', width: '100%', flexShrink: 0}}>
-                  {p.image && <img src={p.image} alt={p.name} style={{width:'100%', height:'100%', objectFit:'cover'}} />}
+                  <img 
+                    src={p.image || placeholderImage} 
+                    alt={p.name} 
+                    style={{width:'100%', height:'100%', objectFit:'cover'}}
+                    onError={handleProductImageError}
+                  />
                 </div>
                 <div style={{fontSize:16, fontWeight:600, marginBottom: '8px', lineHeight: '1.5'}}>{p.name}</div>
                 <div style={{fontSize:18, color:'#0a804a', fontWeight:700, marginBottom: '6px'}}>{formatPrice(p.price || p.salePrice || 0)}</div>

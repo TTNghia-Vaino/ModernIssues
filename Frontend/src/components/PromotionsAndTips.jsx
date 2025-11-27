@@ -1,4 +1,6 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { handleImageError } from '../utils/imageUtils';
 import './PromotionsAndTips.css';
 import promo1 from '../assets/thumbnail-blog-600x-400.webp';
 import promo2 from '../assets/bd4-thumbnail-blog-600x400.webp';
@@ -11,7 +13,7 @@ import tip4 from '../assets/ex300u.webp';
 const ArticleCard = ({ image, title, date, description }) => (
   <article className="article-card">
     <div className="article-image">
-      <img src={image} alt={title} />
+      <img src={image} alt={title} onError={handleImageError} />
     </div>
     <div className="article-content">
       <h3 className="article-title">{title}</h3>
@@ -24,23 +26,36 @@ const ArticleCard = ({ image, title, date, description }) => (
   </article>
 );
 
-const Section = ({ title, items }) => (
-  <div className={`${title.includes('KHUYẾN MÃI') ? 'promotions-section' : 'tips-section'}`}>
-    <div className="section-header">
-      <h2 className="section-title">{title}</h2>
+const Section = ({ title, items }) => {
+  const navigate = useNavigate();
+
+  const handleViewAll = () => {
+    // Scroll to top immediately before navigation
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    // Then navigate to news page
+    navigate('/news');
+  };
+
+  return (
+    <div className={`${title.includes('KHUYẾN MÃI') ? 'promotions-section' : 'tips-section'}`}>
+      <div className="section-header">
+        <h2 className="section-title">{title}</h2>
+      </div>
+      <div className="articles-list">
+        {items.map((item) => (
+          <ArticleCard key={item.id} {...item} />
+        ))}
+      </div>
+      <div className="view-all-wrapper">
+        <button className="view-all-btn" onClick={handleViewAll}>
+          Xem tất cả <i className="fas fa-chevron-right"></i>
+        </button>
+      </div>
     </div>
-    <div className="articles-list">
-      {items.map((item) => (
-        <ArticleCard key={item.id} {...item} />
-      ))}
-    </div>
-    <div className="view-all-wrapper">
-      <button className="view-all-btn">
-        Xem tất cả <i className="fas fa-chevron-right"></i>
-      </button>
-    </div>
-  </div>
-);
+  );
+};
 
 function PromotionsAndTips() {
   const promotions = [

@@ -163,7 +163,18 @@ const OrderConfirmationPage = () => {
                     <div key={index} className="order-item">
                       <div className="item-image">
                         {item.image ? (
-                          <img src={item.image} alt={item.name || item.productName} className="item-thumbnail" />
+                          <img 
+                            src={item.image} 
+                            alt={item.name || item.productName} 
+                            className="item-thumbnail"
+                            onError={(event) => {
+                              if (event.currentTarget.dataset.fallbackApplied === 'true') {
+                                return;
+                              }
+                              event.currentTarget.dataset.fallbackApplied = 'true';
+                              event.currentTarget.src = 'https://via.placeholder.com/100?text=No+Image';
+                            }}
+                          />
                         ) : (
                           <div className="item-thumbnail"></div>
                         )}

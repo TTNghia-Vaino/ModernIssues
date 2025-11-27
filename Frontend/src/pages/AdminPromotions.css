@@ -19,6 +19,35 @@
   font-weight: 700;
   margin: 0 0 5px 0;
   color: #1f2937;
+  position: relative;
+}
+
+/* Hide any badge that might appear next to the title */
+.page-header h2::before,
+.page-header h2::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Hide any badge element in page-header */
+.page-header .badge,
+.page-header [class*="badge"]:not(.add-btn),
+.page-header [class*="50"]:not(.add-btn),
+.page-header > span:not(:has(button)),
+.page-header h2 + span,
+.page-header h2 + div:not(:has(button)) {
+  display: none !important;
+}
+
+/* Hide any element that appears between h2 and buttons container */
+.page-header h2 ~ *:not(div:has(button)):not(div:has(.add-btn)) {
+  display: none !important;
+}
+
+/* Ensure buttons container is visible */
+.page-header > div:has(button),
+.page-header > div:has(.add-btn) {
+  display: flex !important;
 }
 
 .add-btn {
@@ -93,7 +122,7 @@
 
 .table-header {
   display: grid;
-  grid-template-columns: 60px 2fr 100px 120px 200px 120px 80px;
+  grid-template-columns: 60px 2fr 120px 200px 120px 80px;
   gap: 16px;
   padding: 16px 20px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -106,7 +135,7 @@
 
 .table-row {
   display: grid;
-  grid-template-columns: 60px 2fr 100px 120px 200px 120px 80px;
+  grid-template-columns: 60px 2fr 120px 200px 120px 80px;
   gap: 16px;
   padding: 16px 20px;
   border-bottom: 1px solid #e5e7eb;
@@ -146,8 +175,7 @@
 }
 
 .col-discount {
-  display: flex;
-  align-items: center;
+  display: none;
 }
 
 .discount-badge {

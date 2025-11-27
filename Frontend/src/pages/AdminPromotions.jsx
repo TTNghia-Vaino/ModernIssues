@@ -115,6 +115,30 @@ const AdminPromotions = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, filterStatus, searchQuery])
 
+  // Remove any rogue badge with "50%" text near the title
+  useEffect(() => {
+    const removeBadge = () => {
+      const pageHeader = document.querySelector('.page-header')
+      if (pageHeader) {
+        // Find all elements in page-header that are not h2 and not button containers
+        const allElements = pageHeader.querySelectorAll('*:not(h2):not(button):not(div:has(button))')
+        allElements.forEach(el => {
+          // Check if element contains "50%" text
+          if (el.textContent && el.textContent.trim() === '50%') {
+            el.style.display = 'none'
+            el.remove() // Remove completely
+          }
+        })
+      }
+    }
+    
+    // Run immediately and after a short delay
+    removeBadge()
+    const timer = setTimeout(removeBadge, 100)
+    
+    return () => clearTimeout(timer)
+  }, []) // Run once on mount
+
   const loadCategories = async () => {
     try {
       const apiCategories = await getCategories()

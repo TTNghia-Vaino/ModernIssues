@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import * as cartService from '../services/cartService';
+import { normalizeImageUrl, resolveImageUrl } from '../utils/productUtils';
 
 const CartContext = createContext(null);
 
@@ -23,24 +24,58 @@ export const CartProvider = ({ children }) => {
       return apiItem;
     }
     
-    // API format: { productId, productName, productImage, ... }
+    // API format: { productId, productName, productImage, imageUrl, ... }
     // Component format: { id, productId, name, image, ... }
-    return {
+    
+    // Log for debugging
+    if (!apiItem.productImage && !apiItem.image && !apiItem.productImageUrl && !apiItem.imageUrl) {
+      console.log('[CartContext] Cart item missing image fields:', {
+        productId: apiItem.productId || apiItem.id,
+        productName: apiItem.productName || apiItem.name,
+        availableFields: Object.keys(apiItem)
+      });
+    }
+    
+    // Resolve image URL from multiple possible fields
+    const imageUrl = resolveImageUrl({
+      image: apiItem.productImage || apiItem.image,
+      imageUrl: apiItem.productImageUrl || apiItem.imageUrl,
+      thumbnailUrl: apiItem.thumbnailUrl,
+      thumbnail: apiItem.thumbnail,
+      coverImage: apiItem.coverImage,
+      images: apiItem.images,
+      media: apiItem.media
+    });
+    
+    const transformed = {
       id: apiItem.productId || apiItem.id,
       productId: apiItem.productId || apiItem.id,
       name: apiItem.productName || apiItem.name,
-      image: apiItem.productImage || apiItem.image,
+      image: imageUrl,
       price: apiItem.currentPrice || apiItem.priceAtAdd || apiItem.price,
       quantity: apiItem.quantity || 1,
       cartId: apiItem.cartId,
+      cartItemId: apiItem.cartItemId || apiItem.id, // Lưu cartItemId nếu có (id của cart item, không phải productId)
       capacity: apiItem.capacity,
       // Keep other properties
       brand: apiItem.brand,
       category: apiItem.category,
       subTotal: apiItem.subTotal,
       priceAtAdd: apiItem.priceAtAdd,
-      currentPrice: apiItem.currentPrice
+      currentPrice: apiItem.currentPrice,
+      // Keep original API item for debugging
+      _original: apiItem
     };
+    
+    if (!transformed.image) {
+      console.warn('[CartContext] No image resolved for cart item:', {
+        productId: transformed.productId,
+        name: transformed.name,
+        originalItem: apiItem
+      });
+    }
+    
+    return transformed;
   };
 
   const loadCart = useCallback(async () => {
@@ -309,26 +344,92 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const removeItem = async (productId, itemCartId = null) => {
-    // itemCartId là cartId từ item (nếu có), nếu không thì dùng cartId từ state
-    const currentCartId = itemCartId || cartId;
+  const removeItem = async (productId, itemCartId = null, capacity = null) => {
+    console.log('[CartContext] removeItem called:', { 
+      productId, 
+      itemCartId, 
+      capacity, 
+      isAuthenticated, 
+      cartId,
+      itemsCount: items.length,
+      items: items.map(i => ({ 
+        productId: i.productId || i.id, 
+        cartId: i.cartId, 
+        cartItemId: i.cartItemId,
+        capacity: i.capacity 
+      }))
+    });
     
-    if (isAuthenticated && currentCartId) {
+    if (isAuthenticated) {
       // Remove via API
       setIsLoading(true);
       setError(null);
       try {
-        await cartService.removeCartItem(currentCartId, productId);
-        await loadCart(); // Reload cart from API
+        // First, try to find the exact item to get its cartId and capacity
+        const item = items.find(i => {
+          const matchProductId = (i.productId || i.id) === productId;
+          if (capacity !== null && capacity !== undefined) {
+            return matchProductId && i.capacity === capacity;
+          }
+          return matchProductId;
+        });
+        
+        // Use cartId from item if available, otherwise use itemCartId or cartId from state
+        const finalCartId = item?.cartId || itemCartId || cartId;
+        const finalCapacity = capacity !== null && capacity !== undefined ? capacity : item?.capacity;
+        
+        if (!finalCartId) {
+          // Try to reload cart first to get cartId
+          console.log('[CartContext] No cartId found, reloading cart first...');
+          await loadCart();
+          
+          // Get fresh items after reload
+          // Note: items state might not be updated yet, so we need to reload again or use a different approach
+          // For now, just try with the cartId from state after reload
+          const reloadedCartId = cartId;
+          if (reloadedCartId) {
+            console.log('[CartContext] Retrying remove after reload with cartId from state:', { 
+              cartId: reloadedCartId, 
+              productId, 
+              capacity: finalCapacity 
+            });
+            await cartService.removeCartItem(reloadedCartId, productId, finalCapacity);
+          } else {
+            throw new Error('Không tìm thấy cartId. Vui lòng thử lại.');
+          }
+        } else {
+          console.log('[CartContext] Removing item via API:', { 
+            cartId: finalCartId, 
+            productId, 
+            capacity: finalCapacity,
+            itemCartId: item?.cartId,
+            stateCartId: cartId
+          });
+          await cartService.removeCartItem(finalCartId, productId, finalCapacity);
+        }
+        
+        // Reload cart from API to get updated data
+        await loadCart();
+        console.log('[CartContext] Item removed successfully');
       } catch (err) {
-        setError(err.message || 'Không thể xóa sản phẩm khỏi giỏ hàng');
-        throw err;
+        console.error('[CartContext] Failed to remove item:', err);
+        const errorMessage = err.message || 'Không thể xóa sản phẩm khỏi giỏ hàng';
+        setError(errorMessage);
+        throw new Error(errorMessage);
       } finally {
         setIsLoading(false);
       }
     } else {
-      // Remove from local state (non-authenticated or no cartId)
-      setItems(prev => prev.filter(i => i.id !== productId && i.productId !== productId));
+      // Remove from local state (non-authenticated)
+      // Match by productId and capacity if provided
+      console.log('[CartContext] Removing item from local state (non-authenticated)');
+      setItems(prev => prev.filter(i => {
+        const matchProductId = (i.id === productId || i.productId === productId);
+        if (capacity !== null && capacity !== undefined) {
+          return !matchProductId || i.capacity !== capacity;
+        }
+        return !matchProductId;
+      }));
     }
   };
 
@@ -361,14 +462,20 @@ export const CartProvider = ({ children }) => {
   };
 
   const clearCart = async () => {
+    console.log('[CartContext] clearCart called:', { isAuthenticated });
+    
     if (isAuthenticated) {
       // Clear via API
       setIsLoading(true);
       setError(null);
       try {
+        console.log('[CartContext] Clearing cart via API');
         await cartService.clearCart();
         setItems([]);
+        setCartId(null);
+        console.log('[CartContext] Cart cleared successfully');
       } catch (err) {
+        console.error('[CartContext] Failed to clear cart:', err);
         setError(err.message || 'Không thể xóa giỏ hàng');
         throw err;
       } finally {
@@ -376,6 +483,7 @@ export const CartProvider = ({ children }) => {
       }
     } else {
       // Clear local state and sessionStorage
+      console.log('[CartContext] Clearing local cart (non-authenticated)');
       setItems([]);
       try {
         sessionStorage.removeItem(STORAGE_KEY);

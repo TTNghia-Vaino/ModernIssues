@@ -30,6 +30,34 @@ export default defineConfig({
           });
         },
       },
+      '/chat': {
+        target: 'http://35.232.61.38:5000', // Server backend
+        changeOrigin: true,
+        secure: false, // Allow HTTP
+        rewrite: (path) => path, // Keep the path as is
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
+            console.log('[Chat Proxy Error]', err.message);
+          });
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('[Chat Proxy Request]', req.method, req.url, '→', proxyReq.path);
+          });
+        },
+      },
+      '/update-vector-by-product-id': {
+        target: 'http://35.232.61.38:5000', // Server backend
+        changeOrigin: true,
+        secure: false, // Allow HTTP
+        rewrite: (path) => path, // Keep the path as is
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
+            console.log('[Update Vector Proxy Error]', err.message);
+          });
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('[Update Vector Proxy Request]', req.method, req.url, '→', proxyReq.path);
+          });
+        },
+      },
       '/GenerateQr': {
         target: 'http://35.232.61.38:5000', // Server backend
         changeOrigin: true,

@@ -663,3 +663,104 @@ export const getProductReport = async (params = {}) => {
   }
 };
 
+/**
+ * Update vector by product ID
+ * Endpoint: POST /update-vector-by-product-id
+ * Request body: { product_id: number }
+ * Response: string (success message)
+ * 
+ * This endpoint updates the vector embedding for a product, typically used for
+ * search/recommendation systems. The vector is regenerated based on the product's
+ * current information (name, description, etc.)
+ * 
+ * @param {string|number} productId - Product ID to update vector for
+ * @returns {Promise<string>} - Success message from API
+ */
+export const updateVectorByProductId = async (productId) => {
+  // Get base URL helper for root-level endpoints
+  const { getBaseURL, getDefaultHeaders } = await import('../config/api');
+  const baseURL = getBaseURL();
+  
+  // Construct URL - endpoint is at root level, not under /v1
+  // In dev: use proxy (empty baseURL means relative path)
+  // In prod: use full URL
+  const url = baseURL 
+    ? `${baseURL}/update-vector-by-product-id`
+    : '/update-vector-by-product-id';
+  
+  if (import.meta.env.DEV) {
+    console.log('[ProductService.updateVectorByProductId] Sending request to:', url);
+    console.log('[ProductService.updateVectorByProductId] Product ID:', productId);
+  }
+
+  try {
+    const headers = getDefaultHeaders();
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({
+        product_id: Number(productId)
+      })
+    });
+
+    // Handle response - API returns string directly according to Swagger docs
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        // Handle FastAPI validation error format
+        if (errorJson.detail) {
+          if (Array.isArray(errorJson.detail)) {
+            errorMessage = errorJson.detail.map(d => d.msg || d.message || JSON.stringify(d)).join(', ');
+          } else {
+            errorMessage = errorJson.detail.msg || errorJson.detail.message || errorJson.detail;
+          }
+        } else {
+          errorMessage = errorJson.message || errorMessage;
+        }
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+      
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      throw error;
+    }
+
+    // API returns string directly according to Swagger docs
+    const responseText = await response.text();
+    
+    if (import.meta.env.DEV) {
+      console.log('[ProductService.updateVectorByProductId] ✅ Success:', responseText);
+    }
+    
+    // Return the response text (success message)
+    return responseText || 'Vector updated successfully';
+
+  } catch (error) {
+    console.error('[ProductService.updateVectorByProductId] Error:', error);
+    
+    // Provide user-friendly error messages
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
+    }
+    
+    if (error.status === 422) {
+      throw new Error('Dữ liệu không hợp lệ. Vui lòng kiểm tra product ID.');
+    }
+    
+    if (error.status === 404) {
+      throw new Error('Không tìm thấy sản phẩm với ID này.');
+    }
+    
+    if (error.status === 500) {
+      throw new Error('Lỗi server khi cập nhật vector. Vui lòng thử lại sau.');
+    }
+    
+    throw error;
+  }
+};
+

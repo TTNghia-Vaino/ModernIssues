@@ -1,14 +1,70 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import * as productService from '../services/productService';
+import { transformProduct } from '../utils/productUtils';
+import { handleProductImageError, getPlaceholderImage } from '../utils/imageUtils';
+import ConfirmationDialog from '../components/ConfirmationDialog';
+import { useNotification } from '../context/NotificationContext';
 import './CartPage.css';
 
 const formatPrice = v => v.toLocaleString('vi-VN') + '₫';
+const placeholderImage = getPlaceholderImage('product');
 
 const CartPage = () => {
   const { items, updateQuantity, removeItem, clearCart, totalCount, totalPrice } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
+  const { success, error } = useNotification();
+  const [productImages, setProductImages] = useState({}); // Cache for product images
+  const [showClearDialog, setShowClearDialog] = useState(false);
+
+  // Fetch product images for items that don't have images
+  useEffect(() => {
+    const fetchMissingImages = async () => {
+      const itemsToFetch = items.filter(item => {
+        const productId = item.productId || item.id;
+        return !item.image && productId && !productImages[productId];
+      });
+
+      if (itemsToFetch.length === 0) return;
+
+      // Fetch images for items without images
+      const fetchPromises = itemsToFetch.map(async (item) => {
+        const productId = item.productId || item.id;
+        if (!productId) return;
+
+        try {
+          const productData = await productService.getProductById(productId);
+          const transformedProduct = transformProduct(productData);
+          if (transformedProduct?.image) {
+            setProductImages(prev => {
+              // Only update if not already set
+              if (prev[productId]) return prev;
+              return {
+                ...prev,
+                [productId]: transformedProduct.image
+              };
+            });
+          }
+        } catch (err) {
+          console.warn(`[CartPage] Failed to fetch image for product ${productId}:`, err);
+        }
+      });
+
+      await Promise.all(fetchPromises);
+    };
+
+    fetchMissingImages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+  const handleImageError = handleProductImageError;
+
+  const getItemImage = (item) => {
+    const productId = item.productId || item.id;
+    return item.image || productImages[productId] || placeholderImage;
+  };
 
   // Scroll to top when navigating to cart page
   useEffect(() => {
@@ -87,9 +143,12 @@ const CartPage = () => {
               
               return (
                 <div key={`${productId}-${item.capacity || 'default'}`} className="cart-item">
-                  {item.image && (
-                    <img src={item.image} alt={item.name} className="cart-item-image" />
-                  )}
+                  <img 
+                    src={getItemImage(item)} 
+                    alt={item.name || 'Sản phẩm'} 
+                    className="cart-item-image"
+                    onError={handleImageError}
+                  />
                   <div>
                     <Link to={`/products/${productId}`} className="cart-item-link">
                       {item.name}
@@ -104,7 +163,23 @@ const CartPage = () => {
                     onChange={e=>updateQuantity(productId, e.target.value, itemCartId)} 
                     className="cart-qty" 
                   />
-                  <button onClick={()=>removeItem(productId, itemCartId)} className="cart-remove" title="Xóa">✕</button>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        console.log('[CartPage] Removing item:', { productId, itemCartId, capacity: item.capacity });
+                        await removeItem(productId, itemCartId, item.capacity);
+                        console.log('[CartPage] Item removed successfully');
+                        success('Đã xóa sản phẩm khỏi giỏ hàng');
+                      } catch (err) {
+                        console.error('[CartPage] Failed to remove item:', err);
+                        error(err.message || 'Không thể xóa sản phẩm. Vui lòng thử lại.');
+                      }
+                    }} 
+                    className="cart-remove" 
+                    title="Xóa"
+                  >
+                    ✕
+                  </button>
                 </div>
               );
             })}
@@ -125,11 +200,36 @@ const CartPage = () => {
                 <strong className="summary-total">{formatPrice(totalPrice)}</strong>
               </div>
               <button className="pay-btn" onClick={() => navigate('/checkout')}>Thanh toán ngay</button>
-              <button onClick={clearCart} className="clear-btn">Xóa giỏ hàng</button>
+              <button 
+                onClick={() => setShowClearDialog(true)} 
+                className="clear-btn"
+              >
+                Xóa giỏ hàng
+              </button>
             </div>
           </aside>
         </div>
       </div>
+      <ConfirmationDialog
+        open={showClearDialog}
+        onOpenChange={setShowClearDialog}
+        title="Xóa giỏ hàng"
+        message="Bạn có chắc chắn muốn xóa toàn bộ giỏ hàng? Hành động này không thể hoàn tác."
+        confirmText="Xóa"
+        cancelText="Hủy"
+        variant="danger"
+        onConfirm={async () => {
+          try {
+            console.log('[CartPage] Clearing cart');
+            await clearCart();
+            console.log('[CartPage] Cart cleared successfully');
+            success('Đã xóa toàn bộ giỏ hàng');
+          } catch (err) {
+            console.error('[CartPage] Failed to clear cart:', err);
+            error(err.message || 'Không thể xóa giỏ hàng. Vui lòng thử lại.');
+          }
+        }}
+      />
     </>
   );
 };

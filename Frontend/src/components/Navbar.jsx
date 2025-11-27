@@ -4,20 +4,22 @@ import ProductMenu from './ProductMenu';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { useProducts } from '../context/ProductsContext';
+import { listProducts } from '../services/productService';
+import { transformProducts } from '../utils/productUtils';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
+  const [suggestions, setSuggestions] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const navigate = useNavigate();
   const inputRef = useRef(null);
   const containerRef = useRef(null);
   const userMenuRef = useRef(null);
   const { totalCount } = useCart();
   const { user, isAuthenticated, logout } = useAuth();
-  const { products } = useProducts(); // Use products from context instead of local state
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Listen for storage changes (when products are updated in admin)
@@ -46,18 +48,71 @@ const Navbar = () => {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  // Compute suggestions based on the current query
-  const suggestions = useMemo(() => {
-    const trimmed = query.trim().toLowerCase();
-    if (!trimmed || !products.length) return [];
-    return products
-      .filter(p =>
-        p.name.toLowerCase().includes(trimmed) ||
-        (p.brand && p.brand.toLowerCase().includes(trimmed)) ||
-        p.category.toLowerCase().includes(trimmed)
-      )
-      .slice(0, 8);
-  }, [query, products]);
+  // Fetch suggestions from API when query changes (debounced)
+  useEffect(() => {
+    const trimmed = query.trim();
+    
+    // Only search if query has at least 1 character
+    if (trimmed.length < 1) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setSearchLoading(false);
+      return;
+    }
+
+    // Debounce API call
+    const timeoutId = setTimeout(async () => {
+      try {
+        setSearchLoading(true);
+        console.log('[Navbar] Searching products with query:', trimmed);
+        
+        // Call API to search products
+        const productsData = await listProducts({
+          page: 1,
+          limit: 10, // Limit to 10 suggestions
+          search: trimmed
+        });
+        
+        console.log('[Navbar] Search API response:', productsData);
+        
+        // Handle Swagger response format: { totalCount, currentPage, limit, data: [...] }
+        let productsArray = [];
+        if (productsData && typeof productsData === 'object') {
+          if (Array.isArray(productsData.data)) {
+            productsArray = productsData.data;
+          } else if (Array.isArray(productsData)) {
+            productsArray = productsData;
+          } else if (productsData.items) {
+            productsArray = productsData.items;
+          }
+        } else if (Array.isArray(productsData)) {
+          productsArray = productsData;
+        }
+        
+        // Transform API format to component format
+        const transformedProducts = transformProducts(productsArray);
+        
+        // Filter out disabled products
+        const activeProducts = transformedProducts.filter(product => {
+          const isNotDisabled = product.isDisabled !== true && product.isDisabled !== 'true';
+          const isActive = product.status === 'active' || product.status === undefined;
+          return isNotDisabled && isActive;
+        });
+        
+        console.log('[Navbar] Search results:', activeProducts.length);
+        setSuggestions(activeProducts);
+        // Keep suggestions visible if query still has content (handled by onChange)
+      } catch (error) {
+        console.error('[Navbar] Search error:', error);
+        setSuggestions([]);
+        setShowSuggestions(false);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300); // Debounce 300ms
+
+    return () => clearTimeout(timeoutId);
+  }, [query]);
 
   // Reset highlight when query changes
   useEffect(() => {
@@ -67,7 +122,12 @@ const Navbar = () => {
   const onChange = (e) => {
     const v = e.target.value;
     setQuery(v);
-    setShowSuggestions(Boolean(v.trim()));
+    // Show suggestions if query has at least 1 character (will be handled by useEffect)
+    if (v.trim().length >= 1) {
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
   };
 
   const goToSearch = (value) => {
@@ -153,30 +213,66 @@ const Navbar = () => {
                 <i className="fas fa-search" aria-hidden="true"></i>
               </button>
             </form>
-            {showSuggestions && suggestions.length > 0 && (
+            {showSuggestions && (
               <ul id="search-suggestions-list" className="search-suggestions" role="listbox">
-                {suggestions.map((p, idx) => (
-                  <li
-                    key={p.id}
-                    role="option"
-                    aria-selected={idx === highlightIndex}
-                    className={`suggestion-item ${idx === highlightIndex ? 'active' : ''}`}
-                    onMouseDown={(e)=>{ e.preventDefault(); }}
-                    onClick={()=>{ 
-                      window.scrollTo(0, 0);
-                      document.documentElement.scrollTop = 0;
-                      document.body.scrollTop = 0;
-                      navigate(`/products/${p.id}`); 
-                      setShowSuggestions(false);
-                    } }
-                  >
-                    <span className="suggestion-name">{p.name}</span>
-                    <span className="suggestion-meta">{p.brand ? `${p.brand} · ` : ''}{p.category}</span>
+                {searchLoading ? (
+                  <li className="suggestion-item" style={{ justifyContent: 'center', color: '#6b7280' }}>
+                    <span>Đang tìm kiếm...</span>
                   </li>
-                ))}
-                <li className="suggestion-footer" onMouseDown={(e)=>e.preventDefault()} onClick={()=>goToSearch()}>
-                  Tìm "{query}" trong tất cả sản phẩm
-                </li>
+                ) : suggestions.length > 0 ? (
+                  <>
+                    {suggestions.map((p, idx) => (
+                      <li
+                        key={p.id}
+                        role="option"
+                        aria-selected={idx === highlightIndex}
+                        className={`suggestion-item ${idx === highlightIndex ? 'active' : ''}`}
+                        onMouseDown={(e)=>{ e.preventDefault(); }}
+                        onClick={()=>{ 
+                          window.scrollTo(0, 0);
+                          document.documentElement.scrollTop = 0;
+                          document.body.scrollTop = 0;
+                          navigate(`/products/${p.id}`); 
+                          setShowSuggestions(false);
+                          setQuery('');
+                        } }
+                      >
+                        <div className="suggestion-image">
+                          <img 
+                            src={p.image || '/placeholder-product.png'} 
+                            alt={p.name}
+                            onError={(e) => {
+                              e.target.src = '/placeholder-product.png';
+                            }}
+                          />
+                        </div>
+                        <div className="suggestion-content">
+                          <span className="suggestion-name">{p.name}</span>
+                          <span className="suggestion-meta">{p.brand ? `${p.brand} · ` : ''}{p.category}</span>
+                        </div>
+                        <div className="suggestion-price">
+                          {p.price ? (
+                            <span className="price-value">
+                              {new Intl.NumberFormat('vi-VN', { 
+                                style: 'currency', 
+                                currency: 'VND' 
+                              }).format(p.price)}
+                            </span>
+                          ) : (
+                            <span className="price-na">Liên hệ</span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                    <li className="suggestion-footer" onMouseDown={(e)=>e.preventDefault()} onClick={()=>goToSearch()}>
+                      Tìm "{query}" trong tất cả sản phẩm
+                    </li>
+                  </>
+                ) : query.trim().length >= 1 ? (
+                  <li className="suggestion-item" style={{ justifyContent: 'center', color: '#6b7280' }}>
+                    <span>Không tìm thấy sản phẩm nào</span>
+                  </li>
+                ) : null}
               </ul>
             )}
           </div>
@@ -214,10 +310,6 @@ const Navbar = () => {
                       <a href="/profile" className="user-menu-item" onClick={() => setShowUserMenu(false)}>
                         <i className="fas fa-user-circle" aria-hidden="true"></i>
                         <span>Thông tin tài khoản</span>
-                      </a>
-                      <a href="/orders" className="user-menu-item" onClick={() => setShowUserMenu(false)}>
-                        <i className="fas fa-shopping-bag" aria-hidden="true"></i>
-                        <span>Đơn hàng của tôi</span>
                       </a>
                       <div className="user-dropdown-divider"></div>
                       <button className="user-menu-item logout-btn" onClick={handleLogout}>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as productService from '../services/productService';
 import { transformProduct } from '../utils/productUtils';
+import { handleProductImageError, getPlaceholderImage } from '../utils/imageUtils';
 import './RelatedProducts.css';
 
 function RelatedProducts({ categoryId, currentProductId }) {
@@ -196,9 +197,10 @@ function RelatedProducts({ categoryId, currentProductId }) {
                 >
                   <div className="product-image-container">
                     <img 
-                      src={product.image || 'https://via.placeholder.com/200'} 
+                      src={product.image || getPlaceholderImage('product')} 
                       alt={product.name}
                       className="product-image"
+                      onError={handleProductImageError}
                     />
                     {product.discount > 0 && (
                       <div className="discount-badge">-{product.discount}%</div>
