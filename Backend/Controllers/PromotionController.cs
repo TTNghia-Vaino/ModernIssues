@@ -505,9 +505,12 @@ namespace ModernIssues.Controllers
                         }
 
                         var uploadPath = _webHostEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                        Console.WriteLine($"[PromotionController.CreatePromotion] Upload path: {uploadPath}");
                         var fileName = await ImageUploadHelper.UploadImageAsync(promotionData.BannerFile, uploadPath);
                         if (!string.IsNullOrEmpty(fileName))
                         {
+                            var fullPath = Path.Combine(uploadPath, "Uploads", "Images", fileName);
+                            Console.WriteLine($"[PromotionController.CreatePromotion] Banner saved to: {fullPath}");
                             bannerUrl = fileName;
                         }
                     }
@@ -864,9 +867,13 @@ namespace ModernIssues.Controllers
                         }
 
                         var uploadPath = _webHostEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                        Console.WriteLine($"[PromotionController.UpdatePromotion] Upload path: {uploadPath}");
                         var fileName = await ImageUploadHelper.UploadImageAsync(promotionData.BannerFile, uploadPath);
                         if (!string.IsNullOrEmpty(fileName))
                         {
+                            var fullPath = Path.Combine(uploadPath, "Uploads", "Images", fileName);
+                            Console.WriteLine($"[PromotionController.UpdatePromotion] Banner saved to: {fullPath}");
+                            
                             // Xóa banner cũ nếu có
                             if (!string.IsNullOrEmpty(promotion.banner_url))
                             {
@@ -876,9 +883,13 @@ namespace ModernIssues.Controllers
                                     if (System.IO.File.Exists(oldBannerPath))
                                     {
                                         System.IO.File.Delete(oldBannerPath);
+                                        Console.WriteLine($"[PromotionController.UpdatePromotion] Deleted old banner: {oldBannerPath}");
                                     }
                                 }
-                                catch { /* Ignore delete errors */ }
+                                catch (Exception ex) 
+                                { 
+                                    Console.WriteLine($"[PromotionController.UpdatePromotion] Error deleting old banner: {ex.Message}");
+                                }
                             }
                             promotion.banner_url = fileName;
                         }
@@ -2141,4 +2152,5 @@ namespace ModernIssues.Controllers
         }
     }
 }
+
 
