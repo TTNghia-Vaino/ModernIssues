@@ -22,32 +22,54 @@ const HeroBanner = () => {
   // Helper function to get banner URL with proper path
   const getBannerUrl = (promotion) => {
     const bannerUrl = promotion.banner || promotion.bannerUrl;
+    console.log('[HeroBanner] getBannerUrl - promotion:', {
+      id: promotion.id || promotion.promotionId,
+      banner: promotion.banner,
+      bannerUrl: promotion.bannerUrl,
+      rawBannerUrl: bannerUrl
+    });
+    
     if (!bannerUrl || bannerUrl.trim() === '') {
+      console.log('[HeroBanner] No banner URL, using default');
       return defaultSlides[0]; // Default fallback
     }
     
     // Use normalizeImageUrl from productUtils (same as admin uses)
     const normalizedUrl = normalizeImageUrl(bannerUrl);
+    console.log('[HeroBanner] Normalized URL:', normalizedUrl);
     return normalizedUrl || defaultSlides[0];
   };
 
-  // Load active promotions with banners
+  // Load active promotions with banners for hero location
   useEffect(() => {
     const loadPromotions = async () => {
       try {
         setLoading(true);
-        const response = await listPromotions({
-          page: 1,
-          limit: 10,
-          status: 'active'
-        });
+        // Import getPromotionsByLocal dynamically
+        const { getPromotionsByLocal } = await import('../services/promotionService');
+        const heroPromotions = await getPromotionsByLocal('hero');
         
-        // Filter promotions that have banner_url
-        const promotionsWithBanners = (response.data || []).filter(
-          promo => (promo.banner && promo.banner.trim() !== '') || 
-                   (promo.bannerUrl && promo.bannerUrl.trim() !== '')
+        console.log('[HeroBanner] Loaded hero promotions:', heroPromotions);
+        
+        // API already filters by active and date range, so we just need to check for banner
+        const promotionsWithBanners = heroPromotions.filter(
+          promo => {
+            const hasBanner = (promo.banner && promo.banner.trim() !== '') || 
+                             (promo.bannerUrl && promo.bannerUrl.trim() !== '');
+            console.log('[HeroBanner] Promotion:', {
+              id: promo.id || promo.promotionId,
+              name: promo.name || promo.promotionName,
+              status: promo.status,
+              isActive: promo.isActive,
+              hasBanner,
+              banner: promo.banner,
+              bannerUrl: promo.bannerUrl
+            });
+            return hasBanner;
+          }
         );
         
+        console.log('[HeroBanner] Promotions with banners:', promotionsWithBanners);
         setPromotions(promotionsWithBanners);
       } catch (error) {
         console.error('[HeroBanner] Error loading promotions:', error);

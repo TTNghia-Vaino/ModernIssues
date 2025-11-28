@@ -8,8 +8,19 @@ import { getBaseURL } from '../config/api';
 const FALLBACK_IMAGE_BASE_URL = 'http://35.232.61.38:5000';
 
 const getCleanBaseUrl = () => {
-  const baseUrl = getBaseURL() || FALLBACK_IMAGE_BASE_URL;
-  return baseUrl.replace(/\/$/, '').replace(/\/v1$/i, '');
+  const baseUrl = getBaseURL();
+  const cleaned = baseUrl ? baseUrl.replace(/\/$/, '').replace(/\/v1$/i, '') : '';
+  
+  // If using proxy (empty base URL), use remote server for images
+  // Images are stored in wwwroot/Uploads/Images on remote server
+  if (!baseUrl || baseUrl === '') {
+    // Using Vite proxy, so images should come from remote server
+    // Return fallback to remote server
+    return FALLBACK_IMAGE_BASE_URL;
+  }
+  
+  // Return cleaned base URL (should be http://35.232.61.38:5000)
+  return cleaned || FALLBACK_IMAGE_BASE_URL;
 };
 
 export const normalizeImageUrl = (url) => {
@@ -28,11 +39,30 @@ export const normalizeImageUrl = (url) => {
   }
 
   const cleanBaseUrl = getCleanBaseUrl();
+  
+  // If already starts with /Uploads/Images/, just prepend base URL
+  if (trimmed.startsWith('/Uploads/Images/') || trimmed.startsWith('Uploads/Images/')) {
+    const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    // If using proxy (empty baseUrl), return relative path
+    if (!cleanBaseUrl || cleanBaseUrl === '') {
+      return cleanPath;
+    }
+    return `${cleanBaseUrl}${cleanPath}`;
+  }
+  
+  // If starts with /, prepend base URL
   if (trimmed.startsWith('/')) {
+    if (!cleanBaseUrl || cleanBaseUrl === '') {
+      return trimmed; // Return as is for proxy
+    }
     return `${cleanBaseUrl}${trimmed}`;
   }
 
-  // Default upload location on backend
+  // Default upload location on backend - just filename
+  // If using proxy, return relative path
+  if (!cleanBaseUrl || cleanBaseUrl === '') {
+    return `/Uploads/Images/${trimmed}`;
+  }
   return `${cleanBaseUrl}/Uploads/Images/${trimmed}`;
 };
 

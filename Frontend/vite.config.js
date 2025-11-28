@@ -8,12 +8,10 @@ export default defineConfig({
     open: true, // Tự động mở browser khi chạy dev server
     proxy: {
       '/v1': {
-        target: 'http://localhost:5273', // Local backend
+        target: 'http://35.232.61.38:5000', // Remote server backend
         changeOrigin: true,
         secure: false, // Allow HTTP
         rewrite: (path) => path, // Keep the path as is
-        cookieDomainRewrite: 'localhost', // Rewrite cookie domain to localhost
-        cookiePathRewrite: '/', // Rewrite cookie path
         configure: (proxy) => {
           proxy.on('error', (err) => {
             console.log('[Proxy Error]', err.message);
@@ -27,6 +25,18 @@ export default defineConfig({
             if (cookies) {
               console.log('[Proxy Response] Set-Cookie:', cookies);
             }
+          });
+        },
+      },
+      // Proxy for images from remote server
+      '/Uploads': {
+        target: 'http://35.232.61.38:5000', // Remote server for images
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path, // Keep the path as is
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
+            console.log('[Image Proxy Error]', err.message);
           });
         },
       },

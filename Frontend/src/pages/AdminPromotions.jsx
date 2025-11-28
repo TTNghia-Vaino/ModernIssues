@@ -25,6 +25,7 @@ import {
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { MoreVertical, Plus, X } from 'lucide-react'
+import ImageCrop from '../components/ImageCrop'
 import './AdminPromotions.css'
 
 const statusLabels = {
@@ -73,10 +74,20 @@ const AdminPromotions = () => {
     startDate: '',
     endDate: '',
     status: 'inactive',
-    banner: ''
+    banner: '',
+    local: 'hero' // 'hero', 'left', 'right'
   })
   const [bannerFile, setBannerFile] = useState(null)
   const [bannerPreview, setBannerPreview] = useState('')
+  const [showCropModal, setShowCropModal] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState('')
+  
+  // Kích thước banner theo vị trí (đúng với kích thước hiển thị trong frontend)
+  const bannerSizes = {
+    hero: { width: 1200, height: 600 }, // Banner lớn ở giữa (full width container)
+    left: { width: 180, height: 500 },  // Banner bên trái
+    right: { width: 180, height: 500 }   // Banner bên phải
+  }
 
   // Load promotions and products from API on mount
   useEffect(() => {
@@ -424,7 +435,8 @@ const AdminPromotions = () => {
         startDate: fullPromotion.startDate || '',
         endDate: fullPromotion.endDate || '',
         status: fullPromotion.status || 'inactive',
-        banner: fullPromotion.banner || ''
+        banner: fullPromotion.banner || '',
+        local: fullPromotion.local || 'hero'
       })
       
       // Set banner preview - handle full URL or relative path
@@ -474,7 +486,8 @@ const AdminPromotions = () => {
       startDate: '',
       endDate: '',
       status: 'inactive',
-      banner: ''
+      banner: '',
+      local: 'hero'
     })
     setBannerFile(null)
     setBannerPreview('')
@@ -486,14 +499,77 @@ const AdminPromotions = () => {
 
   const handleBannerUpload = (e) => {
     const file = e.target.files?.[0]
-    if (file) {
-      setBannerFile(file)
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setBannerPreview(reader.result)
-      }
-      reader.readAsDataURL(file)
+    if (!file) return
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      error('Vui lòng chọn file ảnh hợp lệ')
+      return
     }
+    
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      error('Kích thước ảnh không được vượt quá 10MB')
+      return
+    }
+    
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      const imageSrc = reader.result
+      
+      // Load image to check dimensions
+      const img = new Image()
+      img.onload = () => {
+        const currentLocal = formData.local || 'hero'
+        const requiredSize = bannerSizes[currentLocal]
+        const imageWidth = img.width
+        const imageHeight = img.height
+        
+        // Check if image is too small
+        if (imageWidth < requiredSize.width || imageHeight < requiredSize.height) {
+          error(`Ảnh quá nhỏ! Yêu cầu tối thiểu: ${requiredSize.width}x${requiredSize.height}px. Ảnh hiện tại: ${imageWidth}x${imageHeight}px. Vui lòng chọn ảnh lớn hơn.`)
+          return
+        }
+        
+        // If image is larger than required, show crop tool
+        if (imageWidth > requiredSize.width || imageHeight > requiredSize.height) {
+          setCropImageSrc(imageSrc)
+          setShowCropModal(true)
+        } else {
+          // Image is exactly the right size, use it directly
+          setBannerFile(file)
+          setBannerPreview(imageSrc)
+        }
+      }
+      img.onerror = () => {
+        error('Không thể đọc file ảnh')
+      }
+      img.src = imageSrc
+    }
+    reader.onerror = () => {
+      error('Không thể đọc file')
+    }
+    reader.readAsDataURL(file)
+    
+    // Reset input
+    e.target.value = ''
+  }
+  
+  const handleCropComplete = (croppedFile) => {
+    setBannerFile(croppedFile)
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setBannerPreview(reader.result)
+    }
+    reader.readAsDataURL(croppedFile)
+    setShowCropModal(false)
+    setCropImageSrc('')
+    success('Đã cắt ảnh thành công!')
+  }
+  
+  const handleCropCancel = () => {
+    setShowCropModal(false)
+    setCropImageSrc('')
   }
 
   const toggleProductSelection = (productId) => {
@@ -618,6 +694,7 @@ const AdminPromotions = () => {
               <div className="col-discount">Giảm giá</div>
               <div className="col-products">Sản phẩm</div>
               <div className="col-dates">Thời gian</div>
+              <div className="col-local">Vị trí</div>
               <div className="col-status">Trạng thái</div>
               <div className="col-actions">Thao tác</div>
             </div>
@@ -649,6 +726,11 @@ const AdminPromotions = () => {
                     <p>{promotion.startDateDisplay || promotion.startDate || ''}</p>
                     <p className="date-to">đến {promotion.endDateDisplay || promotion.endDate || ''}</p>
                   </div>
+                </div>
+                <div className="col-local">
+                  <span className={`local-badge local-${promotion.local || 'hero'}`}>
+                    {promotion.local === 'hero' ? '🎯 Hero' : promotion.local === 'left' ? '⬅️ Left' : promotion.local === 'right' ? '➡️ Right' : '🎯 Hero'}
+                  </span>
                 </div>
                 <div className="col-status">
                   {getStatusBadge(promotion.status)}
@@ -733,13 +815,15 @@ const AdminPromotions = () => {
 
       {/* Add/Edit Dialog */}
       <Dialog 
-        open={isAddDialogOpen} 
+        open={isAddDialogOpen && !showCropModal} 
         onOpenChange={(open) => {
-          setIsAddDialogOpen(open)
-          if (!open) {
-            // Reset filters when closing dialog
-            setProductCategoryFilter('all')
-            setProductSearchQuery('')
+          if (!showCropModal) {
+            setIsAddDialogOpen(open)
+            if (!open) {
+              // Reset filters when closing dialog
+              setProductCategoryFilter('all')
+              setProductSearchQuery('')
+            }
           }
         }}
       >
@@ -835,6 +919,23 @@ const AdminPromotions = () => {
                       <SelectItem value="inactive">Chưa kích hoạt</SelectItem>
                       <SelectItem value="active">Đang hoạt động</SelectItem>
                       <SelectItem value="expired">Đã hết hạn</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="form-item">
+                  <Label htmlFor="local" className="form-label">Vị trí hiển thị *</Label>
+                  <Select 
+                    value={formData.local} 
+                    onValueChange={(value) => setFormData({ ...formData, local: value })}
+                  >
+                    <SelectTrigger className="form-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hero">Hero - Banner lớn ở giữa</SelectItem>
+                      <SelectItem value="left">Left - Banner bên trái</SelectItem>
+                      <SelectItem value="right">Right - Banner bên phải</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -960,6 +1061,17 @@ const AdminPromotions = () => {
               <h3 className="form-section-title">Banner khuyến mãi</h3>
               <div className="form-item" style={{ gridColumn: '1 / -1' }}>
                 <Label htmlFor="banner" className="form-label">Upload banner</Label>
+                <div className="banner-size-info" style={{ marginBottom: '12px', padding: '12px', background: '#f0f9ff', borderRadius: '8px', fontSize: '14px' }}>
+                  <strong>Kích thước yêu cầu cho "{formData.local === 'hero' ? 'Hero' : formData.local === 'left' ? 'Left' : 'Right'}":</strong>
+                  <span style={{ marginLeft: '8px', color: '#667eea', fontWeight: '600' }}>
+                    {bannerSizes[formData.local || 'hero'].width} x {bannerSizes[formData.local || 'hero'].height}px
+                  </span>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
+                    {formData.local === 'hero' 
+                      ? 'Banner lớn ở giữa trang chủ (tỷ lệ 3:1)'
+                      : 'Banner dọc bên trái/phải (tỷ lệ 1:2)'}
+                  </p>
+                </div>
                 <div className="banner-upload-area">
                   {bannerPreview ? (
                     <div className="banner-preview-container">
@@ -984,7 +1096,10 @@ const AdminPromotions = () => {
                     <label htmlFor="banner" className="banner-upload-label">
                       <div className="banner-upload-icon">📤</div>
                       <span className="banner-upload-text">Click để tải lên banner</span>
-                      <span className="banner-upload-hint">PNG, JPG (tối đa 5MB)</span>
+                      <span className="banner-upload-hint">PNG, JPG (tối đa 10MB)</span>
+                      <span className="banner-upload-hint" style={{ fontSize: '12px', marginTop: '4px' }}>
+                        Ảnh sẽ được tự động cắt nếu lớn hơn kích thước yêu cầu
+                      </span>
                       <input
                         id="banner"
                         type="file"
@@ -1021,7 +1136,11 @@ const AdminPromotions = () => {
       </Dialog>
 
       {/* Detail Dialog */}
-      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+      <Dialog open={isDetailDialogOpen && !showCropModal} onOpenChange={(open) => {
+        if (!showCropModal) {
+          setIsDetailDialogOpen(open);
+        }
+      }}>
         <DialogContent className="promotion-detail-modal max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0 promotion-modal-header">
             <DialogTitle className="promotion-modal-title">Chi tiết khuyến mãi</DialogTitle>
@@ -1147,6 +1266,17 @@ const AdminPromotions = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Image Crop Modal */}
+      {showCropModal && cropImageSrc && (
+        <ImageCrop
+          imageSrc={cropImageSrc}
+          targetWidth={bannerSizes[formData.local || 'hero'].width}
+          targetHeight={bannerSizes[formData.local || 'hero'].height}
+          onCrop={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
+      )}
     </div>
   )
 }
