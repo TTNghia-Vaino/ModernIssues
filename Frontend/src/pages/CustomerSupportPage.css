@@ -1,0 +1,353 @@
+/* Customer Support Page Styles */
+.customer-support-page {
+  min-height: 100vh;
+  background: linear-gradient(to bottom, #f0f9f4 0%, #ffffff 100%);
+}
+
+/* Hero Section */
+.support-hero {
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  padding: 60px 20px;
+  text-align: center;
+  margin-bottom: 50px;
+  position: relative;
+  overflow: hidden;
+}
+
+.support-hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="none"/><circle cx="50" cy="50" r="2" fill="rgba(76, 175, 80, 0.1)"/></svg>');
+  opacity: 0.3;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.hero-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  line-height: 1.3;
+}
+
+.brand-name {
+  color: #4caf50;
+  font-weight: 800;
+}
+
+.hero-subtitle {
+  font-size: 1.1rem;
+  color: #546e7a;
+  line-height: 1.6;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* Support Services Grid */
+.support-services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 30px;
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto 60px;
+}
+
+.support-card {
+  background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.support-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+}
+
+.support-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 12px 30px rgba(46, 125, 50, 0.3);
+}
+
+.support-card-inner {
+  padding: 40px 20px;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.support-icon {
+  margin-bottom: 25px;
+  display: flex;
+  justify-content: center;
+}
+
+.astronaut-wrapper {
+  width: 120px;
+  height: 120px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.support-card:hover .astronaut-wrapper {
+  transform: scale(1.1) rotate(5deg);
+}
+
+.service-emoji {
+  font-size: 3.5rem;
+  display: block;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.support-title {
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 15px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 1.4;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.support-description {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  margin-bottom: 25px;
+  line-height: 1.6;
+  min-height: 50px;
+}
+
+.support-btn {
+  background: white;
+  color: #2e7d32;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 25px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.support-btn:hover {
+  background: #ffd54f;
+  transform: scale(1.05);
+  box-shadow: 0 4px 15px rgba(255, 213, 79, 0.4);
+}
+
+.support-btn i {
+  font-size: 0.9rem;
+  transition: transform 0.3s ease;
+}
+
+.support-btn:hover i {
+  transform: translateX(5px);
+}
+
+/* Contact Section */
+.support-contact-section {
+  background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);
+  padding: 20px 15px;
+  margin: 20px 0;
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.contact-item {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.contact-item:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.contact-item i {
+  font-size: 1.2rem;
+  color: white;
+  min-width: 30px;
+}
+
+.contact-info h4 {
+  color: white;
+  font-size: 0.85rem;
+  margin-bottom: 3px;
+  font-weight: 600;
+}
+
+.contact-info p {
+  color: white;
+  font-size: 0.8rem;
+  margin-bottom: 2px;
+  font-weight: 500;
+}
+
+.contact-time {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.7rem;
+}
+
+/* FAQ Section */
+.faq-preview-section {
+  padding: 60px 20px;
+  background: white;
+}
+
+.section-title {
+  text-align: center;
+  font-size: 2rem;
+  color: #2c3e50;
+  margin-bottom: 40px;
+  font-weight: 700;
+}
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.faq-item {
+  background: #f8f9fa;
+  padding: 25px;
+  border-radius: 12px;
+  border-left: 4px solid #4caf50;
+  transition: all 0.3s ease;
+}
+
+.faq-item:hover {
+  background: #e8f5e9;
+  transform: translateX(5px);
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.2);
+}
+
+.faq-item h4 {
+  color: #2e7d32;
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.faq-item p {
+  color: #546e7a;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 1.8rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+
+  .support-services-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 10px;
+  }
+
+  .support-title {
+    font-size: 1rem;
+    min-height: auto;
+  }
+
+  .astronaut-wrapper {
+    width: 100px;
+    height: 100px;
+  }
+
+  .service-emoji {
+    font-size: 3rem;
+  }
+
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-item {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .faq-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .support-hero {
+    padding: 40px 15px;
+  }
+
+  .hero-title {
+    font-size: 1.5rem;
+  }
+
+  .support-card-inner {
+    padding: 30px 15px;
+  }
+}
+
+
+
+
