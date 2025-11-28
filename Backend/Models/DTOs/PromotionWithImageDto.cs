@@ -40,6 +40,11 @@ namespace ModernIssues.Models.DTOs
         /// File banner khuyến mãi (tùy chọn)
         /// </summary>
         public IFormFile? BannerFile { get; set; }
+        
+        /// <summary>
+        /// Vị trí hiển thị promotion: "hero" (giữa trang chủ), "left" (bên trái), "right" (bên phải)
+        /// </summary>
+        public string? Local { get; set; } = "hero";
     }
 }
 

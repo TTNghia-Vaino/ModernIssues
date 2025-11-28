@@ -39,6 +39,11 @@ namespace ModernIssues.Models.DTOs
         /// URL banner khuyến mãi (tùy chọn)
         /// </summary>
         public string? BannerUrl { get; set; }
+        
+        /// <summary>
+        /// Vị trí hiển thị promotion: "hero" (giữa trang chủ), "left" (bên trái), "right" (bên phải)
+        /// </summary>
+        public string? Local { get; set; } = "hero";
     }
 
     /// <summary>
@@ -86,6 +91,7 @@ namespace ModernIssues.Models.DTOs
         public bool IsActive { get; set; }
         public int ProductCount { get; set; } // Số lượng sản phẩm áp dụng
         public string? BannerUrl { get; set; }
+        public string? Local { get; set; } = "hero"; // Vị trí hiển thị: hero, left, right
     }
 
     /// <summary>

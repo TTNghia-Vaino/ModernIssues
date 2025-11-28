@@ -40,6 +40,11 @@ public partial class promotion
 
     public string? banner_url { get; set; }
 
+    /// <summary>
+    /// Vị trí hiển thị promotion: "hero" (giữa trang chủ), "left" (bên trái), "right" (bên phải)
+    /// </summary>
+    public string? local { get; set; }
+
     public virtual user? created_byNavigation { get; set; }
 
     public virtual user? updated_byNavigation { get; set; }

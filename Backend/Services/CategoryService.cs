@@ -2,6 +2,7 @@ using ModernIssues.Models.DTOs;
 using ModernIssues.Repositories;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace ModernIssues.Services
@@ -10,7 +11,8 @@ namespace ModernIssues.Services
     {
         Task<List<CategoryDto>> GetAllCategoriesAsync();
         Task<List<CategoryTreeDto>> GetCategoryTreeAsync();
-        Task<CategoryDto?> GetCategoryByIdAsync(int categoryId);
+        Task<List<CategoryTreeDto>> GetCategoryTreeFullAsync();
+        Task<CategoryDto?> GetCategoryByIdAsync(int categoryId, bool includeDisabled = false);
         Task<CategoryDto> CreateCategoryAsync(CategoryCreateDto category, int adminId);
         Task<CategoryDto?> UpdateCategoryAsync(int categoryId, CategoryUpdateDto category, int adminId);
         Task<bool> DeleteCategoryAsync(int categoryId, int adminId);
@@ -36,9 +38,9 @@ namespace ModernIssues.Services
             return BuildCategoryTree(allCategories);
         }
 
-        public async Task<CategoryDto?> GetCategoryByIdAsync(int categoryId)
+        public async Task<CategoryDto?> GetCategoryByIdAsync(int categoryId, bool includeDisabled = false)
         {
-            return await _categoryRepository.GetCategoryByIdAsync(categoryId);
+            return await _categoryRepository.GetCategoryByIdAsync(categoryId, includeDisabled);
         }
 
         public async Task<CategoryDto> CreateCategoryAsync(CategoryCreateDto category, int adminId)
@@ -58,6 +60,12 @@ namespace ModernIssues.Services
 
         public async Task<CategoryDto?> UpdateCategoryAsync(int categoryId, CategoryUpdateDto category, int adminId)
         {
+            // Validate that at least one field is being updated
+            if (string.IsNullOrWhiteSpace(category.CategoryName) && !category.ParentId.HasValue && !category.IsDisabled.HasValue)
+            {
+                throw new ArgumentException("Phải cập nhật ít nhất một trường (tên danh mục, danh mục cha hoặc trạng thái)");
+            }
+
             // Validate parent category exists if specified
             if (category.ParentId.HasValue && category.ParentId.Value > 0)
             {
@@ -67,14 +75,55 @@ namespace ModernIssues.Services
                     throw new ArgumentException($"Không tìm thấy danh mục cha với ID: {category.ParentId}");
                 }
 
-                // Prevent circular reference
+                // Prevent circular reference - category cannot be parent of itself
                 if (category.ParentId.Value == categoryId)
                 {
                     throw new ArgumentException("Danh mục không thể là cha của chính nó");
                 }
+
+                // Prevent deep circular reference - check if new parent is a descendant of current category
+                var allCategories = await _categoryRepository.GetAllCategoriesAsync();
+                if (IsDescendantOf(categoryId, category.ParentId.Value, allCategories))
+                {
+                    throw new ArgumentException("Không thể di chuyển danh mục vào làm con của danh mục con của chính nó");
+                }
+            }
+            else if (category.ParentId.HasValue && category.ParentId.Value == 0)
+            {
+                // Setting parent to 0 means removing parent (making it root)
+                category.ParentId = null;
             }
 
             return await _categoryRepository.UpdateCategoryAsync(categoryId, category, adminId);
+        }
+
+        /// <summary>
+        /// Check if potentialParentId is a descendant (child, grandchild, etc.) of categoryId
+        /// </summary>
+        private bool IsDescendantOf(int categoryId, int potentialParentId, List<CategoryDto> allCategories)
+        {
+            // Get all descendants of categoryId recursively
+            var descendants = GetDescendants(categoryId, allCategories);
+            return descendants.Contains(potentialParentId);
+        }
+
+        /// <summary>
+        /// Get all descendant category IDs recursively
+        /// </summary>
+        private HashSet<int> GetDescendants(int categoryId, List<CategoryDto> allCategories)
+        {
+            var result = new HashSet<int>();
+            var children = allCategories.Where(c => c.ParentId == categoryId).ToList();
+            
+            foreach (var child in children)
+            {
+                result.Add(child.CategoryId);
+                // Recursively get descendants of children
+                var childDescendants = GetDescendants(child.CategoryId, allCategories);
+                result.UnionWith(childDescendants);
+            }
+            
+            return result;
         }
 
         public async Task<bool> DeleteCategoryAsync(int categoryId, int adminId)
@@ -86,11 +135,14 @@ namespace ModernIssues.Services
                 throw new ArgumentException("Không thể xóa danh mục có danh mục con. Vui lòng xóa các danh mục con trước.");
             }
 
-            // Check if category has products
-            var hasProducts = await _categoryRepository.HasProductsAsync(categoryId);
-            if (hasProducts)
+            // Check if category has active products (is_disabled != true)
+            // Chỉ cho phép xóa khi:
+            // 1. Không có sản phẩm nào trong danh mục
+            // 2. HOẶC tất cả sản phẩm trong danh mục đều có is_disabled = true
+            var hasActiveProducts = await _categoryRepository.HasActiveProductsAsync(categoryId);
+            if (hasActiveProducts)
             {
-                throw new ArgumentException("Không thể xóa danh mục có sản phẩm. Vui lòng di chuyển hoặc xóa các sản phẩm trước.");
+                throw new ArgumentException("Không thể xóa danh mục có sản phẩm đang hoạt động. Vui lòng vô hiệu hóa hoặc di chuyển các sản phẩm trước.");
             }
 
             return await _categoryRepository.DeleteCategoryAsync(categoryId, adminId);
@@ -109,11 +161,12 @@ namespace ModernIssues.Services
                     CategoryId = category.CategoryId,
                     CategoryName = category.CategoryName,
                     ParentId = category.ParentId,
+                    IsDisabled = category.IsDisabled,
                     Children = new List<CategoryTreeDto>()
                 };
             }
 
-            // Build tree structure
+            // Build tree structure recursively (supports unlimited levels)
             foreach (var category in categories)
             {
                 var categoryNode = categoryDict[category.CategoryId];
@@ -125,15 +178,30 @@ namespace ModernIssues.Services
                 }
                 else
                 {
-                    // Child category
-                    if (categoryDict.ContainsKey(category.ParentId.Value))
-                    {
-                        categoryDict[category.ParentId.Value].Children.Add(categoryNode);
-                    }
+                    // Child category - recursively find parent and add
+                    AddToParent(categoryDict, categoryNode, category.ParentId.Value);
                 }
             }
 
             return rootCategories;
+        }
+
+        private void AddToParent(Dictionary<int, CategoryTreeDto> categoryDict, CategoryTreeDto childNode, int parentId)
+        {
+            if (categoryDict.ContainsKey(parentId))
+            {
+                categoryDict[parentId].Children.Add(childNode);
+            }
+        }
+
+        /// <summary>
+        /// Build category tree with full hierarchy (supports unlimited levels)
+        /// </summary>
+        public async Task<List<CategoryTreeDto>> GetCategoryTreeFullAsync()
+        {
+            // Admin có thể xem tất cả categories (kể cả disabled)
+            var allCategories = await _categoryRepository.GetAllCategoriesAsync(includeDisabled: true);
+            return BuildCategoryTree(allCategories);
         }
     }
 }

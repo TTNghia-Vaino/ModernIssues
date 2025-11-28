@@ -17,6 +17,7 @@ namespace ModernIssues.Models.DTOs
         public DateTime? UpdatedAt { get; set; }
         public int? CreatedBy { get; set; }
         public int? UpdatedBy { get; set; }
+        public bool? IsDisabled { get; set; }
     }
 
     /// <summary>
@@ -27,6 +28,7 @@ namespace ModernIssues.Models.DTOs
         public int CategoryId { get; set; } = 0;
         public string CategoryName { get; set; } = string.Empty;
         public int? ParentId { get; set; }
+        public bool? IsDisabled { get; set; }
         public List<CategoryTreeDto> Children { get; set; } = new List<CategoryTreeDto>();
     }
 
@@ -104,5 +106,7 @@ namespace ModernIssues.Models.DTOs
 
         [JsonConverter(typeof(NullableIntConverter))]
         public int? ParentId { get; set; }
+
+        public bool? IsDisabled { get; set; }
     }
 }

@@ -485,23 +485,44 @@ namespace ModernIssues.Controllers
 
             try
             {
-                var categoryProductCounts = await (from c in _context.categories
-                                                 join p in _context.products on c.category_id equals p.category_id into productGroup
-                                                 from p in productGroup.DefaultIfEmpty()
-                                                 group p by new { c.category_id, c.category_name } into g
-                                                 select new
-                                                 {
-                                                     category_id = g.Key.category_id,
-                                                     category_name = g.Key.category_name,
-                                                     product_count = g.Count(p => p != null)
-                                                 })
-                                                 .OrderByDescending(x => x.product_count)
-                                                 .ThenBy(x => x.category_name)
-                                                 .ToListAsync();
+                // Get all categories and products
+                var allCategories = await _context.categories.ToListAsync();
+                var allProducts = await _context.products
+                    .Where(p => p.is_disabled != true)
+                    .ToListAsync();
+
+                // Helper function to get all descendant category IDs (recursive)
+                HashSet<int> GetAllDescendantIds(int categoryId, List<category> categories)
+                {
+                    var result = new HashSet<int> { categoryId };
+                    var children = categories.Where(c => c.parent_id == categoryId).ToList();
+                    foreach (var child in children)
+                    {
+                        result.UnionWith(GetAllDescendantIds(child.category_id, categories));
+                    }
+                    return result;
+                }
+
+                // Calculate product count for each category (including products from child categories)
+                var categoryProductCounts = allCategories.Select(c =>
+                {
+                    var allCategoryIds = GetAllDescendantIds(c.category_id, allCategories);
+                    var productCount = allProducts.Count(p => allCategoryIds.Contains(p.category_id ?? 0));
+                    
+                    return new
+                    {
+                        category_id = c.category_id,
+                        category_name = c.category_name,
+                        product_count = productCount
+                    };
+                })
+                .OrderByDescending(x => x.product_count)
+                .ThenBy(x => x.category_name)
+                .ToList();
 
                 return Ok(ApiResponse<List<object>>.SuccessResponse(
                     categoryProductCounts.Cast<object>().ToList(), 
-                    "Lấy thống kê số lượng sản phẩm theo danh mục thành công."));
+                    "Lấy thống kê số lượng sản phẩm theo danh mục thành công (bao gồm sản phẩm của danh mục con)."));
             }
             catch (Exception ex)
             {

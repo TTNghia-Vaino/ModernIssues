@@ -25,6 +25,11 @@ public partial class category
 
     public int? updated_by { get; set; }
 
+    /// <summary>
+    /// Trạng thái vô hiệu hóa danh mục (true = đã vô hiệu hóa, false/null = đang hoạt động)
+    /// </summary>
+    public bool? is_disabled { get; set; }
+
     public virtual ICollection<category> Inverseparent { get; set; } = new List<category>();
 
     public virtual user? created_byNavigation { get; set; }
