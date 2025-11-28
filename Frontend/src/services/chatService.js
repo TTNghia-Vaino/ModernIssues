@@ -27,26 +27,23 @@ let endpointUnavailableLogged = false;
 
 /**
  * Get the chat API URL
- * Chat endpoint is typically at root level: /chat or /v1/chat
+ * Chat endpoint is at root level: /chat
+ * Python API runs on port 8000 locally, or proxied through port 5000 on server
+ * When using proxy, Vite will forward /chat to localhost:8000 (with fallback to remote)
  */
 const getChatApiUrl = () => {
   const baseURL = getBaseURL();
   
-  // If baseURL is empty, we're using proxy - try /chat directly
-  if (!baseURL) {
-    return '/chat';
-  }
-  
-  // Otherwise construct full URL
-  // Try /chat first (as shown in Swagger docs), fallback to /v1/chat if needed
-  return `${baseURL}/chat`;
+  // Always use proxy for chat API to handle local/remote fallback
+  // Vite proxy will try localhost:8000 first, then fallback to remote server
+  return '/chat';
 };
 
 /**
  * Send message to chatbot API
  * Endpoint: POST /chat
  * Request body: { text: string, session_id: string }
- * Response: string (chatbot response text)
+ * Response: { session_id: string, answer: string, conversation_history: array, decision: object }
  * 
  * @param {string} text - User message text
  * @param {string} sessionId - Session ID for maintaining conversation context
@@ -58,7 +55,7 @@ export const sendChatMessage = async (text, sessionId) => {
   try {
     // Use AbortController to prevent hanging requests
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     const response = await fetch(url, {
       method: 'POST',
@@ -112,27 +109,25 @@ export const sendChatMessage = async (text, sessionId) => {
       throw error;
     }
 
-    // API returns string directly according to Swagger docs
-    const responseText = await response.text();
+    // Python API returns JSON with format: { session_id, answer, conversation_history, decision }
+    const responseData = await response.json();
     
-    // If response is empty, return default message
-    if (!responseText || responseText.trim() === '') {
-      return 'Xin lỗi, tôi không hiểu câu hỏi của bạn. Vui lòng thử lại.';
+    // Extract answer from response
+    if (responseData && responseData.answer) {
+      return responseData.answer;
     }
     
-    // If it's a JSON string, try to parse it
-    try {
-      const parsed = JSON.parse(responseText);
-      // If parsed result is a string, return it
-      if (typeof parsed === 'string') {
-        return parsed;
-      }
-      // If it's an object, extract text or message field
-      return parsed.text || parsed.message || parsed.response || JSON.stringify(parsed);
-    } catch {
-      // If not JSON, return as-is (it's already a string)
-      return responseText;
+    // Fallback: check other possible fields
+    if (responseData && typeof responseData === 'string') {
+      return responseData;
     }
+    
+    if (responseData && (responseData.text || responseData.message || responseData.response)) {
+      return responseData.text || responseData.message || responseData.response;
+    }
+    
+    // If response is empty or unexpected format, return default message
+    return 'Xin lỗi, tôi không hiểu câu hỏi của bạn. Vui lòng thử lại.';
 
   } catch (error) {
     // Suppress abort errors and 404s from console
