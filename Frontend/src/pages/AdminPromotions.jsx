@@ -635,13 +635,13 @@ const AdminPromotions = () => {
   // Table columns config
   const tableColumns = [
     { key: 'id', label: 'ID', className: 'col-id' },
-    { key: 'name', label: 'Tên chương trình', className: 'col-name' },
-    { key: 'discount', label: 'Giảm giá', className: 'col-discount' },
-    { key: 'products', label: 'Sản phẩm', className: 'col-products' },
-    { key: 'dates', label: 'Thời gian', className: 'col-dates' },
-    { key: 'local', label: 'Vị trí', className: 'col-local' },
-    { key: 'status', label: 'Trạng thái', className: 'col-status' },
-    { key: 'actions', label: 'Thao tác', className: 'col-actions' }
+    { key: 'name', label: 'TÊN CHƯƠNG TRÌNH', className: 'col-name' },
+    { key: 'discount', label: 'GIẢM GIÁ', className: 'col-discount' },
+    { key: 'products', label: 'SẢN PHẨM', className: 'col-products' },
+    { key: 'dates', label: 'THỜI GIAN', className: 'col-dates' },
+    { key: 'local', label: 'VỊ TRÍ', className: 'col-local' },
+    { key: 'status', label: 'TRẠNG THÁI', className: 'col-status' },
+    { key: 'actions', label: 'THAO TÁC', className: 'col-actions' }
   ];
 
   // Render custom promotion row

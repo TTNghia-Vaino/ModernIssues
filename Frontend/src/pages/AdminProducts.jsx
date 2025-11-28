@@ -794,13 +794,13 @@ const AdminProducts = () => {
 
   // Table columns config
   const tableColumns = [
-    { key: 'image', label: 'Hình ảnh', className: 'col-image' },
-    { key: 'name', label: 'Tên sản phẩm', className: 'col-name' },
-    { key: 'category', label: 'Danh mục', className: 'col-category' },
-    { key: 'price', label: 'Giá bán', className: 'col-price' },
-    { key: 'stock', label: 'Tồn kho', className: 'col-stock' },
-    { key: 'status', label: 'Trạng thái', className: 'col-status' },
-    { key: 'actions', label: 'Thao tác', className: 'col-actions' }
+    { key: 'image', label: 'HÌNH ẢNH', className: 'col-image' },
+    { key: 'name', label: 'TÊN SẢN PHẨM', className: 'col-name' },
+    { key: 'category', label: 'DANH MỤC', className: 'col-category' },
+    { key: 'price', label: 'GIÁ BÁN', className: 'col-price' },
+    { key: 'stock', label: 'TỒN KHO', className: 'col-stock' },
+    { key: 'status', label: 'TRẠNG THÁI', className: 'col-status' },
+    { key: 'actions', label: 'THAO TÁC', className: 'col-actions' }
   ];
 
   // Render custom product row
@@ -852,7 +852,7 @@ const AdminProducts = () => {
         </span>
       </div>
       <div className="col-status">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
           <span className={`status-badge ${product.isDisabled ? 'status-disabled' : 'status-active'}`}>
             {product.isDisabled ? 'Ngừng bán' : 'Hoạt động'}
           </span>

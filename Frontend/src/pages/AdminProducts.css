@@ -139,8 +139,8 @@
 
 .table-header {
   display: grid;
-  /* Hình ảnh: 10% | Tên: 25% | Danh mục: 13% | Giá: 13% | Tồn kho: 13% | Trạng thái: 13% | Thao tác: 10% */
-  grid-template-columns: 1fr 2.5fr 1.3fr 1.3fr 1.3fr 1.3fr 1fr;
+  /* Hình ảnh: 120px | Tên: 2.5fr | Danh mục: 1.3fr | Giá: 1.3fr | Tồn kho: 1.3fr | Trạng thái: 1.5fr | Thao tác: 120px */
+  grid-template-columns: 120px 2.5fr 1.3fr 1.3fr 1.3fr 1.5fr 120px;
   width: 100%;
   gap: 15px;
   padding: 16px 20px;
@@ -149,12 +149,31 @@
   font-weight: 600;
   font-size: 14px;
   box-sizing: border-box;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-items: center;
+}
+
+.table-header > div {
+  white-space: normal;
+  overflow: visible;
+  word-wrap: break-word;
+  min-width: 0;
+}
+
+.table-header .col-image {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.table-header .col-status {
+  margin-right: 60px;
 }
 
 .table-row {
   display: grid;
-  /* Hình ảnh: 10% | Tên: 25% | Danh mục: 13% | Giá: 13% | Tồn kho: 13% | Trạng thái: 13% | Thao tác: 10% */
-  grid-template-columns: 1fr 2.5fr 1.3fr 1.3fr 1.3fr 1.3fr 1fr;
+  /* Hình ảnh: 120px | Tên: 2.5fr | Danh mục: 1.3fr | Giá: 1.3fr | Tồn kho: 1.3fr | Trạng thái: 1.5fr | Thao tác: 120px */
+  grid-template-columns: 120px 2.5fr 1.3fr 1.3fr 1.3fr 1.5fr 120px;
   width: 100%;
   gap: 15px;
   padding: 16px 20px;
@@ -164,6 +183,7 @@
   box-sizing: border-box;
   position: relative;
   overflow: visible;
+  min-height: 60px;
 }
 
 .table-row:hover {
@@ -171,8 +191,8 @@
 }
 
 .col-image {
-  min-width: 80px;
-  max-width: 100%;
+  min-width: 100px;
+  max-width: 120px;
   flex-shrink: 0;
   display: flex;
   justify-content: center;
@@ -196,6 +216,37 @@
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  justify-content: flex-start;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.col-name > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  text-align: left;
+}
+
+.col-category {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-price {
+  text-align: right;
+  justify-content: flex-end;
+}
+
+.col-stock {
+  text-align: center;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  flex-direction: column;
 }
 
 .product-name {
@@ -208,6 +259,8 @@
   max-width: 100%;
   cursor: help;
   position: relative;
+  text-align: left;
+  width: 100%;
 }
 
 .product-name:hover::after {
@@ -383,7 +436,15 @@
 .col-status {
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
+  padding: 0;
+  margin-right: 60px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  width: 100%;
 }
 
 .status-active {
@@ -417,6 +478,14 @@
   grid-column: 7;
   position: relative;
   z-index: 1;
+  width: 100%;
+}
+
+.col-actions .action-btn {
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .table-header .col-image { grid-column: 1; }

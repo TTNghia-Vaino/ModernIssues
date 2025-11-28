@@ -132,8 +132,8 @@
 
 .table-header {
   display: grid;
-  /* Mã đơn: 1fr | Khách hàng: 2.5fr | Tổng tiền: 1.2fr | Phương thức: 1.5fr | Trạng thái: 1.2fr | Ngày đặt: 1.3fr | Thao tác: 1.5fr */
-  grid-template-columns: 1fr 2.5fr 1.2fr 1.5fr 1.2fr 1.3fr 1.5fr;
+  /* Mã đơn: 100px | Khách hàng: 2.5fr | Tổng tiền: 1.2fr | Phương thức: 1.5fr | Trạng thái: 1.2fr | Ngày đặt: 1.3fr | Thao tác: 150px */
+  grid-template-columns: 100px 2.5fr 1.2fr 1.5fr 1.2fr 1.3fr 150px;
   width: 100%;
   gap: 15px;
   padding: 16px 20px;
@@ -142,12 +142,15 @@
   font-weight: 600;
   font-size: 14px;
   box-sizing: border-box;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-items: center;
 }
 
 .table-row {
   display: grid;
-  /* Mã đơn: 1fr | Khách hàng: 2.5fr | Tổng tiền: 1.2fr | Phương thức: 1.5fr | Trạng thái: 1.2fr | Ngày đặt: 1.3fr | Thao tác: 1.5fr */
-  grid-template-columns: 1fr 2.5fr 1.2fr 1.5fr 1.2fr 1.3fr 1.5fr;
+  /* Mã đơn: 100px | Khách hàng: 2.5fr | Tổng tiền: 1.2fr | Phương thức: 1.5fr | Trạng thái: 1.2fr | Ngày đặt: 1.3fr | Thao tác: 150px */
+  grid-template-columns: 100px 2.5fr 1.2fr 1.5fr 1.2fr 1.3fr 150px;
   width: 100%;
   gap: 15px;
   padding: 16px 20px;
@@ -155,6 +158,29 @@
   align-items: center;
   transition: all 0.3s ease;
   box-sizing: border-box;
+  min-height: 60px;
+}
+
+.table-header > *,
+.table-row > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.table-header > * {
+  white-space: nowrap;
+}
+
+.col-customer {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-total {
+  text-align: right;
+  justify-content: flex-end;
 }
 
 .table-row:hover {

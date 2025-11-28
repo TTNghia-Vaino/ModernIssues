@@ -1,4 +1,5 @@
 import React from 'react';
+import './AdminDataTable.css';
 
 /**
  * AdminDataTable - Component table hiển thị dữ liệu

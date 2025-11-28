@@ -131,6 +131,13 @@
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  align-items: center;
+}
+
+.table-header > * {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .table-row {
@@ -141,6 +148,25 @@
   border-bottom: 1px solid #e5e7eb;
   transition: all 0.2s ease;
   align-items: center;
+  min-height: 60px;
+}
+
+.table-row > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.col-name {
+  overflow: hidden;
+}
+
+.promotion-name,
+.promotion-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .table-row:hover {

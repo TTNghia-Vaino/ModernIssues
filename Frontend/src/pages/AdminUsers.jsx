@@ -449,11 +449,11 @@ const AdminUsers = () => {
   // Table columns config
   const tableColumns = [
     { key: 'id', label: 'ID', className: 'col-id' },
-    { key: 'user', label: 'Người dùng', className: 'col-user' },
-    { key: 'role', label: 'Vai trò', className: 'col-role' },
-    { key: 'status', label: 'Trạng thái', className: 'col-status' },
-    { key: 'date', label: 'Ngày tạo', className: 'col-date' },
-    { key: 'actions', label: 'Thao tác', className: 'col-actions' }
+    { key: 'user', label: 'NGƯỜI DÙNG', className: 'col-user' },
+    { key: 'role', label: 'VAI TRÒ', className: 'col-role' },
+    { key: 'status', label: 'TRẠNG THÁI', className: 'col-status' },
+    { key: 'date', label: 'NGÀY TẠO', className: 'col-date' },
+    { key: 'actions', label: 'THAO TÁC', className: 'col-actions' }
   ];
 
   // Render custom user row

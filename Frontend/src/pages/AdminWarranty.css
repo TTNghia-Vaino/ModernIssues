@@ -134,8 +134,8 @@
 
 .table-header {
   display: grid;
-  /* Mã BH: 1fr | Khách hàng: 2fr | Sản phẩm: 1.5fr | Ngày mua: 1fr | Ngày yêu cầu: 1fr | Vấn đề: 1.5fr | Trạng thái: 1fr | Thao tác: 1.2fr */
-  grid-template-columns: 1fr 2fr 1.5fr 1fr 1fr 1.5fr 1fr 1.2fr;
+  /* Mã BH: 100px | Khách hàng: 2fr | Sản phẩm: 1.5fr | Ngày mua: 1fr | Ngày yêu cầu: 1fr | Vấn đề: 1.5fr | Trạng thái: 1fr | Thao tác: 120px */
+  grid-template-columns: 100px 2fr 1.5fr 1fr 1fr 1.5fr 1fr 120px;
   width: 100%;
   gap: 15px;
   padding: 16px 20px;
@@ -144,12 +144,21 @@
   font-weight: 600;
   font-size: 14px;
   box-sizing: border-box;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-items: center;
+}
+
+.table-header > * {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .table-row {
   display: grid;
-  /* Mã BH: 1fr | Khách hàng: 2fr | Sản phẩm: 1.5fr | Ngày mua: 1fr | Ngày yêu cầu: 1fr | Vấn đề: 1.5fr | Trạng thái: 1fr | Thao tác: 1.2fr */
-  grid-template-columns: 1fr 2fr 1.5fr 1fr 1fr 1.5fr 1fr 1.2fr;
+  /* Mã BH: 100px | Khách hàng: 2fr | Sản phẩm: 1.5fr | Ngày mua: 1fr | Ngày yêu cầu: 1fr | Vấn đề: 1.5fr | Trạng thái: 1fr | Thao tác: 120px */
+  grid-template-columns: 100px 2fr 1.5fr 1fr 1fr 1.5fr 1fr 120px;
   width: 100%;
   gap: 15px;
   padding: 16px 20px;
@@ -157,6 +166,21 @@
   align-items: center;
   transition: all 0.3s ease;
   box-sizing: border-box;
+  min-height: 60px;
+}
+
+.table-row > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.col-customer,
+.col-product,
+.col-issue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .table-row:hover {

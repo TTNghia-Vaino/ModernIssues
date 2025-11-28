@@ -314,13 +314,13 @@ const AdminOrders = () => {
 
   // Table columns config
   const tableColumns = [
-    { key: 'id', label: 'Mã đơn hàng', className: 'col-id' },
-    { key: 'customer', label: 'Khách hàng', className: 'col-customer' },
-    { key: 'total', label: 'Tổng tiền', className: 'col-total' },
-    { key: 'payment', label: 'Phương thức thanh toán', className: 'col-payment' },
-    { key: 'status', label: 'Trạng thái', className: 'col-status' },
-    { key: 'date', label: 'Ngày đặt', className: 'col-date' },
-    { key: 'actions', label: 'Thao tác', className: 'col-actions' }
+    { key: 'id', label: 'MÃ ĐƠN', className: 'col-id' },
+    { key: 'customer', label: 'KHÁCH HÀNG', className: 'col-customer' },
+    { key: 'total', label: 'TỔNG TIỀN', className: 'col-total' },
+    { key: 'payment', label: 'PHƯƠNG THỨC THANH TOÁN', className: 'col-payment' },
+    { key: 'status', label: 'TRẠNG THÁI', className: 'col-status' },
+    { key: 'date', label: 'NGÀY ĐẶT', className: 'col-date' },
+    { key: 'actions', label: 'THAO TÁC', className: 'col-actions' }
   ];
 
   // Render custom order row

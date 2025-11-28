@@ -582,14 +582,14 @@ export default function WarrantyPage() {
 
   // Table columns config
   const tableColumns = [
-    { key: 'code', label: 'Mã BH', className: 'col-code' },
-    { key: 'customer', label: 'Khách hàng', className: 'col-customer' },
-    { key: 'product', label: 'Sản phẩm', className: 'col-product' },
-    { key: 'purchaseDate', label: 'Ngày mua', className: 'col-purchase-date' },
-    { key: 'warrantyDate', label: 'Ngày yêu cầu', className: 'col-warranty-date' },
-    { key: 'issue', label: 'Vấn đề', className: 'col-issue' },
-    { key: 'status', label: 'Trạng thái', className: 'col-status' },
-    { key: 'actions', label: 'Thao tác', className: 'col-actions' }
+    { key: 'code', label: 'MÃ BH', className: 'col-code' },
+    { key: 'customer', label: 'KHÁCH HÀNG', className: 'col-customer' },
+    { key: 'product', label: 'SẢN PHẨM', className: 'col-product' },
+    { key: 'purchaseDate', label: 'NGÀY MUA', className: 'col-purchase-date' },
+    { key: 'warrantyDate', label: 'NGÀY YÊU CẦU', className: 'col-warranty-date' },
+    { key: 'issue', label: 'VẤN ĐỀ', className: 'col-issue' },
+    { key: 'status', label: 'TRẠNG THÁI', className: 'col-status' },
+    { key: 'actions', label: 'THAO TÁC', className: 'col-actions' }
   ]
 
   // Render custom row với expanded content

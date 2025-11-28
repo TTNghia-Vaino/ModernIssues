@@ -318,8 +318,8 @@ select {
 
 .table-header {
   display: grid;
-  /* ID: 8% | Người dùng: 35% | Vai trò: 14% | Trạng thái: 14% | Ngày tạo: 14% | Thao tác: 11% */
-  grid-template-columns: 0.8fr 3.5fr 1.4fr 1.4fr 1.4fr 1.1fr;
+  /* ID: 80px | Người dùng: 3.5fr | Vai trò: 1.4fr | Trạng thái: 1.4fr | Ngày tạo: 1.4fr | Thao tác: 120px */
+  grid-template-columns: 80px 3.5fr 1.4fr 1.4fr 1.4fr 120px;
   width: 100%;
   gap: 15px;
   padding: 16px 20px;
@@ -328,12 +328,26 @@ select {
   font-weight: 600;
   font-size: 14px;
   box-sizing: border-box;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-items: center;
+}
+
+.table-header > div {
+  white-space: normal;
+  overflow: visible;
+  word-wrap: break-word;
+  min-width: 0;
+}
+
+.table-header .col-actions {
+  white-space: nowrap;
 }
 
 .table-row {
   display: grid;
-  /* ID: 8% | Người dùng: 35% | Vai trò: 14% | Trạng thái: 14% | Ngày tạo: 14% | Thao tác: 11% */
-  grid-template-columns: 0.8fr 3.5fr 1.4fr 1.4fr 1.4fr 1.1fr;
+  /* ID: 80px | Người dùng: 3.5fr | Vai trò: 1.4fr | Trạng thái: 1.4fr | Ngày tạo: 1.4fr | Thao tác: 120px */
+  grid-template-columns: 80px 3.5fr 1.4fr 1.4fr 1.4fr 120px;
   width: 100%;
   gap: 15px;
   padding: 16px 20px;
@@ -343,6 +357,7 @@ select {
   box-sizing: border-box;
   position: relative;
   overflow: visible;
+  min-height: 60px;
 }
 
 .table-row:hover {
@@ -358,8 +373,35 @@ select {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  text-align: left;
   min-width: 0;
+  overflow: hidden;
+}
+
+.table-header > * {
+  white-space: normal;
+  overflow: visible;
+  word-wrap: break-word;
+}
+
+.table-row > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.col-user {
+  min-width: 0;
+  overflow: hidden;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.col-user .user-name,
+.col-user .user-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  text-align: left;
 }
 
 /* Column positioning */
@@ -389,6 +431,8 @@ select {
   overflow: hidden;
   cursor: help;
   position: relative;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .col-user:hover::after {
@@ -448,32 +492,68 @@ select {
 }
 
 .col-role {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+}
+
+.table-row .col-role {
+  justify-content: center !important;
 }
 
 .col-status {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
+  margin-right: 60px !important;
+  width: 100%;
+}
+
+.table-row .col-status {
+  justify-content: center !important;
+  margin-right: 60px !important;
+}
+
+.table-header .col-status {
+  margin-right: 60px !important;
+  justify-content: center !important;
 }
 
 .col-actions {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
   min-width: 0;
   max-width: 100%;
   flex-shrink: 0;
   position: relative;
   z-index: 1;
+  width: 100%;
+}
+
+.table-row .col-actions {
+  justify-content: center !important;
+}
+
+.table-header .col-actions {
+  justify-content: center !important;
+}
+
+.col-actions .action-btn {
+  margin: 0 auto !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.col-actions > * {
+  margin: 0 auto;
 }
 
 .user-details {
@@ -596,6 +676,7 @@ select {
   font-weight: 600;
   min-height: 26px;
   white-space: nowrap;
+  margin: 0 auto;
 }
 
 .role-badge.role-admin {
