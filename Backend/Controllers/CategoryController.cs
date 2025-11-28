@@ -74,6 +74,32 @@ namespace ModernIssues.Controllers
         }
 
         // ============================================
+        // 2.1. GET CATEGORY TREE FULL: GET api/v1/Category/tree-full
+        // ============================================
+        /// <summary>
+        /// Lấy cây danh mục phân cấp đầy đủ (hỗ trợ 3 cấp trở lên). Khách hàng có thể xem.
+        /// </summary>
+        /// <response code="200">Trả về cây danh mục đầy đủ.</response>
+        /// <response code="500">Lỗi hệ thống.</response>
+        [HttpGet("tree-full")]
+        [ProducesResponseType(typeof(ApiResponse<List<CategoryTreeDto>>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.InternalServerError)]
+        public async Task<IActionResult> GetCategoryTreeFull()
+        {
+            try
+            {
+                var categoryTree = await _categoryService.GetCategoryTreeFullAsync();
+                return Ok(ApiResponse<List<CategoryTreeDto>>.SuccessResponse(categoryTree, "Lấy cây danh mục đầy đủ thành công."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] GetCategoryTreeFull: {ex.Message}");
+                return StatusCode(HttpStatusCodes.InternalServerError,
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy cây danh mục đầy đủ."));
+            }
+        }
+
+        // ============================================
         // 3. GET CATEGORY BY ID: GET api/v1/Category/{id}
         // ============================================
         /// <summary>

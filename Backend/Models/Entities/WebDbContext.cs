@@ -105,6 +105,7 @@ public partial class WebDbContext : DbContext
             entity.Property(e => e.created_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.parent_id).HasComment("Tham chiếu đến danh mục cha (nếu có)");
             entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.is_disabled).HasDefaultValue(false);
 
             entity.HasOne(d => d.created_byNavigation).WithMany(p => p.categorycreated_byNavigations)
                 .HasForeignKey(d => d.created_by)
@@ -299,6 +300,10 @@ public partial class WebDbContext : DbContext
             entity.Property(e => e.promotion_name).HasMaxLength(150);
             entity.Property(e => e.updated_at).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.banner_url).HasComment("URL banner khuyến mãi (tùy chọn)");
+            entity.Property(e => e.local)
+                .HasMaxLength(20)
+                .HasDefaultValue("hero")
+                .HasComment("Vị trí hiển thị promotion: hero (giữa trang chủ), left (bên trái), right (bên phải)");
 
             entity.HasOne(d => d.created_byNavigation).WithMany(p => p.promotioncreated_byNavigations)
                 .HasForeignKey(d => d.created_by)

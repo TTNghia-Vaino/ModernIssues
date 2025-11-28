@@ -113,7 +113,8 @@ namespace ModernIssues.Controllers
                     IsActive = p.is_active ?? false,
                     Status = GetStatusText(p.is_active, p.start_date, p.end_date),
                     ProductCount = p.products.Count,
-                    BannerUrl = p.banner_url
+                    BannerUrl = p.banner_url,
+                    Local = p.local ?? "hero"
                 }).ToList();
 
                 var response = new PromotionListResponse
@@ -141,7 +142,75 @@ namespace ModernIssues.Controllers
         }
 
         // ============================================
-        // 2. GET PRODUCTS BY PROMOTION: GET api/v1/Promotion/{id}/products
+        // 2. GET PROMOTIONS BY LOCAL: GET api/v1/Promotion/GetByLocal?local=hero
+        // ============================================
+        /// <summary>
+        /// Lấy danh sách khuyến mãi theo vị trí hiển thị (hero, left, right). Khách hàng có thể xem.
+        /// </summary>
+        /// <param name="local">Vị trí hiển thị: "hero", "left", "right"</param>
+        /// <response code="200">Trả về danh sách khuyến mãi theo vị trí.</response>
+        [HttpGet("GetByLocal")]
+        [ProducesResponseType(typeof(ApiResponse<List<PromotionListDto>>), 200)]
+        public async Task<IActionResult> GetPromotionsByLocal([FromQuery] string local = "hero")
+        {
+            try
+            {
+                // Validate local value
+                if (local != "hero" && local != "left" && local != "right")
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse(
+                        "Vị trí hiển thị không hợp lệ. Chỉ chấp nhận: 'hero', 'left', 'right'.",
+                        null,
+                        HttpContext));
+                }
+
+                var now = DateTime.UtcNow;
+
+                var promotionsData = await _context.promotions
+                    .Where(p => p.local == local
+                        && p.is_active == true
+                        && p.start_date <= now
+                        && p.end_date >= now
+                        && p.discount_value.HasValue)
+                    .Include(p => p.products)
+                    .OrderByDescending(p => p.created_at)
+                    .ToListAsync();
+
+                var promotions = promotionsData.Select(p => new PromotionListDto
+                {
+                    PromotionId = p.promotion_id,
+                    PromotionName = p.promotion_name,
+                    Description = p.description,
+                    DiscountType = p.discount_type ?? "percentage",
+                    DiscountValue = p.discount_value ?? 0,
+                    DiscountDisplay = GetDiscountDisplay(p.discount_type ?? "percentage", p.discount_value ?? 0),
+                    StartDate = p.start_date,
+                    EndDate = p.end_date,
+                    IsActive = p.is_active ?? false,
+                    Status = GetStatusText(p.is_active, p.start_date, p.end_date),
+                    ProductCount = p.products.Count,
+                    BannerUrl = p.banner_url,
+                    Local = p.local ?? "hero"
+                }).ToList();
+
+                return Ok(ApiResponse<List<PromotionListDto>>.SuccessResponse(
+                    promotions,
+                    $"Lấy danh sách {promotions.Count} khuyến mãi tại vị trí '{local}' thành công.",
+                    HttpContext));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] GetPromotionsByLocal: {ex.Message}");
+                Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
+                return StatusCode(500, ApiResponse<object>.ErrorResponse(
+                    "Lỗi hệ thống khi lấy danh sách khuyến mãi theo vị trí.",
+                    new List<string> { ex.Message },
+                    HttpContext));
+            }
+        }
+
+        // ============================================
+        // 3. GET PRODUCTS BY PROMOTION: GET api/v1/Promotion/{id}/products
         // ============================================
         /// <summary>
         /// Lấy danh sách sản phẩm của một promotion cụ thể.
@@ -280,6 +349,7 @@ namespace ModernIssues.Controllers
                     EndDate = promotion.end_date,
                     IsActive = promotion.is_active ?? false,
                     BannerUrl = promotion.banner_url,
+                    Local = promotion.local ?? "hero",
                     CreatedAt = promotion.created_at,
                     UpdatedAt = promotion.updated_at,
                     Products = promotion.products.Select(p => new PromotionProductDto
@@ -462,6 +532,7 @@ namespace ModernIssues.Controllers
                     end_date = endDate,
                     is_active = promotionData.IsActive,
                     banner_url = bannerUrl,
+                    local = promotionData.Local ?? "hero",
                     created_by = GetAdminId(),
                     created_at = DateTime.UtcNow,
                     updated_at = DateTime.UtcNow
@@ -833,6 +904,7 @@ namespace ModernIssues.Controllers
                 promotion.start_date = startDate;
                 promotion.end_date = endDate;
                 promotion.is_active = promotionData.IsActive;
+                promotion.local = promotionData.Local ?? promotion.local ?? "hero";
                 promotion.updated_by = GetAdminId();
                 promotion.updated_at = DateTime.UtcNow;
 
@@ -1768,6 +1840,7 @@ namespace ModernIssues.Controllers
                 EndDate = p.end_date,
                 IsActive = p.is_active ?? false,
                 BannerUrl = p.banner_url,
+                Local = p.local ?? "hero",
                 CreatedAt = p.created_at,
                 UpdatedAt = p.updated_at,
                 Products = p.products.Select(pr => new PromotionProductDto

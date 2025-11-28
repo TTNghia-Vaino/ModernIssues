@@ -10,13 +10,15 @@ namespace ModernIssues.Repositories
 {
     public interface ICategoryRepository
     {
-        Task<List<CategoryDto>> GetAllCategoriesAsync();
-        Task<CategoryDto?> GetCategoryByIdAsync(int categoryId);
+        Task<List<CategoryDto>> GetAllCategoriesAsync(bool includeDisabled = false);
+        Task<CategoryDto?> GetCategoryByIdAsync(int categoryId, bool includeDisabled = false);
         Task<CategoryDto> CreateCategoryAsync(CategoryCreateDto category, int adminId);
         Task<CategoryDto?> UpdateCategoryAsync(int categoryId, CategoryUpdateDto category, int adminId);
         Task<bool> DeleteCategoryAsync(int categoryId, int adminId);
         Task<bool> HasChildrenAsync(int categoryId);
         Task<bool> HasProductsAsync(int categoryId);
+        Task<bool> HasActiveProductsAsync(int categoryId);
+        Task<bool> HasAnyProductsAsync(int categoryId);
     }
 
     public class CategoryRepository : ICategoryRepository
@@ -28,10 +30,19 @@ namespace ModernIssues.Repositories
             _context = context;
         }
 
-        public async Task<List<CategoryDto>> GetAllCategoriesAsync()
+        public async Task<List<CategoryDto>> GetAllCategoriesAsync(bool includeDisabled = false)
         {
-            var categories = await _context.categories
+            var query = _context.categories
                 .Include(c => c.parent)
+                .AsQueryable();
+
+            // Ẩn các danh mục đã bị vô hiệu hóa (trừ khi admin yêu cầu xem tất cả)
+            if (!includeDisabled)
+            {
+                query = query.Where(c => c.is_disabled == null || c.is_disabled == false);
+            }
+
+            var categories = await query
                 .OrderBy(c => c.parent_id)
                 .ThenBy(c => c.category_name)
                 .Select(c => new CategoryDto
@@ -43,18 +54,28 @@ namespace ModernIssues.Repositories
                     CreatedAt = c.created_at,
                     UpdatedAt = c.updated_at,
                     CreatedBy = c.created_by,
-                    UpdatedBy = c.updated_by
+                    UpdatedBy = c.updated_by,
+                    IsDisabled = c.is_disabled
                 })
                 .ToListAsync();
 
             return categories;
         }
 
-        public async Task<CategoryDto?> GetCategoryByIdAsync(int categoryId)
+        public async Task<CategoryDto?> GetCategoryByIdAsync(int categoryId, bool includeDisabled = false)
         {
-            var category = await _context.categories
+            var query = _context.categories
                 .Include(c => c.parent)
                 .Where(c => c.category_id == categoryId)
+                .AsQueryable();
+
+            // Ẩn các danh mục đã bị vô hiệu hóa (trừ khi admin yêu cầu xem tất cả)
+            if (!includeDisabled)
+            {
+                query = query.Where(c => c.is_disabled == null || c.is_disabled == false);
+            }
+
+            var category = await query
                 .Select(c => new CategoryDto
                 {
                     CategoryId = c.category_id,
@@ -64,7 +85,8 @@ namespace ModernIssues.Repositories
                     CreatedAt = c.created_at,
                     UpdatedAt = c.updated_at,
                     CreatedBy = c.created_by,
-                    UpdatedBy = c.updated_by
+                    UpdatedBy = c.updated_by,
+                    IsDisabled = c.is_disabled
                 })
                 .FirstOrDefaultAsync();
 
@@ -117,15 +139,27 @@ namespace ModernIssues.Repositories
                 existingCategory.category_name = category.CategoryName.Trim();
             }
 
-            // Luôn cập nhật ParentId (có thể là null để set về null)
+            // Update ParentId if provided in the DTO
+            // Note: In JSON, if ParentId is not sent, it will be null
+            // If ParentId is null, it means "remove parent" (set to root level)
+            // If ParentId has a value, it means "set this parent"
+            // We always update ParentId when the DTO is provided, even if null
+            // This allows removing parent by sending null
             existingCategory.parent_id = category.ParentId;
+
+            // Update IsDisabled if provided
+            if (category.IsDisabled.HasValue)
+            {
+                existingCategory.is_disabled = category.IsDisabled.Value;
+            }
 
             existingCategory.updated_at = DateTime.UtcNow;
             existingCategory.updated_by = adminId;
 
             await _context.SaveChangesAsync();
 
-            return await GetCategoryByIdAsync(categoryId);
+            // Admin có thể xem category ngay cả khi đã bị vô hiệu hóa
+            return await GetCategoryByIdAsync(categoryId, includeDisabled: true);
         }
 
         public async Task<bool> DeleteCategoryAsync(int categoryId, int adminId)
@@ -154,6 +188,25 @@ namespace ModernIssues.Repositories
         {
             return await _context.products
                 .AnyAsync(p => p.category_id == categoryId && p.is_disabled != true);
+        }
+
+        /// <summary>
+        /// Kiểm tra xem danh mục có sản phẩm đang hoạt động (is_disabled != true) không
+        /// Trả về true nếu có ít nhất 1 sản phẩm đang hoạt động
+        /// </summary>
+        public async Task<bool> HasActiveProductsAsync(int categoryId)
+        {
+            return await _context.products
+                .AnyAsync(p => p.category_id == categoryId && (p.is_disabled == null || p.is_disabled == false));
+        }
+
+        /// <summary>
+        /// Kiểm tra xem danh mục có sản phẩm nào không (kể cả đã bị vô hiệu hóa)
+        /// </summary>
+        public async Task<bool> HasAnyProductsAsync(int categoryId)
+        {
+            return await _context.products
+                .AnyAsync(p => p.category_id == categoryId);
         }
     }
 }

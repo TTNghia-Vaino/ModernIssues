@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getCategories, createCategory, updateCategory, deleteCategory } from '../services/categoryService';
-import { getProductCountByCategory } from '../services/productService';
+import { getCategoryTreeFull, createCategory, updateCategory, deleteCategory } from '../services/categoryService';
+import { getProductCountByCategory, listProducts } from '../services/productService';
 import './AdminCategories.css';
 
 const AdminCategories = () => {
@@ -9,46 +9,27 @@ const AdminCategories = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [expandedProducts, setExpandedProducts] = useState(new Set()); // Track which categories show products
+  const [categoryProducts, setCategoryProducts] = useState({}); // Store products for each category
+  const [loadingProducts, setLoadingProducts] = useState(new Set()); // Track loading state
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const [showModal, setShowModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
-    status: 'active',
     parentId: null
   });
-  const [errors, setErrors] = useState({});
-  const [openDropdownId, setOpenDropdownId] = useState(null);
-  
-  // Search and filter state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (!e.target.closest('.actions-dropdown')) {
-        setOpenDropdownId(null);
-      }
-    };
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Load categories from API, but delay if in grace period
+  // Load categories from API
   useEffect(() => {
     let cancelled = false;
     
     const attemptLoad = async () => {
-      // If in grace period, wait for it to end
       if (isInTokenGracePeriod) {
-        console.log('[AdminCategories] Waiting for token grace period to end before loading categories');
+        console.log('[AdminCategories] Waiting for token grace period to end');
         await new Promise(resolve => setTimeout(resolve, 6000));
         if (cancelled) return;
       }
@@ -63,25 +44,22 @@ const AdminCategories = () => {
     return () => {
       cancelled = true;
     };
-  }, []); // Only run on mount
+  }, []);
 
   const loadCategories = async () => {
     try {
       setLoading(true);
       
-      // Load categories and product counts in parallel
+      // Load categories tree and product counts in parallel
       const [apiCategories, productCounts] = await Promise.all([
-        getCategories(),
+        getCategoryTreeFull(),
         getProductCountByCategory().catch(err => {
           console.warn('[AdminCategories] Failed to load product counts:', err);
-          return []; // Return empty array if API fails
+          return [];
         })
       ]);
       
-      console.log('[AdminCategories] Raw API response:', apiCategories);
-      console.log('[AdminCategories] Product counts:', productCounts);
-      
-      // Create a map of category_id to product_count for quick lookup
+      // Create a map of category_id to product_count
       const countMap = {};
       if (Array.isArray(productCounts)) {
         productCounts.forEach(item => {
@@ -89,30 +67,46 @@ const AdminCategories = () => {
         });
       }
       
-      // Map API response to component format
-      if (Array.isArray(apiCategories)) {
-        const mapped = apiCategories.map(cat => {
+      // Add productCount and level to each category recursively
+      // Note: API now returns recursive counts (including products from child categories)
+      // But we only show 2 levels: Level 1 (root) and Level 2 (children)
+      // Level 3 will be products, not categories
+      const addProductCountAndLevel = (cats, level = 1) => {
+        return cats.map(cat => {
           const categoryId = cat.categoryId || cat.id;
-          const productCount = countMap[categoryId] !== undefined ? countMap[categoryId] : (cat.productCount || 0);
+          // API already calculates recursive count (includes products from all descendants)
+          const productCount = countMap[categoryId] !== undefined ? countMap[categoryId] : 0;
           
-          return {
+          // Only process children if level < 2 (stop at level 2)
+          // Level 2 categories will show products when expanded, not more categories
+          const processedChildren = (cat.children && cat.children.length > 0 && level < 2)
+            ? addProductCountAndLevel(cat.children, level + 1)
+            : [];
+          
+          const category = {
             id: categoryId,
             name: cat.categoryName || cat.name || 'Chưa có tên',
-            description: cat.description || '',
-            status: cat.status || 'active',
-            productCount: productCount,
             parentId: cat.parentId || null,
-            parentName: cat.parentName || null,
-            createdAt: cat.createdAt,
-            updatedAt: cat.updatedAt
+            productCount: productCount, // This already includes products from child categories
+            level: level,
+            isDisabled: cat.isDisabled !== undefined ? cat.isDisabled : false,
+            children: processedChildren
           };
+          
+          return category;
         });
-        console.log('[AdminCategories] Mapped categories:', mapped);
-        setCategories(mapped);
-      } else {
-        console.warn('[AdminCategories] API response is not an array:', apiCategories);
-        setCategories([]);
-      }
+      };
+      
+      const processedCategories = Array.isArray(apiCategories) 
+        ? addProductCountAndLevel(apiCategories)
+        : [];
+      
+      console.log('[AdminCategories] Processed categories:', processedCategories);
+      setCategories(processedCategories);
+      
+      // Reset expanded categories - collapse all by default
+      setExpandedCategories(new Set());
+      setExpandedProducts(new Set());
     } catch (error) {
       console.error('[AdminCategories] Failed to load categories:', error);
       showNotification('Không thể tải danh sách danh mục. Vui lòng thử lại.', 'error');
@@ -121,28 +115,204 @@ const AdminCategories = () => {
     }
   };
 
-  const handleAddNew = () => {
-    setEditingCategory(null);
-    setFormData({ name: '', description: '', status: 'active', parentId: null });
-    setErrors({});
-    setShowModal(true);
+  const toggleExpand = async (categoryId, category) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+        // Also collapse products if expanded
+        setExpandedProducts(prevProducts => {
+          const newProducts = new Set(prevProducts);
+          newProducts.delete(categoryId);
+          return newProducts;
+        });
+      } else {
+        newSet.add(categoryId);
+        // If this is a Level 2 category with products, automatically load and show products
+        if (category && category.level === 2 && category.productCount > 0) {
+          setExpandedProducts(prev => new Set(prev).add(categoryId));
+          if (!categoryProducts[categoryId]) {
+            loadProductsForCategory(categoryId);
+          }
+        }
+      }
+      return newSet;
+    });
   };
 
-  const handleEdit = (category) => {
-    setEditingCategory(category);
+  const loadProductsForCategory = async (categoryId) => {
+    if (loadingProducts.has(categoryId)) return;
+    
+    try {
+      setLoadingProducts(prev => new Set(prev).add(categoryId));
+      
+      const response = await listProducts({
+        categoryId: categoryId,
+        page: 1,
+        limit: 100 // Load up to 100 products
+      });
+      
+      const products = response.data || response || [];
+      
+      setCategoryProducts(prev => ({
+        ...prev,
+        [categoryId]: products
+      }));
+    } catch (error) {
+      console.error(`[AdminCategories] Failed to load products for category ${categoryId}:`, error);
+      setCategoryProducts(prev => ({
+        ...prev,
+        [categoryId]: []
+      }));
+    } finally {
+      setLoadingProducts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(categoryId);
+        return newSet;
+      });
+    }
+  };
+
+  const findAllCategories = (cats) => {
+    const result = [];
+    const traverse = (categories) => {
+      categories.forEach(cat => {
+        result.push(cat);
+        if (cat.children && cat.children.length > 0) {
+          traverse(cat.children);
+        }
+      });
+    };
+    traverse(cats);
+    return result;
+  };
+
+  const addCategoryToTree = (cats, newCategory, parentId) => {
+    if (parentId === null) {
+      return [...cats, newCategory];
+    }
+    return cats.map(cat => {
+      if (cat.id === parentId) {
+        return { ...cat, children: [...(cat.children || []), newCategory] };
+      }
+      if (cat.children && cat.children.length > 0) {
+        return { ...cat, children: addCategoryToTree(cat.children, newCategory, parentId) };
+      }
+      return cat;
+    });
+  };
+
+  const updateCategoryInTree = (cats, updatedCategory) => {
+    return cats.map(cat => {
+      if (cat.id === updatedCategory.id) {
+        return { ...cat, ...updatedCategory };
+      }
+      if (cat.children && cat.children.length > 0) {
+        return { ...cat, children: updateCategoryInTree(cat.children, updatedCategory) };
+      }
+      return cat;
+    });
+  };
+
+  const deleteCategoryFromTree = (cats, categoryId) => {
+    return cats
+      .filter(cat => cat.id !== categoryId)
+      .map(cat => {
+        if (cat.children && cat.children.length > 0) {
+          return { ...cat, children: deleteCategoryFromTree(cat.children, categoryId) };
+        }
+        return cat;
+      });
+  };
+
+  const handleAddCategory = async () => {
+    if (!formData.name.trim()) {
+      showNotification('Vui lòng nhập tên danh mục', 'error');
+      return;
+    }
+
+    try {
+      const allCategories = findAllCategories(categories);
+      const newCategory = await createCategory({
+        categoryName: formData.name.trim(),
+        parentId: formData.parentId
+      });
+
+      // Reload categories to get the full tree with new category
+      await loadCategories();
+      
+      showNotification('Thêm danh mục thành công!', 'success');
+      setIsAddDialogOpen(false);
+      setFormData({ name: '', parentId: null });
+    } catch (error) {
+      console.error('[AdminCategories] Failed to add category:', error);
+      const errorMessage = error.data?.message || error.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
+      showNotification(errorMessage, 'error');
+    }
+  };
+
+  const handleEditCategory = async () => {
+    if (!selectedCategory) return;
+    if (!formData.name.trim()) {
+      showNotification('Vui lòng nhập tên danh mục', 'error');
+      return;
+    }
+    
+    try {
+      await updateCategory(selectedCategory.id, {
+        categoryName: formData.name.trim()
+      });
+
+      // Reload categories
+      await loadCategories();
+      
+      showNotification('Cập nhật danh mục thành công!', 'success');
+      setIsEditDialogOpen(false);
+      setSelectedCategory(null);
+      setFormData({ name: '', parentId: null });
+    } catch (error) {
+      console.error('[AdminCategories] Failed to update category:', error);
+      const errorMessage = error.data?.message || error.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
+      showNotification(errorMessage, 'error');
+    }
+  };
+
+
+  const handleToggleStatus = async (category) => {
+    const newStatus = !category.isDisabled;
+    const action = newStatus ? 'vô hiệu hóa' : 'kích hoạt';
+    
+    if (window.confirm(`Bạn có chắc muốn ${action} danh mục "${category.name}"?`)) {
+      try {
+        const response = await updateCategory(category.id, {
+          isDisabled: newStatus
+        });
+        // Reload categories để cập nhật trạng thái
+        await loadCategories();
+        showNotification(`${action.charAt(0).toUpperCase() + action.slice(1)} danh mục thành công!`, 'success');
+      } catch (error) {
+        console.error('[AdminCategories] Failed to toggle category status:', error);
+        // Kiểm tra nếu lỗi là "Không tìm thấy" nhưng thực ra đã update thành công
+        const errorMessage = error.data?.message || error.message || '';
+        if (errorMessage.includes('Không tìm thấy') && newStatus) {
+          // Nếu vô hiệu hóa thành công nhưng API trả về "Không tìm thấy" (vì filter disabled)
+          // Vẫn reload và thông báo thành công
+          await loadCategories();
+          showNotification('Vô hiệu hóa danh mục thành công!', 'success');
+        } else {
+          showNotification(errorMessage || 'Có lỗi xảy ra. Vui lòng thử lại.', 'error');
+        }
+      }
+    }
+  };
+
+  const openEditDialog = (category) => {
+    setSelectedCategory(category);
     setFormData({
       name: category.name,
-      description: category.description || '',
-      status: category.status || 'active',
-      parentId: category.parentId || null
+      parentId: category.parentId,
     });
-    setErrors({});
-    setShowModal(true);
-    setOpenDropdownId(null); // Close dropdown
-  };
-
-  const toggleDropdown = (categoryId) => {
-    setOpenDropdownId(openDropdownId === categoryId ? null : categoryId);
+    setIsEditDialogOpen(true);
   };
 
   const showNotification = (message, type = 'success') => {
@@ -152,117 +322,195 @@ const AdminCategories = () => {
     }, 3000);
   };
 
-  const handleDelete = async (id) => {
-    setOpenDropdownId(null); // Close dropdown
-    if (window.confirm('Bạn có chắc chắn muốn xóa danh mục này? (Soft delete)')) {
-      try {
-        await deleteCategory(id);
-        showNotification('Xóa danh mục thành công!', 'success');
-        loadCategories(); // Reload categories
-      } catch (error) {
-        console.error('[AdminCategories] Failed to delete category:', error);
-        showNotification('Không thể xóa danh mục. Vui lòng thử lại.', 'error');
-      }
-    }
-  };
+  const renderCategory = (category, level = 0) => {
+    const hasChildren = category.children && category.children.length > 0;
+    const isExpanded = expandedCategories.has(category.id);
+    const isLevel1 = category.level === 1;
+    const isLevel2 = category.level === 2;
+    
+    // Level 2 categories automatically show products when expanded
+    const showProducts = isLevel2 && isExpanded && expandedProducts.has(category.id);
+    const isLoadingProducts = loadingProducts.has(category.id);
+    const products = categoryProducts[category.id] || [];
 
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!formData.name.trim()) {
-      newErrors.name = 'Vui lòng nhập tên danh mục';
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = 'Tên danh mục phải có ít nhất 2 ký tự';
-    }
-    
-    if (!formData.description.trim()) {
-      newErrors.description = 'Vui lòng nhập mô tả';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    let bgClass = '';
+    if (isLevel1) bgClass = 'bg-blue-50 font-semibold';
+    else if (isLevel2) bgClass = 'bg-slate-50';
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
-    try {
-      if (editingCategory) {
-        // Cập nhật danh mục
-        await updateCategory(editingCategory.id, {
-          name: formData.name.trim(),
-          description: formData.description.trim(),
-          status: formData.status,
-          parentId: formData.parentId || null
-        });
-        showNotification('Cập nhật danh mục thành công!', 'success');
-      } else {
-        // Thêm danh mục mới
-        await createCategory({
-          name: formData.name.trim(),
-          description: formData.description.trim(),
-          status: formData.status,
-          parentId: formData.parentId || null
-        });
-        showNotification('Thêm danh mục mới thành công!', 'success');
-      }
-      
-      setShowModal(false);
-      setFormData({ name: '', description: '', status: 'active', parentId: null });
-      setErrors({});
-      loadCategories(); // Reload categories
-    } catch (error) {
-      console.error('[AdminCategories] Failed to save category:', error);
-      const errorMessage = error.data?.message || error.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
-      showNotification(errorMessage, 'error');
-    }
-  };
+    // Filter categories based on search
+    const matchesSearch = !searchQuery || 
+      category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(category.id).includes(searchQuery);
 
-  const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
+    if (!matchesSearch && !hasChildren) {
+      return null;
+    }
+
+    // Check if any child matches search
+    const hasMatchingChild = hasChildren && category.children.some(child => {
+      const childMatches = !searchQuery || 
+        child.name.toLowerCase().includes(searchQuery.toLowerCase());
+      return childMatches;
     });
+
+    if (!matchesSearch && !hasMatchingChild) {
+      return null;
+    }
+
+    return (
+      <div key={category.id}>
+        <div
+          className={`category-row ${bgClass}`}
+          onClick={() => {
+            // Click vào category row sẽ toggle expand
+            if (hasChildren || (isLevel2 && category.productCount > 0)) {
+              toggleExpand(category.id, category);
+            }
+          }}
+          style={{ 
+            paddingLeft: `${level * 2 + 1}rem`, 
+            cursor: (hasChildren || (isLevel2 && category.productCount > 0)) ? 'pointer' : 'default' 
+          }}
+        >
+          <div className="category-row-content">
+            <div className="category-row-left">
+              {(hasChildren || (isLevel2 && category.productCount > 0)) ? (
+                <button
+                  className="expand-btn"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Ngăn event bubble lên category-row
+                    toggleExpand(category.id, category);
+                  }}
+                  title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
+                  data-expanded={isExpanded}
+                />
+              ) : (
+                <div className="expand-placeholder" />
+              )}
+
+              <div className="category-icon">
+                {isLevel1 && '📁'}
+                {isLevel2 && '📂'}
+              </div>
+
+              <div className="category-info">
+                <div className="category-name-row">
+                  <span className={`category-name ${isLevel1 ? 'text-lg' : isLevel2 ? 'text-base' : 'text-sm'} ${category.isDisabled ? 'opacity-60' : ''}`}>
+                    {category.name}
+                  </span>
+                  {isLevel1 && <span className="level-badge level-1">Cấp 1</span>}
+                  {isLevel2 && <span className="level-badge level-2">Cấp 2</span>}
+                  {category.isDisabled ? (
+                    <span className="status-badge status-disabled" title="Đã vô hiệu hóa">🔴 Vô hiệu hóa</span>
+                  ) : (
+                    <span className="status-badge status-active" title="Đang hoạt động">🟢 Hoạt động</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="category-row-right">
+              <div className="product-count">
+                <span className="count-number">{category.productCount}</span> sản phẩm
+              </div>
+
+              <div className="category-actions" onClick={(e) => e.stopPropagation()}>
+                <div className="dropdown-menu-container">
+                  <button
+                    className="action-btn menu-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const menuId = `menu-${category.id}`;
+                      const menu = document.getElementById(menuId);
+                      if (menu) {
+                        menu.classList.toggle('show');
+                      }
+                    }}
+                    title="Menu"
+                  >
+                    ⋯
+                  </button>
+                  <div className="dropdown-menu" id={`menu-${category.id}`}>
+                    <button
+                      className="dropdown-item"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleStatus(category);
+                        const menu = document.getElementById(`menu-${category.id}`);
+                        if (menu) menu.classList.remove('show');
+                      }}
+                    >
+                      {category.isDisabled ? '✅ Kích hoạt' : '❌ Vô hiệu hóa'}
+                    </button>
+                    <button
+                      className="dropdown-item"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditDialog(category);
+                        const menu = document.getElementById(`menu-${category.id}`);
+                        if (menu) menu.classList.remove('show');
+                      }}
+                    >
+                      ✏️ Sửa
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Show child categories (Level 2) */}
+        {hasChildren && isExpanded && (
+          <div className="category-children">
+            {category.children.map(child => renderCategory(child, level + 1))}
+          </div>
+        )}
+
+        {/* Show products for Level 2 categories when expanded */}
+        {isLevel2 && isExpanded && expandedProducts.has(category.id) && (
+          <div className="category-products" style={{ paddingLeft: `${(level + 1) * 2 + 1}rem` }}>
+            {isLoadingProducts ? (
+              <div className="loading-products">Đang tải sản phẩm...</div>
+            ) : products.length > 0 ? (
+              <div className="products-list">
+                {products.map(product => (
+                  <div key={product.productId || product.id} className="product-row">
+                    <div className="product-icon">📦</div>
+                    <div className="product-info">
+                      <div className="product-name-row">
+                        <span className="product-name">{product.productName || product.name}</span>
+                      </div>
+                      <div className="product-details">
+                        <span className="product-price">💰 {product.price?.toLocaleString('vi-VN') || 0} đ</span>
+                        <span className="product-stock">📦 Tồn: {product.stock || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="no-products">Không có sản phẩm nào</div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
-  const getStatusClass = (status) => {
-    return status === 'active' ? 'status-active' : 'status-inactive';
-  };
-
-  const getStatusText = (status) => {
-    return status === 'active' ? 'Hoạt động' : 'Không hoạt động';
-  };
-
-  // Filter categories
-  const filteredCategories = categories.filter(category => {
-    if (!category) return false;
-    
-    // Search filter
-    const matchesSearch = !searchTerm || 
-      (category.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (category.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(category.id || '').includes(searchTerm);
-    
-    // Status filter
-    const matchesStatus = filterStatus === 'all' || category.status === filterStatus;
-    
-    return matchesSearch && matchesStatus;
+  const filteredCategories = categories.filter(cat => {
+    if (!searchQuery) return true;
+    const allCats = findAllCategories([cat]);
+    return allCats.some(c => 
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(c.id).includes(searchQuery)
+    );
   });
 
-  // Pagination calculation
-  const totalPages = Math.ceil(filteredCategories.length / pageSize);
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedCategories = filteredCategories.slice(startIndex, endIndex);
-
-  // Reset to page 1 when filters or categories change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, filterStatus, filteredCategories.length]);
+  const rootCategories = categories.filter(c => c.parentId === null);
+  const allCategories = findAllCategories(categories);
+  // Only show Level 1 and Level 2 in parent selector (Level 3 is products, not categories)
+  const level1And2Categories = allCategories.filter(c => c.level <= 2);
 
   if (loading) {
     return (
@@ -284,287 +532,142 @@ const AdminCategories = () => {
       )}
       
       <div className="page-header">
-        <h2>Quản lý danh mục</h2>
-        <button className="add-btn" onClick={handleAddNew}>
+        <div>
+          <h2>Quản lý Danh mục</h2>
+          <p className="page-description">Quản lý danh mục sản phẩm 3 cấp phân cấp</p>
+        </div>
+        <button className="add-btn" onClick={() => setIsAddDialogOpen(true)}>
           ➕ Thêm danh mục mới
         </button>
       </div>
 
-      {/* Thanh bộ lọc dạng bar */}
-      <div className="filters-bar">
-        <div className="filter-item search">
+      {/* Search Bar */}
+      <div className="search-bar">
           <input
             type="text"
-            placeholder="🔍 Tìm kiếm theo tên, mô tả hoặc ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="filter-item">
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Hoạt động</option>
-            <option value="inactive">Không hoạt động</option>
-          </select>
-        </div>
+          placeholder="🔍 Tìm kiếm danh mục..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="search-input"
+        />
       </div>
 
-      <div className="categories-table">
-        <div className="table-header">
-          <div className="col-id">ID</div>
-          <div className="col-name">Tên danh mục</div>
-          <div className="col-parent">Danh mục cha</div>
-          <div className="col-description"></div>
-          <div className="col-count">Số sản phẩm</div>
-          <div className="col-status">Trạng thái</div>
-          <div className="col-actions"></div>
+      {/* Category Tree */}
+      <div className="category-tree-container">
+        <div className="tree-header">
+          <h3>Cây danh mục</h3>
+          <span className="tree-count">Tổng: {rootCategories.length} danh mục gốc</span>
         </div>
 
-        {paginatedCategories.map((category) => (
-          <div key={category.id} className="table-row">
-            <div className="col-id">{category.id}</div>
-            <div 
-              className="col-name"
-              data-full-name={category.name}
-              title={category.name}
-            >
-              {category.name}
+        <div className="category-tree">
+          {filteredCategories.length === 0 ? (
+            <div className="empty-state">
+              {searchQuery ? 'Không tìm thấy danh mục nào' : 'Chưa có danh mục nào'}
             </div>
-            <div 
-              className="col-parent"
-              data-full-parent={category.parentName || 'Danh mục gốc'}
-              title={category.parentName || 'Danh mục gốc'}
-            >
-              {category.parentName ? (
-                <span style={{ color: '#666', fontSize: '0.9em' }}>
-                  {category.parentName}
-                </span>
-              ) : (
-                <span style={{ color: '#999', fontSize: '0.85em', fontStyle: 'italic' }}>
-                  Danh mục gốc
-                </span>
+          ) : (
+            filteredCategories.map(category => renderCategory(category))
               )}
             </div>
-            <div 
-              className="col-description"
-              data-full-description={category.description || '-'}
-              title={category.description || '-'}
-            >
-              {category.description || '-'}
-            </div>
-            <div className="col-count">{category.productCount}</div>
-            <div className="col-status">
-              <span className={`status-badge ${getStatusClass(category.status)}`}>
-                {getStatusText(category.status)}
-              </span>
-            </div>
-            <div className="col-actions">
-              <div className="actions-dropdown">
-                <button 
-                  className="actions-toggle-btn"
-                  onClick={() => toggleDropdown(category.id)}
-                  aria-label="Thao tác"
-                >
-                  ⋮
-                </button>
-                
-                {openDropdownId === category.id && (
-                  <div className="dropdown-menu">
-                    <button 
-                      className="dropdown-item edit-item"
-                      onClick={() => handleEdit(category)}
-                    >
-                      <span className="item-icon">✏️</span>
-                      <span>Chỉnh sửa</span>
-                    </button>
-                    <button 
-                      className="dropdown-item delete-item"
-                      onClick={() => handleDelete(category.id)}
-                    >
-                      <span className="item-icon">🗑️</span>
-                      <span>Xóa</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
       </div>
 
-      {/* Pagination Controls */}
-      {filteredCategories.length > 0 && (
-        <div className="pagination-controls">
-          <div className="pagination-info">
-            Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredCategories.length)} / {filteredCategories.length} danh mục
+      {/* Add Category Dialog */}
+      {isAddDialogOpen && (
+        <div className="modal-overlay" onClick={() => setIsAddDialogOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Thêm danh mục mới</h3>
+              <button className="close-btn" onClick={() => setIsAddDialogOpen(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Tên danh mục *</label>
+                <input
+                  type="text"
+                  placeholder="Nhập tên danh mục"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+            </div>
+
+              <div className="form-group">
+                <label>Danh mục cha</label>
+                <select
+                  value={formData.parentId?.toString() || 'null'}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData({ 
+                      ...formData, 
+                      parentId: value === 'null' ? null : parseInt(value) 
+                    });
+                  }}
+                >
+                  <option value="null">Không có (Danh mục cấp 1)</option>
+                  {level1And2Categories.map(cat => (
+                    <option key={cat.id} value={cat.id.toString()}>
+                      {cat.level === 1 ? '📁 ' : '  📂 '}
+                      {cat.name} (Cấp {cat.level})
+                    </option>
+                  ))}
+                </select>
+                <p className="form-hint">
+                  Chọn danh mục cấp 1 để tạo cấp 2, hoặc chọn cấp 2 để tạo cấp 3
+                </p>
+              </div>
+
+            </div>
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={() => setIsAddDialogOpen(false)}>
+                Hủy
+            </button>
+              <button className="btn-primary" onClick={handleAddCategory}>
+                Thêm
+            </button>
           </div>
-          
-          <div className="pagination-buttons">
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-            >
-              «
-            </button>
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              ‹
-            </button>
-            
-            <span className="page-indicator">
-              Trang {currentPage} / {totalPages}
-            </span>
-            
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              ›
-            </button>
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              »
-            </button>
-          </div>
-          
-          <div className="page-size-selector">
-            <label>Hiển thị: </label>
-            <select value={pageSize} onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setCurrentPage(1);
-            }}>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
           </div>
         </div>
       )}
 
-      {/* Modal */}
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content category-form-modal">
-            <div className="modal-header category-form-header">
-              <div>
-                <h3 className="category-form-title">{editingCategory ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới'}</h3>
-                <p className="category-form-description">
-                  {editingCategory ? 'Cập nhật thông tin danh mục' : 'Điền thông tin danh mục mới'}
-                </p>
-              </div>
-              <button 
-                className="close-btn"
-                onClick={() => setShowModal(false)}
-              >
-                ✕
-              </button>
+      {/* Edit Category Dialog */}
+      {isEditDialogOpen && selectedCategory && (
+        <div className="modal-overlay" onClick={() => setIsEditDialogOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Chỉnh sửa danh mục</h3>
+              <button className="close-btn" onClick={() => setIsEditDialogOpen(false)}>✕</button>
             </div>
-            
-            <form onSubmit={handleSubmit} className="modal-form category-form-content">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                {/* Thông tin danh mục */}
-                <div className="form-section">
-                  <h3 className="form-section-title">Thông tin danh mục</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                      <label htmlFor="name">Tên danh mục: <span style={{ color: 'red' }}>*</span></label>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Tên danh mục *</label>
                       <input
                         type="text"
-                        id="name"
-                        name="name"
+                  placeholder="Nhập tên danh mục"
                         value={formData.name}
-                        onChange={handleInputChange}
-                        placeholder="Nhập tên danh mục"
-                        className={errors.name ? 'error' : ''}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       />
-                      {errors.name && <span className="error-message">{errors.name}</span>}
                     </div>
                     
-                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                      <label htmlFor="description">Mô tả: <span style={{ color: 'red' }}>*</span></label>
+              <div className="form-group">
+                <label>Mô tả</label>
                       <textarea
-                        id="description"
-                        name="description"
+                  placeholder="Nhập mô tả"
                         value={formData.description}
-                        onChange={handleInputChange}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         rows="3"
-                        placeholder="Nhập mô tả danh mục"
-                        className={errors.description ? 'error' : ''}
                       />
-                      {errors.description && <span className="error-message">{errors.description}</span>}
-                    </div>
-                  </div>
                 </div>
 
-                {/* Cấu hình danh mục */}
-                <div className="form-section">
-                  <h3 className="form-section-title">Cấu hình danh mục</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-                    <div className="form-group">
-                      <label htmlFor="status">Trạng thái:</label>
-                      <select
-                        id="status"
-                        name="status"
-                        value={formData.status}
-                        onChange={handleInputChange}
-                      >
-                        <option value="active">Hoạt động</option>
-                        <option value="inactive">Không hoạt động</option>
-                      </select>
-                    </div>
-                    
-                    <div className="form-group">
-                      <label htmlFor="parentId">Danh mục cha (tùy chọn):</label>
-                      <select
-                        id="parentId"
-                        name="parentId"
-                        value={formData.parentId || ''}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setFormData({
-                            ...formData,
-                            parentId: value === '' ? null : parseInt(value)
-                          });
-                        }}
-                      >
-                        <option value="">Không có (danh mục gốc)</option>
-                        {categories
-                          .filter(cat => !editingCategory || cat.id !== editingCategory.id)
-                          .map(cat => (
-                            <option key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
+              <div className="info-box">
+                <strong>Cấp hiện tại:</strong> Cấp {selectedCategory.level}
               </div>
-              
-              <div className="modal-actions">
-                <button 
-                  type="button" 
-                  className="cancel-btn"
-                  onClick={() => {
-                    setShowModal(false);
-                    setErrors({});
-                  }}
-                >
+            </div>
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={() => setIsEditDialogOpen(false)}>
                   Hủy
                 </button>
-                <button type="submit" className="save-btn">
-                  {editingCategory ? 'Cập nhật' : 'Thêm mới'}
+              <button className="btn-primary" onClick={handleEditCategory}>
+                Cập nhật
                 </button>
               </div>
-            </form>
           </div>
         </div>
       )}
