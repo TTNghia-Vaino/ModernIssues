@@ -145,42 +145,37 @@ export const transformProduct = (apiProduct) => {
   // If isDisabled is true, product is inactive
   const status = apiProduct.status || (isDisabled ? 'inactive' : 'active');
   
-  // Handle pricing: onPrice/onPrices is original price, price is promotion price
-  // API may return onPrice (single value) or onPrices (array, take first)
-  const onPriceValue = apiProduct.onPrice || 
+  // Logic đơn giản: price từ API = giá gốc, onPrices = giá khuyến mãi (nếu có)
+  const originalPriceValue = apiProduct.price || 0;  // Giá gốc
+  const promotionPriceValue = apiProduct.onPrice || 
     (Array.isArray(apiProduct.onPrices) && apiProduct.onPrices.length > 0 ? apiProduct.onPrices[0] : null) ||
-    (typeof apiProduct.onPrices === 'number' ? apiProduct.onPrices : null);
+    (typeof apiProduct.onPrices === 'number' ? apiProduct.onPrices : null);  // Giá khuyến mãi
   
-  // Determine original price and current price
-  // If onPrice exists, it's the original price before promotion (stored in DB)
-  // price from API is the current/promotion price (updated by UpdatePrices API)
-  // Logic: onPrice = giá gốc, price = giá khuyến mãi (nếu có promotion)
-  const hasPromotion = onPriceValue && apiProduct.price && onPriceValue > apiProduct.price;
+  // Có khuyến mãi khi có promotionPrice và nó nhỏ hơn giá gốc
+  const hasPromotion = promotionPriceValue && promotionPriceValue > 0 && originalPriceValue > promotionPriceValue;
   
-  const originalPriceValue = hasPromotion 
-    ? onPriceValue  // Use onPrice as original when there's promotion
-    : (apiProduct.originalPrice || (onPriceValue && !apiProduct.price ? onPriceValue : null));
+  // Giá hiện tại = giá khuyến mãi nếu có, nếu không thì = giá gốc
+  const currentPriceValue = hasPromotion ? promotionPriceValue : originalPriceValue;
   
-  const currentPriceValue = apiProduct.price || onPriceValue || apiProduct.originalPrice || 0;
-  
-  // Calculate discount percentage if there's a promotion
-  const calculatedDiscount = hasPromotion
-    ? Math.round(((onPriceValue - apiProduct.price) / onPriceValue) * 100)
+  // Tính % giảm giá: (giá_gốc - giá_sau_km) / giá_gốc * 100
+  const calculatedDiscount = hasPromotion && originalPriceValue > 0
+    ? Math.round(((originalPriceValue - promotionPriceValue) / originalPriceValue) * 100)
     : (apiProduct.discount || 0);
   
   // Transform variants if they exist
   const transformedVariants = apiProduct.variants && Array.isArray(apiProduct.variants)
     ? apiProduct.variants.map(variant => {
-        const variantOnPrice = variant.onPrice || 
+        const variantOriginalPrice = variant.price || 0;  // Giá gốc
+        const variantPromotionPrice = variant.onPrice || 
           (Array.isArray(variant.onPrices) && variant.onPrices.length > 0 ? variant.onPrices[0] : null);
-        const variantOriginalPrice = variantOnPrice || variant.originalPrice || variant.price;
-        const variantCurrentPrice = variant.price || variantOnPrice || variant.originalPrice;
+        const variantHasPromotion = variantPromotionPrice && variantPromotionPrice > 0 && variantOriginalPrice > variantPromotionPrice;
+        const variantCurrentPrice = variantHasPromotion ? variantPromotionPrice : variantOriginalPrice;
         
         return {
           ...variant,
           price: variantCurrentPrice,
-          originalPrice: variantOriginalPrice,
-          onPrice: variantOnPrice
+          originalPrice: variantHasPromotion ? variantOriginalPrice : null,
+          onPrice: variantPromotionPrice
         };
       })
     : apiProduct.variants;
@@ -196,11 +191,12 @@ export const transformProduct = (apiProduct) => {
     // Keep productId for API calls (Cart, etc.)
     productId: productIdValue,
     
-    // Pricing: price is current/promotion price, originalPrice is before promotion
+    // Pricing: price là giá hiện tại (giá khuyến mãi nếu có, nếu không thì giá gốc)
     price: currentPriceValue,
-    originalPrice: (originalPriceValue && originalPriceValue !== currentPriceValue) ? originalPriceValue : null,
+    // originalPrice là giá gốc (chỉ hiển thị khi có khuyến mãi)
+    originalPrice: hasPromotion ? originalPriceValue : null,
     salePrice: apiProduct.salePrice || currentPriceValue,
-    onPrice: onPriceValue, // Keep onPrice for reference
+    onPrice: promotionPriceValue, // Giá khuyến mãi (để tham khảo)
     onPrices: apiProduct.onPrices, // Keep onPrices array for reference
     discount: calculatedDiscount,
     

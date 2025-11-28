@@ -150,6 +150,17 @@ const AdminProducts = () => {
           fullImageUrl = `${cleanBaseUrl}/Uploads/Images/${fullImageUrl}`;
         }
         
+        // Logic đơn giản: price từ API = giá gốc, onPrices = giá khuyến mãi (nếu có)
+        const originalPriceValue = product.price || 0;  // Giá gốc
+        const promotionPriceValue = product.onPrices || product.onPrice || null;  // Giá khuyến mãi
+        const hasPromotion = promotionPriceValue && promotionPriceValue > 0 && originalPriceValue > promotionPriceValue;
+        // Giá hiện tại = giá khuyến mãi nếu có, nếu không thì = giá gốc
+        const currentPriceValue = hasPromotion ? promotionPriceValue : originalPriceValue;
+        // Tính % giảm giá: (giá_gốc - giá_sau_km) / giá_gốc * 100
+        const discountValue = hasPromotion && originalPriceValue > 0
+          ? Math.round(((originalPriceValue - promotionPriceValue) / originalPriceValue) * 100)
+          : 0;
+        
         return {
           id: product.productId || product.id,
           name: product.productName || product.name,
@@ -157,14 +168,13 @@ const AdminProducts = () => {
           category: product.categoryId || product.category,
           categoryId: product.categoryId || product.category,
           categoryName: product.categoryName || product.categoryName,
-          // price từ API = giá gốc, onPrices = giá sau khuyến mãi (nếu có promotion)
-          price: product.price || 0,  // Giá gốc
-          originalPrice: product.price || 0,  // Giá gốc (để hiển thị khi có khuyến mãi)
-          onPrice: product.onPrices || product.onPrice || 0,  // Giá sau khuyến mãi
-          // Tính % giảm giá: (giá_gốc - giá_sau_km) / giá_gốc * 100
-          discount: (product.onPrices || product.onPrice) > 0 && product.price > 0
-            ? Math.round(((product.price - (product.onPrices || product.onPrice)) / product.price) * 100) 
-            : 0,
+          // Giá hiện tại (giá khuyến mãi nếu có, nếu không thì giá gốc)
+          price: currentPriceValue,
+          // Giá gốc (chỉ hiển thị khi có khuyến mãi)
+          originalPrice: hasPromotion ? originalPriceValue : null,
+          // Giá khuyến mãi (để tham khảo)
+          onPrice: promotionPriceValue,
+          discount: discountValue,
           image: fullImageUrl,
           imageUrl: fullImageUrl,
           description: product.description || '',
