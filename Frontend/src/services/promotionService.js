@@ -138,6 +138,7 @@ const mapApiToUi = (apiPromotion) => {
     banner: apiPromotion.bannerUrl || apiPromotion.banner || null,
     bannerUrl: apiPromotion.bannerUrl || apiPromotion.banner || null,
     categoryIds: apiPromotion.categoryIds || null,
+    local: apiPromotion.local || apiPromotion.Local || 'hero',
     createdAt: apiPromotion.createdAt,
     updatedAt: apiPromotion.updatedAt,
     // Keep original data for reference
@@ -263,7 +264,8 @@ const mapUiToApi = (uiPromotion) => {
     DiscountValue: discountValue,
     StartDate: formatDateForApi(uiPromotion.startDate || ''),
     EndDate: formatDateForApi(uiPromotion.endDate || ''),
-    IsActive: isActive
+    IsActive: isActive,
+    Local: uiPromotion.local || 'hero'
   };
   
   // Only include ProductIds if not empty
@@ -368,6 +370,54 @@ export const listPromotions = async (params = {}) => {
  * @param {number} id - Promotion ID
  * @returns {Promise} - Promotion object
  */
+/**
+ * Get promotions by local (display location)
+ * Endpoint: GET /v1/Promotion/GetByLocal?local={local}
+ * @param {string} local - Display location: 'hero', 'left', 'right'
+ * @returns {Promise} - List of promotions for that location
+ */
+export const getPromotionsByLocal = async (local = 'hero') => {
+  try {
+    const response = await apiGet(`Promotion/GetByLocal`, { local });
+    console.log(`[PromotionService.getPromotionsByLocal] Raw response for local="${local}":`, response);
+    
+    const data = handleResponse(response);
+    console.log(`[PromotionService.getPromotionsByLocal] Processed data for local="${local}":`, data);
+    
+    // API returns ApiResponse<List<PromotionListDto>>, so data should be the list directly
+    // Handle array response (direct array from ApiResponse)
+    if (Array.isArray(data)) {
+      const mapped = data.map(mapApiToUi);
+      console.log(`[PromotionService.getPromotionsByLocal] Mapped ${mapped.length} promotions for local="${local}":`, mapped);
+      return mapped;
+    }
+    
+    // Handle object with data array (nested structure)
+    if (data && data.data && Array.isArray(data.data)) {
+      const mapped = data.data.map(mapApiToUi);
+      console.log(`[PromotionService.getPromotionsByLocal] Mapped ${mapped.length} promotions for local="${local}":`, mapped);
+      return mapped;
+    }
+    
+    // If data is an object but not array, check if it's ApiResponse format
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      // Check for common ApiResponse fields
+      if (data.success !== undefined && data.data) {
+        const listData = Array.isArray(data.data) ? data.data : [];
+        const mapped = listData.map(mapApiToUi);
+        console.log(`[PromotionService.getPromotionsByLocal] Mapped ${mapped.length} promotions from ApiResponse for local="${local}":`, mapped);
+        return mapped;
+      }
+    }
+    
+    console.warn(`[PromotionService.getPromotionsByLocal] Unexpected response format for local="${local}":`, data);
+    return [];
+  } catch (error) {
+    console.error(`[PromotionService.getPromotionsByLocal] Error for local="${local}":`, error);
+    return []; // Return empty array instead of throwing to prevent breaking the UI
+  }
+};
+
 export const getPromotionById = async (id) => {
   try {
     // Correct endpoint: GET /v1/Promotion/{id}
@@ -460,14 +510,18 @@ export const createPromotion = async (promotionData, bannerFile = null) => {
     
     // Use custom fetch for FormData
     // Correct endpoint: POST /v1/Promotion
-    const { getApiUrl, getDefaultHeaders } = await import('../config/api');
+    // This will be sent to remote server (35.232.61.38:5000) and saved to Backend/wwwroot/Uploads/Images/
+    const { getApiUrl, getDefaultHeaders, getBaseURL } = await import('../config/api');
     const url = getApiUrl('Promotion');
     const headers = getDefaultHeaders();
     // Remove Content-Type header to let browser set it with boundary
     delete headers['Content-Type'];
     
     if (import.meta.env.DEV) {
+      const baseURL = getBaseURL();
       console.log('[PromotionService.createPromotion] POST to:', url);
+      console.log('[PromotionService.createPromotion] Base URL:', baseURL || '(using Vite proxy → 35.232.61.38:5000)');
+      console.log('[PromotionService.createPromotion] Banner file will be saved to: Backend/wwwroot/Uploads/Images/ on remote server');
     }
     
     const response = await fetch(url, {
@@ -597,14 +651,18 @@ export const updatePromotion = async (id, promotionData, bannerFile = null) => {
     
     // Use custom fetch for FormData
     // Correct endpoint: PUT /v1/Promotion/{id}
-    const { getApiUrl, getDefaultHeaders } = await import('../config/api');
+    // This will be sent to remote server (35.232.61.38:5000) and saved to Backend/wwwroot/Uploads/Images/
+    const { getApiUrl, getDefaultHeaders, getBaseURL } = await import('../config/api');
     const url = getApiUrl(`Promotion/${id}`);
     const headers = getDefaultHeaders();
     // Remove Content-Type header to let browser set it with boundary
     delete headers['Content-Type'];
     
     if (import.meta.env.DEV) {
+      const baseURL = getBaseURL();
       console.log('[PromotionService.updatePromotion] PUT to:', url);
+      console.log('[PromotionService.updatePromotion] Base URL:', baseURL || '(using Vite proxy → 35.232.61.38:5000)');
+      console.log('[PromotionService.updatePromotion] Banner file will be saved to: Backend/wwwroot/Uploads/Images/ on remote server');
     }
     
     const response = await fetch(url, {
@@ -772,6 +830,50 @@ export const getAvailableProducts = async (params = {}) => {
     };
   } catch (error) {
     console.error('[PromotionService.getAvailableProducts] Error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get products by promotion ID
+ * Endpoint: GET /v1/Promotion/{id}/products
+ * Response format: { success: boolean, message: string, data: ProductListResponse, errors: string[] }
+ * @param {number} promotionId - Promotion ID
+ * @param {object} params - Query parameters (page, limit)
+ * @returns {Promise} - List of products in the promotion
+ */
+export const getProductsByPromotion = async (promotionId, params = {}) => {
+  const { page = 1, limit = 20 } = params;
+  
+  try {
+    const response = await apiGet(`Promotion/${promotionId}/products`, { page, limit });
+    const data = handleResponse(response);
+    
+    // Handle response structure: { totalCount, currentPage, limit, data: [...] }
+    if (data && typeof data === 'object') {
+      if (data.data && Array.isArray(data.data)) {
+        return {
+          totalCount: data.totalCount || 0,
+          currentPage: data.currentPage || page,
+          limit: data.limit || limit,
+          data: data.data
+        };
+      }
+      
+      // If data is directly the response object
+      if (data.totalCount !== undefined) {
+        return data;
+      }
+    }
+    
+    return {
+      totalCount: 0,
+      currentPage: page,
+      limit: limit,
+      data: []
+    };
+  } catch (error) {
+    console.error('[PromotionService.getProductsByPromotion] Error:', error);
     throw error;
   }
 };
