@@ -1,0 +1,138 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Setup .NET
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # 3️⃣ Build .NET Backend
+      - name: Publish Backend
+        run: |
+          cd Backend
+          dotnet restore
+          dotnet publish -c Release -o publish
+
+      # 4️⃣ Copy .NET Backend lên server
+      - name: Copy Backend to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: Backend/publish/*
+          target: /var/www/modernissues/
+          overwrite: true
+
+      # 5️⃣ Restart .NET bằng PM2
+      - name: Restart Backend Service via PM2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /var/www/modernissues/Backend/publish
+      
+            # Xoá process cũ để đảm bảo biến môi trường mới được nhận
+            pm2 delete modernissues_be || true
+      
+            # Export biến môi trường cho dotnet
+            export ASPNETCORE_URLS="http://0.0.0.0:5000"
+      
+            # Start lại service với PM2
+            pm2 start ModernIssues.dll --name modernissues_be --interpreter dotnet
+      
+            # Lưu cấu hình PM2 để tự start khi reboot
+            pm2 save
+      
+            # Kiểm tra trạng thái service
+            pm2 status modernissues_be
+      # 6️⃣ Copy Python App to server
+      - name: Copy Python App to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: Python/*
+          target: /var/www/modernissues/
+          overwrite: true
+
+      # 7️⃣ Setup Python env + restart FastAPI service
+      - name: Restart Python FastAPI via PM2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /var/www/modernissues/Python
+
+            # Luôn đảm bảo start.sh có quyền chạy (start.sh nằm trong app)
+            chmod +x ./app/start.sh
+
+            # Tạo venv nếu chưa có
+            python3 -m venv venv || true
+            source venv/bin/activate
+
+            # Cài libs
+            pip install --upgrade pip
+            pip install -r requirements.txt
+
+            # Kill service cũ
+            pm2 delete rag_api || true
+
+            # Nạp biến môi trường từ secrets (match api_key.py)
+            export GENAI_API_EMBED="${{ secrets.GENAI_API_EMBED }}"
+            export GENAI_API_DECISION="${{ secrets.GENAI_API_DECISION }}"
+            export GENAI_API_CHAT="${{ secrets.GENAI_API_CHAT }}"
+
+            # Start FastAPI bằng PM2
+            pm2 start ./app/start.sh --name rag_api
+
+            # Save để boot lại tự chạy
+            pm2 save
+
+            pm2 status rag_api
+      # 8️⃣ Build Frontend (Vite/React)
+      - name: Build Frontend
+        run: |
+          cd Frontend
+          npm ci
+          npm run build
+          ls 
+
+      # 9️⃣ Deploy Frontend lên server
+      - name: Deploy Frontend to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: Frontend/dist/*
+          target: /var/www/modernissues/
+          overwrite: true
+
+      # 🔟 Reload Nginx để serve FE mới
+      - name: Reload Nginx
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            sudo systemctl reload nginx
