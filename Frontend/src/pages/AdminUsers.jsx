@@ -63,12 +63,22 @@ const AdminUsers = () => {
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = () => {
-      setDropdownOpen(null);
+    const handleClickOutside = (event) => {
+      // Check if click is outside dropdown menu
+      const dropdownMenus = document.querySelectorAll('.dropdown-menu');
+      const isClickInsideDropdown = Array.from(dropdownMenus).some(menu => menu.contains(event.target));
+      const isClickOnButton = event.target.closest('.btn-menu');
+      
+      if (!isClickInsideDropdown && !isClickOnButton) {
+        setDropdownOpen(null);
+      }
     };
 
-    if (dropdownOpen) {
-      document.addEventListener('click', handleClickOutside);
+    if (dropdownOpen !== null) {
+      // Use timeout to avoid immediate close when opening
+      setTimeout(() => {
+        document.addEventListener('click', handleClickOutside);
+      }, 0);
     }
 
     return () => {
