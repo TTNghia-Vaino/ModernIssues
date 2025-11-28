@@ -75,12 +75,22 @@ const AdminProducts = () => {
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = () => {
-      setDropdownOpen(null);
+    const handleClickOutside = (event) => {
+      // Check if click is outside dropdown menu
+      const dropdownMenus = document.querySelectorAll('.dropdown-menu');
+      const isClickInsideDropdown = Array.from(dropdownMenus).some(menu => menu.contains(event.target));
+      const isClickOnButton = event.target.closest('.btn-menu');
+      
+      if (!isClickInsideDropdown && !isClickOnButton) {
+        setDropdownOpen(null);
+      }
     };
 
-    if (dropdownOpen) {
-      document.addEventListener('click', handleClickOutside);
+    if (dropdownOpen !== null) {
+      // Use timeout to avoid immediate close when opening
+      setTimeout(() => {
+        document.addEventListener('click', handleClickOutside);
+      }, 0);
     }
 
     return () => {
@@ -150,6 +160,17 @@ const AdminProducts = () => {
           fullImageUrl = `${cleanBaseUrl}/Uploads/Images/${fullImageUrl}`;
         }
         
+        // Logic đơn giản: price từ API = giá gốc, onPrices = giá khuyến mãi (nếu có)
+        const originalPriceValue = product.price || 0;  // Giá gốc
+        const promotionPriceValue = product.onPrices || product.onPrice || null;  // Giá khuyến mãi
+        const hasPromotion = promotionPriceValue && promotionPriceValue > 0 && originalPriceValue > promotionPriceValue;
+        // Giá hiện tại = giá khuyến mãi nếu có, nếu không thì = giá gốc
+        const currentPriceValue = hasPromotion ? promotionPriceValue : originalPriceValue;
+        // Tính % giảm giá: (giá_gốc - giá_sau_km) / giá_gốc * 100
+        const discountValue = hasPromotion && originalPriceValue > 0
+          ? Math.round(((originalPriceValue - promotionPriceValue) / originalPriceValue) * 100)
+          : 0;
+        
         return {
           id: product.productId || product.id,
           name: product.productName || product.name,
@@ -157,14 +178,13 @@ const AdminProducts = () => {
           category: product.categoryId || product.category,
           categoryId: product.categoryId || product.category,
           categoryName: product.categoryName || product.categoryName,
-          // price từ API = giá gốc, onPrices = giá sau khuyến mãi (nếu có promotion)
-          price: product.price || 0,  // Giá gốc
-          originalPrice: product.price || 0,  // Giá gốc (để hiển thị khi có khuyến mãi)
-          onPrice: product.onPrices || product.onPrice || 0,  // Giá sau khuyến mãi
-          // Tính % giảm giá: (giá_gốc - giá_sau_km) / giá_gốc * 100
-          discount: (product.onPrices || product.onPrice) > 0 && product.price > 0
-            ? Math.round(((product.price - (product.onPrices || product.onPrice)) / product.price) * 100) 
-            : 0,
+          // Giá hiện tại (giá khuyến mãi nếu có, nếu không thì giá gốc)
+          price: currentPriceValue,
+          // Giá gốc (chỉ hiển thị khi có khuyến mãi)
+          originalPrice: hasPromotion ? originalPriceValue : null,
+          // Giá khuyến mãi (để tham khảo)
+          onPrice: promotionPriceValue,
+          discount: discountValue,
           image: fullImageUrl,
           imageUrl: fullImageUrl,
           description: product.description || '',
@@ -939,57 +959,65 @@ const AdminProducts = () => {
               </div>
             </div>
             <div className="col-actions">
-              <div style={{ position: 'relative' }}>
+              <div className="actions-dropdown">
                 <button
                   className="btn-menu"
                   title="Tùy chọn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setDropdownOpen(dropdownOpen === product.id ? null : product.id);
+                    const productId = product.id || product.productId;
+                    console.log('[AdminProducts] Toggle dropdown for product:', productId, 'Current:', dropdownOpen);
+                    console.log('[AdminProducts] Types:', typeof productId, typeof dropdownOpen);
+                    setDropdownOpen(dropdownOpen === productId ? null : productId);
                   }}
                 >
                   ⋮
                 </button>
-                {dropdownOpen === product.id && (
-                  <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      className="dropdown-item edit"
-                      onClick={() => {
-                        handleEdit(product);
-                        setDropdownOpen(null);
-                      }}
-                    >
-                      ✏️ Chỉnh sửa
-                    </button>
-                    <button
-                      className="dropdown-item delete"
-                      onClick={() => {
-                        if (product.isDisabled) {
-                          handleActivate(product.id);
-                        } else {
-                          handleDisable(product.id);
-                        }
-                        setDropdownOpen(null);
-                      }}
-                    >
-                      {product.isDisabled ? '✅ Kích hoạt' : '🗑️ Ngừng bán'}
-                    </button>
-                    <button
-                      className="dropdown-item"
-                      onClick={() => {
-                        handleUpdateVector(product.id, product.name || product.productName);
-                        setDropdownOpen(null);
-                      }}
-                      disabled={updatingVector === product.id}
-                      style={{
-                        opacity: updatingVector === product.id ? 0.6 : 1,
-                        cursor: updatingVector === product.id ? 'wait' : 'pointer'
-                      }}
-                    >
-                      {updatingVector === product.id ? '⏳ Đang cập nhật...' : '🔄 Cập nhật Vector'}
-                    </button>
-                  </div>
-                )}
+                {(() => {
+                  const productId = product.id || product.productId;
+                  const shouldShow = dropdownOpen === productId;
+                  console.log('[AdminProducts] Render check - productId:', productId, 'dropdownOpen:', dropdownOpen, 'shouldShow:', shouldShow);
+                  return shouldShow ? (
+                    <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="dropdown-item edit"
+                        onClick={() => {
+                          handleEdit(product);
+                          setDropdownOpen(null);
+                        }}
+                      >
+                        ✏️ Chỉnh sửa
+                      </button>
+                      <button
+                        className="dropdown-item delete"
+                        onClick={() => {
+                          if (product.isDisabled) {
+                            handleActivate(product.id || product.productId);
+                          } else {
+                            handleDisable(product.id || product.productId);
+                          }
+                          setDropdownOpen(null);
+                        }}
+                      >
+                        {product.isDisabled ? '✅ Kích hoạt' : '🗑️ Ngừng bán'}
+                      </button>
+                      <button
+                        className="dropdown-item"
+                        onClick={() => {
+                          handleUpdateVector(product.id || product.productId, product.name || product.productName);
+                          setDropdownOpen(null);
+                        }}
+                        disabled={updatingVector === (product.id || product.productId)}
+                        style={{
+                          opacity: updatingVector === (product.id || product.productId) ? 0.6 : 1,
+                          cursor: updatingVector === (product.id || product.productId) ? 'wait' : 'pointer'
+                        }}
+                      >
+                        {updatingVector === (product.id || product.productId) ? '⏳ Đang cập nhật...' : '🔄 Cập nhật Vector'}
+                      </button>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             </div>
           </div>

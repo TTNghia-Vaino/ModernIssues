@@ -162,6 +162,8 @@
   align-items: center;
   transition: all 0.3s ease;
   box-sizing: border-box;
+  position: relative;
+  overflow: visible;
 }
 
 .table-row:hover {
@@ -413,6 +415,8 @@
   max-width: 100%;
   flex-shrink: 0;
   grid-column: 7;
+  position: relative;
+  z-index: 1;
 }
 
 .table-header .col-image { grid-column: 1; }
@@ -434,6 +438,8 @@
 /* Actions Dropdown */
 .actions-dropdown {
   position: relative;
+  display: inline-block;
+  z-index: 100;
 }
 
 .actions-toggle-btn {
@@ -465,6 +471,8 @@
   transition: all 0.3s ease;
   font-weight: bold;
   line-height: 1;
+  pointer-events: auto;
+  z-index: 2;
 }
 
 .btn-menu:hover {
@@ -480,10 +488,15 @@
   background: white;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  z-index: 10000;
   min-width: 160px;
-  overflow: hidden;
+  overflow: visible;
   animation: dropdownSlide 0.2s ease-out;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  border: 2px solid red; /* Debug border */
+  background: yellow !important; /* Debug background */
 }
 
 @keyframes dropdownSlide {
@@ -581,7 +594,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 9999;
   padding: 60px;
 }
 

@@ -340,23 +340,9 @@ function BestSellingLaptops() {
 
                               <div className="laptop-price-section">
                                 <div className="current-price">{formatPrice(laptop.price)}</div>
-                                {(() => {
-                                  let originalPrice = null;
-                                  
-                                  if (laptop.originalPrice && laptop.originalPrice > laptop.price) {
-                                    originalPrice = laptop.originalPrice;
-                                  } else if (laptop.discount && laptop.discount > 0) {
-                                    originalPrice = Math.round(laptop.price / (1 - laptop.discount / 100));
-                                  } else if (!laptop.discount && !laptop.originalPrice) {
-                                    // Default: add 10% to current price
-                                    originalPrice = Math.round(laptop.price * 1.1);
-                                  }
-                                  
-                                  if (originalPrice && originalPrice > laptop.price) {
-                                    return <div className="original-price">{formatPrice(originalPrice)}</div>;
-                                  }
-                                  return null;
-                                })()}
+                                {laptop.originalPrice && laptop.originalPrice > laptop.price && (
+                                  <div className="original-price">{formatPrice(laptop.originalPrice)}</div>
+                                )}
                               </div>
                             </div>
                           </div>

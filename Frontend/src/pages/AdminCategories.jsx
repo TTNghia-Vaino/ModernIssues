@@ -14,6 +14,7 @@ const AdminCategories = () => {
   const [categoryProducts, setCategoryProducts] = useState({}); // Store products for each category
   const [loadingProducts, setLoadingProducts] = useState(new Set()); // Track loading state
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all'); // Filter by isDisabled: 'all', 'active', 'inactive'
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -43,6 +44,25 @@ const AdminCategories = () => {
     
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  // Close all dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Close all dropdown menus when clicking outside
+      const dropdowns = document.querySelectorAll('.dropdown-menu.show');
+      dropdowns.forEach(dropdown => {
+        const container = dropdown.closest('.dropdown-menu-container');
+        if (container && !container.contains(event.target)) {
+          dropdown.classList.remove('show');
+        }
+      });
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
     };
   }, []);
 
@@ -337,23 +357,39 @@ const AdminCategories = () => {
     if (isLevel1) bgClass = 'bg-blue-50 font-semibold';
     else if (isLevel2) bgClass = 'bg-slate-50';
 
-    // Filter categories based on search
+    // Filter categories based on search and status
     const matchesSearch = !searchQuery || 
       category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       String(category.id).includes(searchQuery);
+    
+    // Filter by status
+    let matchesStatus = true;
+    if (filterStatus === 'active') {
+      matchesStatus = !category.isDisabled;
+    } else if (filterStatus === 'inactive') {
+      matchesStatus = category.isDisabled === true;
+    }
+    
+    const categoryMatches = matchesSearch && matchesStatus;
 
-    if (!matchesSearch && !hasChildren) {
+    if (!categoryMatches && !hasChildren) {
       return null;
     }
 
-    // Check if any child matches search
+    // Check if any child matches search and status
     const hasMatchingChild = hasChildren && category.children.some(child => {
-      const childMatches = !searchQuery || 
+      const childMatchesSearch = !searchQuery || 
         child.name.toLowerCase().includes(searchQuery.toLowerCase());
-      return childMatches;
+      let childMatchesStatus = true;
+      if (filterStatus === 'active') {
+        childMatchesStatus = !child.isDisabled;
+      } else if (filterStatus === 'inactive') {
+        childMatchesStatus = child.isDisabled === true;
+      }
+      return childMatchesSearch && childMatchesStatus;
     });
 
-    if (!matchesSearch && !hasMatchingChild) {
+    if (!categoryMatches && !hasMatchingChild) {
       return null;
     }
 
@@ -498,14 +534,34 @@ const AdminCategories = () => {
     );
   };
 
-  const filteredCategories = categories.filter(cat => {
-    if (!searchQuery) return true;
-    const allCats = findAllCategories([cat]);
-    return allCats.some(c => 
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(c.id).includes(searchQuery)
-    );
-  });
+  // Helper function to check if category or any child matches filter
+  const matchesFilter = (category) => {
+    // Check search query
+    const matchesSearch = !searchQuery || 
+      category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(category.id).includes(searchQuery);
+    
+    // Check status filter
+    let matchesStatus = true;
+    if (filterStatus === 'active') {
+      matchesStatus = !category.isDisabled;
+    } else if (filterStatus === 'inactive') {
+      matchesStatus = category.isDisabled === true;
+    }
+    
+    // Check if category itself matches
+    const categoryMatches = matchesSearch && matchesStatus;
+    
+    // Check if any child matches
+    if (category.children && category.children.length > 0) {
+      const hasMatchingChild = category.children.some(child => matchesFilter(child));
+      return categoryMatches || hasMatchingChild;
+    }
+    
+    return categoryMatches;
+  };
+
+  const filteredCategories = categories.filter(cat => matchesFilter(cat));
 
   const rootCategories = categories.filter(c => c.parentId === null);
   const allCategories = findAllCategories(categories);
@@ -541,15 +597,24 @@ const AdminCategories = () => {
         </button>
       </div>
 
-      {/* Search Bar */}
+      {/* Search Bar and Filters */}
       <div className="search-bar">
-          <input
-            type="text"
+        <input
+          type="text"
           placeholder="🔍 Tìm kiếm danh mục..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="search-input"
         />
+        <select 
+          value={filterStatus} 
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="filter-select"
+        >
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">🟢 Hoạt động</option>
+          <option value="inactive">🔴 Vô hiệu hóa</option>
+        </select>
       </div>
 
       {/* Category Tree */}
