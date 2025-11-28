@@ -503,6 +503,9 @@ public partial class WebDbContext : DbContext
             entity.Property(e => e.solution).HasMaxLength(1000);
             entity.Property(e => e.notes).HasMaxLength(500);
             entity.Property(e => e.image_urls).HasComment("Ảnh minh chứng (có thể lưu JSON array)");
+            entity.Property(e => e.history_json)
+                .HasColumnType("TEXT")
+                .HasComment("Lịch sử thay đổi trạng thái và ghi chú (JSON array)");
 
             // Tạo unique constraint cho (warranty_id, claim_number) để đảm bảo không trùng lặp
             entity.HasIndex(e => new { e.warranty_id, e.claim_number })

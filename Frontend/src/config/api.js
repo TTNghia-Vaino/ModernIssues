@@ -10,15 +10,15 @@ export const getBaseURL = () => {
     return import.meta.env.VITE_API_BASE_URL;
   }
   
-  // Default: use remote server URL (API chạy trên server)
+  // Default: use local backend in development, remote server in production
   // Có thể dùng proxy trong dev hoặc direct URL
   // Để dùng proxy, return ''; Để dùng direct, return server URL
   if (import.meta.env.DEV) {
-    // Development: dùng remote server
-    // Return remote server URL để gọi trực tiếp
-    return 'http://35.232.61.38:5000';
-    // Nếu muốn dùng proxy (cần cấu hình proxy trong vite.config.js):
-    // return '';
+    // Development: dùng local backend hoặc proxy
+    // Return empty string để dùng Vite proxy (proxy đã được cấu hình trong vite.config.js)
+    return '';
+    // Nếu muốn gọi trực tiếp local backend:
+    // return 'http://localhost:5273';
   }
   
   // Default for production - use remote server
@@ -47,7 +47,7 @@ if (import.meta.env.DEV) {
     API_BASE_URL: API_BASE_URL || '(using Vite proxy)',
     API_VERSION: API_VERSION || '(no version)',
     API_URL: API_URL,
-    Backend: API_BASE_URL ? `Direct: ${API_BASE_URL}` : 'Proxy: http://35.232.61.38:5000'
+    Backend: API_BASE_URL ? `Direct: ${API_BASE_URL}` : 'Proxy: http://localhost:5273'
   });
 }
 

@@ -5,21 +5,21 @@ import { getBaseURL } from '../config/api';
  * Converts API format to component format
  */
 
-const FALLBACK_IMAGE_BASE_URL = 'http://35.232.61.38:5000';
+const FALLBACK_IMAGE_BASE_URL = 'http://localhost:5273';
 
 const getCleanBaseUrl = () => {
   const baseUrl = getBaseURL();
   const cleaned = baseUrl ? baseUrl.replace(/\/$/, '').replace(/\/v1$/i, '') : '';
   
-  // If using proxy (empty base URL), use remote server for images
-  // Images are stored in wwwroot/Uploads/Images on remote server
+  // If using proxy (empty base URL), use local backend for images
+  // Images are stored in wwwroot/Uploads/Images on local backend
   if (!baseUrl || baseUrl === '') {
-    // Using Vite proxy, so images should come from remote server
-    // Return fallback to remote server
+    // Using Vite proxy, so images should come from local backend
+    // Return fallback to local backend
     return FALLBACK_IMAGE_BASE_URL;
   }
   
-  // Return cleaned base URL (should be http://35.232.61.38:5000)
+  // Return cleaned base URL (should be http://localhost:5273 in dev)
   return cleaned || FALLBACK_IMAGE_BASE_URL;
 };
 

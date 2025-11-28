@@ -8,7 +8,7 @@ export default defineConfig({
     open: true, // Tự động mở browser khi chạy dev server
     proxy: {
       '/v1': {
-        target: 'http://35.232.61.38:5000', // Remote server backend
+        target: 'http://localhost:5273', // Local backend
         changeOrigin: true,
         secure: false, // Allow HTTP
         rewrite: (path) => path, // Keep the path as is
@@ -28,9 +28,9 @@ export default defineConfig({
           });
         },
       },
-      // Proxy for images from remote server
+      // Proxy for images from local backend
       '/Uploads': {
-        target: 'http://35.232.61.38:5000', // Remote server for images
+        target: 'http://localhost:5273', // Local backend for images
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path, // Keep the path as is
@@ -41,24 +41,23 @@ export default defineConfig({
         },
       },
       '/chat': {
-        target: 'http://35.232.61.38:8000', // Remote Python API server (port 8000)
+        target: 'http://35.232.61.38:5000', // Proxy through backend server (nginx handles routing to Python API)
         changeOrigin: true,
         secure: false, // Allow HTTP
         rewrite: (path) => path, // Keep the path as is
         configure: (proxy) => {
           proxy.on('error', (err) => {
             console.log('[Chat Proxy Error]', err.message);
-            console.log('[Chat Proxy] Trying remote server: http://35.232.61.38:8000');
-            console.log('[Chat Proxy] If this fails, Python API may not be running on remote server');
-            console.log('[Chat Proxy] To use local Python API, change target to http://localhost:8000 in vite.config.js');
+            console.log('[Chat Proxy] Trying remote server: http://35.232.61.38:5000/chat');
+            console.log('[Chat Proxy] If this fails, check nginx configuration on server');
           });
           proxy.on('proxyReq', (proxyReq, req) => {
-            console.log('[Chat Proxy Request]', req.method, req.url, '→', 'http://35.232.61.38:8000' + req.url);
+            console.log('[Chat Proxy Request]', req.method, req.url, '→', 'http://35.232.61.38:5000' + req.url);
           });
         },
       },
       '/update-vector-by-product-id': {
-        target: 'http://35.232.61.38:5000', // Server backend
+        target: 'http://localhost:5273', // Local backend
         changeOrigin: true,
         secure: false, // Allow HTTP
         rewrite: (path) => path, // Keep the path as is

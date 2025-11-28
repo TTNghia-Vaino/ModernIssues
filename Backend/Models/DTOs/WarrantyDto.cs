@@ -138,5 +138,30 @@ namespace ModernIssues.Models.DTOs
         public string? Notes { get; set; }
         public string? ImageUrls { get; set; }
     }
+
+    /// <summary>
+    /// DTO cho cập nhật trạng thái bảo hành (Admin workflow)
+    /// </summary>
+    public class WarrantyStatusUpdateDto
+    {
+        public string Status { get; set; } = string.Empty; // waiting_reception, inspecting, repairing, quality_check, completed, returned
+        public string? Notes { get; set; } // Ghi chú của admin
+        public string? Solution { get; set; } // Giải pháp đã thực hiện
+        public decimal? Cost { get; set; } // Chi phí (nếu có)
+    }
+
+    /// <summary>
+    /// DTO cho một entry trong lịch sử bảo hành (từ history_json)
+    /// </summary>
+    public class WarrantyHistoryEntryDto
+    {
+        public DateTime Date { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string StatusDisplay { get; set; } = string.Empty;
+        public string? Notes { get; set; }
+        public string? Solution { get; set; }
+        public decimal? Cost { get; set; }
+        public string? HandledBy { get; set; } // Tên admin/kỹ thuật viên
+    }
 }
 

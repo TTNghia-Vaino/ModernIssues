@@ -37,6 +37,10 @@ import CustomerSupportPage from './pages/CustomerSupportPage';
 import PaymentMethodsPage from './pages/PaymentMethodsPage';
 import NewsPage from './pages/NewsPage';
 import ProfilePage from './pages/ProfilePage';
+import UserWarrantyRequest from './pages/UserWarrantyRequest';
+import UserWarrantyTracking from './pages/UserWarrantyTracking';
+import UserSpending from './pages/UserSpending';
+import UserOrders from './pages/UserOrders';
 import TwoFactorVerify from './pages/TwoFactorVerify';
 import TwoFactorSetup from './pages/TwoFactorSetup';
 import TestListProducts from './components/TestListProducts';
@@ -133,6 +137,10 @@ function App() {
                 <Route path="/news" element={<div className="main-content"><NewsPage /></div>} />
                 <Route path="/news/:id" element={<div className="main-content"><NewsPage /></div>} />
                 <Route path="/profile" element={<div className="main-content"><ProfilePage /></div>} />
+                <Route path="/warranty-request" element={<div className="main-content"><UserWarrantyRequest /></div>} />
+                <Route path="/warranty-tracking" element={<div className="main-content"><UserWarrantyTracking /></div>} />
+                <Route path="/spending" element={<div className="main-content"><UserSpending /></div>} />
+                <Route path="/orders" element={<div className="main-content"><UserOrders /></div>} />
                 <Route path="/2fa/verify" element={<div className="main-content"><TwoFactorVerify /></div>} />
                 <Route path="/2fa/setup" element={<div className="main-content"><TwoFactorSetup /></div>} />
                 
