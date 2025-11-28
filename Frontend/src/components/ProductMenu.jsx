@@ -45,14 +45,18 @@ const getCategoryIcon = (name) => {
 
 const transformCategories = (apiCategories) => {
   if (!Array.isArray(apiCategories)) return null;
-  return apiCategories.map(cat => ({
-    id: cat.id,
-    icon: cat.icon || getCategoryIcon(cat.name || cat.label),
-    label: cat.name || cat.label || 'Unnamed Category',
-    children: cat.children?.length > 0 
-      ? { 'Danh mục con': cat.children.map(c => c.name || c) }
-      : { 'Sản phẩm': [] }
-  }));
+  return apiCategories.map(cat => {
+    // Try multiple possible name fields
+    const name = cat.name || cat.categoryName || cat.label || 'Unnamed Category';
+    return {
+      id: cat.id || cat.categoryId,
+      icon: cat.icon || getCategoryIcon(name),
+      label: name,
+      children: cat.children?.length > 0 
+        ? { 'Danh mục con': cat.children.map(c => c.name || c.categoryName || c.label || c) }
+        : { 'Sản phẩm': [] }
+    };
+  });
 };
 
 const ProductMenu = ({ title = 'DANH MỤC SẢN PHẨM', categories: propCategories }) => {
