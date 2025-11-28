@@ -73,6 +73,12 @@ public partial class warranty_detail
     /// </summary>
     public string? image_urls { get; set; }
 
+    /// <summary>
+    /// Lịch sử thay đổi trạng thái và ghi chú (JSON array, nullable)
+    /// Format: [{"date": "2025-11-26T10:00:00Z", "status": "pending", "statusDisplay": "Chờ tiếp nhận", "notes": "...", "handledBy": "admin_name"}]
+    /// </summary>
+    public string? history_json { get; set; }
+
     public DateTime? created_at { get; set; }
 
     public DateTime? updated_at { get; set; }
