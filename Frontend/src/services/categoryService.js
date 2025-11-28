@@ -66,6 +66,17 @@ export const getCategoryTree = async () => {
 };
 
 /**
+ * Get full category tree (supports 3+ levels)
+ * Customers can view
+ * Response format: { success: boolean, message: string, data: array|string, errors: string[] }
+ * @returns {Promise} - Full category tree with all levels
+ */
+export const getCategoryTreeFull = async () => {
+  const response = await apiGet('Category/tree-full');
+  return handleResponse(response);
+};
+
+/**
  * Get category by ID
  * Customers can view
  * Response format: { success: boolean, message: string, data: object|string, errors: string[] }
