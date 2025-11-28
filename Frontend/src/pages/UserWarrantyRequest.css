@@ -1,0 +1,49 @@
+.user-warranty-request-page {
+  min-height: 100vh;
+  background: linear-gradient(to bottom right, #f0fdf4, #ecfdf5, #d1fae5);
+  padding: 2rem 0;
+}
+
+.user-warranty-request-page .container {
+  max-width: 900px;
+}
+
+.user-warranty-request-page .card {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.user-warranty-request-page input[type="file"] {
+  display: none;
+}
+
+.user-warranty-request-page label[for="images"] {
+  transition: all 0.2s;
+}
+
+.user-warranty-request-page label[for="images"]:hover:not(:has(input:disabled)) {
+  opacity: 0.8;
+}
+
+/* Form styling improvements */
+.user-warranty-request-page .space-y-6 > div {
+  margin-bottom: 1.5rem;
+}
+
+.user-warranty-request-page .space-y-2 > label {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+/* Image preview grid improvements */
+.user-warranty-request-page .grid img {
+  transition: transform 0.2s;
+}
+
+.user-warranty-request-page .grid .group:hover img {
+  transform: scale(1.05);
+}
+

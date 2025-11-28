@@ -1281,3 +1281,81 @@
   }
 }
 
+/* Warranty Timeline Styles */
+.warranty-timeline {
+  padding: 20px 0;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.timeline-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 32px;
+  width: 2px;
+  height: calc(100% + 8px);
+  background: #e5e7eb;
+}
+
+.timeline-marker {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.timeline-content {
+  flex: 1;
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 12px 16px;
+  border-left: 3px solid #3b82f6;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.timeline-date {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.timeline-handler {
+  font-size: 0.875rem;
+  color: #4b5563;
+  margin-bottom: 4px;
+}
+
+.timeline-notes,
+.timeline-solution,
+.timeline-cost {
+  font-size: 0.875rem;
+  color: #374151;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.timeline-notes strong,
+.timeline-solution strong,
+.timeline-cost strong {
+  color: #1f2937;
+  margin-right: 4px;
+}
+

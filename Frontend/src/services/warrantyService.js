@@ -217,3 +217,163 @@ export const getMyWarranties = async () => {
   return handleResponse(response);
 };
 
+/**
+ * Upload warranty images
+ * Endpoint: POST /v1/Warranty/UploadImages
+ * Content-Type: multipart/form-data
+ * @param {File[]} imageFiles - Array of image files
+ * @returns {Promise} - Array of uploaded image file names
+ */
+export const uploadWarrantyImages = async (imageFiles) => {
+  if (!imageFiles || imageFiles.length === 0) {
+    return [];
+  }
+
+  const formData = new FormData();
+  // ASP.NET Core expects files parameter name to match the action parameter
+  imageFiles.forEach((file) => {
+    formData.append('files', file);
+  });
+  
+  // Debug logging
+  if (import.meta.env.DEV) {
+    console.log('[WarrantyService.uploadWarrantyImages] Uploading', imageFiles.length, 'files');
+    console.log('[WarrantyService.uploadWarrantyImages] FormData keys:', Array.from(formData.keys()));
+  }
+
+  const { getApiUrl, getDefaultHeaders } = await import('../config/api');
+  const url = getApiUrl('Warranty/UploadImages');
+  const headers = getDefaultHeaders();
+  // Remove Content-Type header to let browser set it with boundary
+  delete headers['Content-Type'];
+
+  if (import.meta.env.DEV) {
+    console.log('[WarrantyService.uploadWarrantyImages] POST to:', url);
+    console.log('[WarrantyService.uploadWarrantyImages] Headers:', { ...headers, 'Content-Type': '(multipart/form-data - set by browser)' });
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: formData
+  });
+
+  if (import.meta.env.DEV) {
+    console.log('[WarrantyService.uploadWarrantyImages] Response status:', response.status, response.statusText);
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: `Request failed with status ${response.status}` }));
+    if (import.meta.env.DEV) {
+      console.error('[WarrantyService.uploadWarrantyImages] Error response:', errorData);
+    }
+    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return handleResponse(result);
+};
+
+/**
+ * Create warranty claim (user creates a warranty request)
+ * Endpoint: POST /v1/Warranty/Claim
+ * @param {object} claimData - Claim data { WarrantyId, Description, Notes, ImageUrls }
+ * @param {File[]} imageFiles - Optional array of image files to upload
+ * @returns {Promise} - Created warranty claim
+ */
+export const createWarrantyClaim = async (claimData, imageFiles = []) => {
+  // If there are image files, upload them first
+  if (imageFiles && imageFiles.length > 0) {
+    try {
+      const uploadedFileNames = await uploadWarrantyImages(imageFiles);
+      // Build image URLs array from file names
+      const { getBaseURL } = await import('../config/api');
+      const baseURL = getBaseURL() || '';
+      const imageUrls = uploadedFileNames.map(fileName => {
+        // If using proxy, return relative path
+        if (!baseURL || baseURL === '') {
+          return `/Uploads/Images/${fileName}`;
+        }
+        return `${baseURL}/Uploads/Images/${fileName}`;
+      });
+      claimData.ImageUrls = JSON.stringify(imageUrls);
+    } catch (err) {
+      console.error('[WarrantyService] Error uploading images:', err);
+      throw new Error(`Lỗi upload ảnh: ${err.message}`);
+    }
+  }
+
+  const response = await apiPost('Warranty/Claim', claimData);
+  return handleResponse(response);
+};
+
+/**
+ * Get all warranty claims (admin)
+ * Endpoint: GET /v1/Warranty/Claims
+ * @param {object} params - Query parameters (page, limit, status, search)
+ * @returns {Promise} - List of warranty claims with pagination
+ */
+export const getWarrantyClaims = async (params = {}) => {
+  const { page = 1, limit = 10, status, search } = params;
+  
+  const queryParams = {
+    page,
+    limit,
+  };
+  
+  if (status && status !== 'all') {
+    queryParams.status = status;
+  }
+  
+  if (search) {
+    queryParams.search = search;
+  }
+  
+  const response = await apiGet('Warranty/Claims', queryParams);
+  return handleResponse(response);
+};
+
+/**
+ * Get warranty claim by ID (admin)
+ * Endpoint: GET /v1/Warranty/Claim/{detailId}
+ * @param {number} detailId - Warranty detail ID
+ * @returns {Promise} - Warranty claim details
+ */
+export const getWarrantyClaimById = async (detailId) => {
+  const response = await apiGet(`Warranty/Claim/${detailId}`);
+  return handleResponse(response);
+};
+
+/**
+ * Update warranty status (admin workflow)
+ * Endpoint: PUT /v1/Warranty/Status/{detailId}
+ * @param {number} detailId - Warranty detail ID
+ * @param {object} statusData - Status update data { Status, Notes, Solution, Cost }
+ * @returns {Promise} - Updated warranty claim
+ */
+export const updateWarrantyStatus = async (detailId, statusData) => {
+  const response = await apiPut(`Warranty/Status/${detailId}`, statusData);
+  return handleResponse(response);
+};
+
+/**
+ * Get warranty detail history (from history_json)
+ * Endpoint: GET /v1/Warranty/History/{detailId}
+ * @param {number} detailId - Warranty detail ID
+ * @returns {Promise} - List of history entries
+ */
+export const getWarrantyDetailHistory = async (detailId) => {
+  const response = await apiGet(`Warranty/History/${detailId}`);
+  return handleResponse(response);
+};
+
+/**
+ * Get my warranty claims (user's own claims)
+ * Endpoint: GET /v1/Warranty/MyClaims
+ * @returns {Promise} - List of warranty claims for current user
+ */
+export const getMyWarrantyClaims = async () => {
+  const response = await apiGet('Warranty/MyClaims');
+  return handleResponse(response);
+};
+
