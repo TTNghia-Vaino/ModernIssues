@@ -47,6 +47,25 @@ const AdminCategories = () => {
     };
   }, []);
 
+  // Close all dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Close all dropdown menus when clicking outside
+      const dropdowns = document.querySelectorAll('.dropdown-menu.show');
+      dropdowns.forEach(dropdown => {
+        const container = dropdown.closest('.dropdown-menu-container');
+        if (container && !container.contains(event.target)) {
+          dropdown.classList.remove('show');
+        }
+      });
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
+
   const loadCategories = async () => {
     try {
       setLoading(true);
