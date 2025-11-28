@@ -1,0 +1,60 @@
+/* ===== SIDE BANNERS ===== */
+.side-banner {
+  position: fixed;
+  top: 150px;
+  width: 180px;
+  height: 500px;
+  z-index: 50;
+  pointer-events: none; /* Default: no pointer events */
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  overflow: hidden;
+}
+
+/* Enable pointer events and hover effects when banner has promotion */
+.side-banner.clickable {
+  cursor: pointer;
+}
+
+.side-banner.clickable:hover {
+  transform: translateY(-5px) scale(1.02);
+  opacity: 0.95;
+}
+
+.left-banner {
+  left: 20px;
+}
+
+.right-banner {
+  right: 20px;
+}
+
+/* ===== BANNER IMAGES ===== */
+.banner-full-image {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.banner-full-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+/* Hover effect for clickable banners */
+.side-banner.clickable:hover .banner-full-image img {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+/* Tablet and below - Hide side banners */
+@media (max-width: 1023px) {
+  .side-banner {
+    display: none;
+  }
+}
