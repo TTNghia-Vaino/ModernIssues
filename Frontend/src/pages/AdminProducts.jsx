@@ -2,6 +2,16 @@ import React, { useState, useEffect } from 'react';
 import * as productService from '../services/productService';
 import { getCategories } from '../services/categoryService';
 import { useAuth } from '../context/AuthContext';
+import { Edit, RotateCcw } from 'lucide-react';
+import {
+  AdminPageHeader,
+  AdminFiltersBar,
+  AdminDataTable,
+  AdminPagination,
+  AdminActionDropdown,
+  AdminLoadingOverlay,
+  AdminModal
+} from '../components/admin';
 import './AdminProducts.css';
 
 const AdminProducts = () => {
@@ -40,7 +50,6 @@ const AdminProducts = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [dropdownOpen, setDropdownOpen] = useState(null);
   const [updatingVector, setUpdatingVector] = useState(null); // Track which product is updating vector
   
   // Pagination state
@@ -73,30 +82,6 @@ const AdminProducts = () => {
     };
   }, []); // Only run on mount
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Check if click is outside dropdown menu
-      const dropdownMenus = document.querySelectorAll('.dropdown-menu');
-      const isClickInsideDropdown = Array.from(dropdownMenus).some(menu => menu.contains(event.target));
-      const isClickOnButton = event.target.closest('.btn-menu');
-      
-      if (!isClickInsideDropdown && !isClickOnButton) {
-        setDropdownOpen(null);
-      }
-    };
-
-    if (dropdownOpen !== null) {
-      // Use timeout to avoid immediate close when opening
-      setTimeout(() => {
-        document.addEventListener('click', handleClickOutside);
-      }, 0);
-    }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [dropdownOpen]);
 
   const loadCategories = async () => {
     try {
@@ -807,6 +792,122 @@ const AdminProducts = () => {
     setCurrentPage(1);
   }, [searchTerm, filterCategory, filterStatus]);
 
+  // Table columns config
+  const tableColumns = [
+    { key: 'image', label: 'Hình ảnh', className: 'col-image' },
+    { key: 'name', label: 'Tên sản phẩm', className: 'col-name' },
+    { key: 'category', label: 'Danh mục', className: 'col-category' },
+    { key: 'price', label: 'Giá bán', className: 'col-price' },
+    { key: 'stock', label: 'Tồn kho', className: 'col-stock' },
+    { key: 'status', label: 'Trạng thái', className: 'col-status' },
+    { key: 'actions', label: 'Thao tác', className: 'col-actions' }
+  ];
+
+  // Render custom product row
+  const renderProductRow = (product) => (
+    <div key={product.id} className="table-row">
+      <div className="col-image">
+        <img 
+          src={product.image || 'https://via.placeholder.com/100?text=No+Image'} 
+          alt={product.name}
+          onError={(event) => {
+            if (event.currentTarget.dataset.fallbackApplied === 'true') {
+              return;
+            }
+            event.currentTarget.dataset.fallbackApplied = 'true';
+            event.currentTarget.src = 'https://via.placeholder.com/100?text=No+Image';
+          }}
+        />
+      </div>
+      <div className="col-name">
+        <div 
+          className="product-name" 
+          data-full-name={product.name}
+          title={product.name}
+        >
+          {product.name}
+        </div>
+        {product.badge && <span className="product-badge">{product.badge}</span>}
+        {product.featured && <span className="featured-badge">⭐ Nổi bật</span>}
+      </div>
+      <div 
+        className="col-category"
+        data-full-category={product.categoryName || 'Chưa phân loại'}
+        title={product.categoryName || 'Chưa phân loại'}
+      >
+        {product.categoryName || 'Chưa phân loại'}
+      </div>
+      <div className="col-price">
+        <div className="price-current">{formatPrice(product.price)}</div>
+        {product.discount > 0 && (
+          <>
+            <div className="price-original">{formatPrice(product.originalPrice)}</div>
+            <div className="discount-badge">-{product.discount}%</div>
+          </>
+        )}
+      </div>
+      <div className="col-stock">
+        <span className={product.stock > 10 ? 'stock-good' : product.stock > 0 ? 'stock-low' : 'stock-out'}>
+          {product.stock} sản phẩm
+        </span>
+      </div>
+      <div className="col-status">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+          <span className={`status-badge ${product.isDisabled ? 'status-disabled' : 'status-active'}`}>
+            {product.isDisabled ? 'Ngừng bán' : 'Hoạt động'}
+          </span>
+          {product.stock === 0 && (
+            <span className="status-badge status-out-of-stock">
+              Hết hàng
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="col-actions">
+        <AdminActionDropdown
+          actions={[
+            {
+              label: 'Chỉnh sửa',
+              icon: Edit,
+              onClick: () => handleEdit(product)
+            },
+            {
+              label: product.isDisabled ? '✅ Kích hoạt' : '🗑️ Ngừng bán',
+              onClick: () => {
+                if (product.isDisabled) {
+                  handleActivate(product.id || product.productId);
+                } else {
+                  handleDisable(product.id || product.productId);
+                }
+              }
+            },
+            {
+              label: updatingVector === (product.id || product.productId) ? '⏳ Đang cập nhật...' : '🔄 Cập nhật Vector',
+              icon: RotateCcw,
+              onClick: () => handleUpdateVector(product.id || product.productId, product.name || product.productName),
+              className: updatingVector === (product.id || product.productId) ? 'opacity-60 cursor-wait' : ''
+            }
+          ]}
+        />
+      </div>
+    </div>
+  );
+
+  // Filter options
+  const categoryFilterOptions = [
+    { value: 'all', label: 'Tất cả danh mục' },
+    ...categories.map(cat => ({
+      value: cat.id || cat.categoryId,
+      label: cat.categoryName || cat.name || 'Chưa có tên'
+    }))
+  ];
+
+  const statusFilterOptions = [
+    { value: 'all', label: 'Tất cả trạng thái' },
+    { value: 'active', label: 'Hoạt động' },
+    { value: 'inactive', label: 'Ngừng hoạt động' }
+  ];
+
   return (
     <div className="admin-products">
       {notification.show && (
@@ -815,241 +916,82 @@ const AdminProducts = () => {
         </div>
       )}
       
-      <div className="page-header">
-        <h2>Quản lý sản phẩm</h2>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <button 
-            className="add-btn" 
-            onClick={handleAddNew}
-            id="add-product-btn"
-            style={{ 
-              display: 'inline-flex !important', 
-              visibility: 'visible !important', 
-              opacity: '1 !important',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%) !important',
-              color: 'white !important',
-              border: 'none !important',
-              padding: '12px 24px !important',
-              borderRadius: '8px !important',
-              cursor: 'pointer !important',
-              fontSize: '16px !important',
-              fontWeight: '600 !important',
-              boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4) !important',
-              whiteSpace: 'nowrap !important',
-              flexShrink: 0,
-              minWidth: '180px !important',
-              height: 'auto !important',
-              position: 'relative !important',
-              zIndex: 1000
-            }}
-          >
-            ➕ Thêm sản phẩm mới
-          </button>
-        </div>
-      </div>
+      <AdminLoadingOverlay 
+        loading={loading} 
+        hasData={products.length > 0}
+        message="Đang tải danh sách sản phẩm..."
+      >
+        <AdminPageHeader
+          title="Quản lý sản phẩm"
+          onAdd={handleAddNew}
+          addButtonText="➕ Thêm sản phẩm mới"
+        />
 
-      {/* Filters */}
-      <div className="filters-section">
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="Tìm kiếm sản phẩm..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        
-        <div className="filter-controls">
-          <select 
-            value={filterCategory} 
-            onChange={(e) => setFilterCategory(e.target.value)}
-            disabled={categories.length === 0}
-          >
-            <option value="all">Tất cả danh mục</option>
-            {categories.length > 0 ? (
-              categories.map(cat => (
-                <option key={cat.id || cat.categoryId} value={cat.id || cat.categoryId}>
-                  {cat.categoryName || cat.name || 'Chưa có tên'}
-                </option>
-              ))
-            ) : (
-              <option value="">Đang tải danh mục...</option>
-            )}
-          </select>
-          
-          <select 
-            value={filterStatus} 
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Hoạt động</option>
-            <option value="inactive">Ngừng hoạt động</option>
-          </select>
-        </div>
-      </div>
+        <AdminFiltersBar
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Tìm kiếm sản phẩm..."
+          filters={[
+            {
+              key: 'category',
+              value: filterCategory,
+              onChange: setFilterCategory,
+              options: categoryFilterOptions,
+              disabled: categories.length === 0
+            },
+            {
+              key: 'status',
+              value: filterStatus,
+              onChange: setFilterStatus,
+              options: statusFilterOptions
+            }
+          ]}
+        />
 
-      <div className="products-table">
-        <div className="table-header">
-          <div className="col-image">Hình ảnh</div>
-          <div className="col-name">Tên sản phẩm</div>
-          <div className="col-category">Danh mục</div>
-          <div className="col-price">Giá bán</div>
-          <div className="col-stock">Tồn kho</div>
-          <div className="col-status">Trạng thái</div>
-          <div className="col-actions" aria-hidden="true"></div>
-        </div>
-
-        {paginatedProducts.map((product) => (
-          <div key={product.id} className="table-row">
-            <div className="col-image">
-              <img 
-                src={product.image || 'https://via.placeholder.com/100?text=No+Image'} 
-                alt={product.name}
-                onError={(event) => {
-                  if (event.currentTarget.dataset.fallbackApplied === 'true') {
-                    return;
-                  }
-                  event.currentTarget.dataset.fallbackApplied = 'true';
-                  event.currentTarget.src = 'https://via.placeholder.com/100?text=No+Image';
-                }}
-              />
-            </div>
-            <div className="col-name">
-              <div 
-                className="product-name" 
-                data-full-name={product.name}
-                title={product.name}
-              >
-                {product.name}
-              </div>
-              {product.badge && <span className="product-badge">{product.badge}</span>}
-              {product.featured && <span className="featured-badge">⭐ Nổi bật</span>}
-            </div>
-            <div 
-              className="col-category"
-              data-full-category={product.categoryName || 'Chưa phân loại'}
-              title={product.categoryName || 'Chưa phân loại'}
-            >
-              {product.categoryName || 'Chưa phân loại'}
-            </div>
-            <div className="col-price">
-              <div className="price-current">{formatPrice(product.price)}</div>
-              {product.discount > 0 && (
-                <>
-                  <div className="price-original">{formatPrice(product.originalPrice)}</div>
-                  <div className="discount-badge">-{product.discount}%</div>
-                </>
-              )}
-            </div>
-            <div className="col-stock">
-              <span className={product.stock > 10 ? 'stock-good' : product.stock > 0 ? 'stock-low' : 'stock-out'}>
-                {product.stock} sản phẩm
-              </span>
-            </div>
-            <div className="col-status">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-                <span className={`status-badge ${product.isDisabled ? 'status-disabled' : 'status-active'}`}>
-                  {product.isDisabled ? 'Ngừng bán' : 'Hoạt động'}
-                </span>
-                {product.stock === 0 && (
-                  <span className="status-badge status-out-of-stock">
-                    Hết hàng
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="col-actions">
-              <div className="actions-dropdown">
-                <button
-                  className="btn-menu"
-                  title="Tùy chọn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const productId = product.id || product.productId;
-                    console.log('[AdminProducts] Toggle dropdown for product:', productId, 'Current:', dropdownOpen);
-                    console.log('[AdminProducts] Types:', typeof productId, typeof dropdownOpen);
-                    setDropdownOpen(dropdownOpen === productId ? null : productId);
-                  }}
-                >
-                  ⋮
-                </button>
-                {(() => {
-                  const productId = product.id || product.productId;
-                  const shouldShow = dropdownOpen === productId;
-                  console.log('[AdminProducts] Render check - productId:', productId, 'dropdownOpen:', dropdownOpen, 'shouldShow:', shouldShow);
-                  return shouldShow ? (
-                    <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        className="dropdown-item edit"
-                        onClick={() => {
-                          handleEdit(product);
-                          setDropdownOpen(null);
-                        }}
-                      >
-                        ✏️ Chỉnh sửa
-                      </button>
-                      <button
-                        className="dropdown-item delete"
-                        onClick={() => {
-                          if (product.isDisabled) {
-                            handleActivate(product.id || product.productId);
-                          } else {
-                            handleDisable(product.id || product.productId);
-                          }
-                          setDropdownOpen(null);
-                        }}
-                      >
-                        {product.isDisabled ? '✅ Kích hoạt' : '🗑️ Ngừng bán'}
-                      </button>
-                      <button
-                        className="dropdown-item"
-                        onClick={() => {
-                          handleUpdateVector(product.id || product.productId, product.name || product.productName);
-                          setDropdownOpen(null);
-                        }}
-                        disabled={updatingVector === (product.id || product.productId)}
-                        style={{
-                          opacity: updatingVector === (product.id || product.productId) ? 0.6 : 1,
-                          cursor: updatingVector === (product.id || product.productId) ? 'wait' : 'pointer'
-                        }}
-                      >
-                        {updatingVector === (product.id || product.productId) ? '⏳ Đang cập nhật...' : '🔄 Cập nhật Vector'}
-                      </button>
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {filteredProducts.length === 0 && (
-          <div className="no-data">
-            Không tìm thấy sản phẩm nào
-          </div>
-        )}
-      </div>
+        <AdminDataTable
+          columns={tableColumns}
+          data={paginatedProducts}
+          renderRow={renderProductRow}
+          loading={loading}
+          totalItems={products.length}
+          emptyMessage="Chưa có sản phẩm nào"
+          noResultsMessage="Không tìm thấy sản phẩm nào"
+          tableClassName="products-table"
+        />
+      </AdminLoadingOverlay>
 
       {/* Modal */}
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content modal-large product-form-modal">
-            <div className="modal-header product-form-header">
-              <div>
-                <h3 className="product-form-title">{editingProduct ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}</h3>
-                <p className="product-form-description">
-                  {editingProduct ? 'Cập nhật thông tin sản phẩm' : 'Điền thông tin sản phẩm mới'}
-                </p>
-              </div>
-              <button 
-                className="close-btn"
-                onClick={() => setShowModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="modal-form product-form-content">
+      <AdminModal
+        open={showModal}
+        onOpenChange={(open) => {
+          setShowModal(open);
+          if (!open) setErrors({});
+        }}
+        title={editingProduct ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}
+        description={editingProduct ? 'Cập nhật thông tin sản phẩm' : 'Điền thông tin sản phẩm mới'}
+        onSubmit={handleSubmit}
+        submitLabel={editingProduct ? 'Cập nhật' : 'Thêm mới'}
+        size="5xl"
+        className="product-form-modal"
+        footer={
+          <div className="modal-actions">
+            <button 
+              type="button" 
+              className="cancel-btn"
+              onClick={() => {
+                setShowModal(false);
+                setErrors({});
+              }}
+            >
+              Hủy
+            </button>
+            <button type="submit" className="save-btn" form="product-form">
+              {editingProduct ? 'Cập nhật' : 'Thêm mới'}
+            </button>
+          </div>
+        }
+      >
+            <form id="product-form" onSubmit={handleSubmit} className="modal-form product-form-content">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {/* Thông tin sản phẩm */}
                 <div className="form-section">
@@ -1328,82 +1270,25 @@ const AdminProducts = () => {
                   </div>
                 </div>
               </div>
-              
-              <div className="modal-actions">
-                <button 
-                  type="button" 
-                  className="cancel-btn"
-                  onClick={() => {
-                    setShowModal(false);
-                    setErrors({});
-                  }}
-                >
-                  Hủy
-                </button>
-                <button type="submit" className="save-btn">
-                  {editingProduct ? 'Cập nhật' : 'Thêm mới'}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AdminModal>
 
-      {/* Pagination Controls */}
       {filteredProducts.length > 0 && (
-        <div className="pagination-bar">
-          <div className="pagination-info">
-            Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredProducts.length)} / {filteredProducts.length} sản phẩm
-          </div>
-          
-          <div className="pagination-controls">
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-            >
-              «
-            </button>
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-            >
-              ‹
-            </button>
-            
-            <span className="page-indicator">
-              Trang {currentPage} / {totalPages}
-            </span>
-            
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-            >
-              ›
-            </button>
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              »
-            </button>
-          </div>
-          
-          <div className="page-size-selector">
-            <label>Hiển thị: </label>
-            <select value={pageSize} onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setCurrentPage(1);
-            }}>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
-        </div>
+        <AdminPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={filteredProducts.length}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[10, 20, 50]}
+          itemName="sản phẩm"
+        />
       )}
     </div>
   );

@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import * as orderService from '../services/orderService';
 import { useNotification } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
+import {
+  AdminPageHeader,
+  AdminFiltersBar,
+  AdminDataTable,
+  AdminPagination,
+  AdminLoadingOverlay,
+  AdminModal
+} from '../components/admin';
 import './AdminOrders.css';
 
 const AdminOrders = () => {
@@ -304,40 +312,54 @@ const AdminOrders = () => {
     setCurrentPage(1);
   }, [searchTerm, filterStatus, filteredOrders.length]);
 
-  return (
-    <div className="admin-orders">
-      {loading && orders.length === 0 && (
-        <div className="loading-overlay">
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-            <p>Đang tải danh sách đơn hàng...</p>
-          </div>
-        </div>
-      )}
-      
-      <div className="page-header">
-        <div className="page-titles">
-          <h2>Quản lý đơn hàng</h2>
-          <p className="page-sub">Quản lý và theo dõi đơn hàng</p>
-        </div>
-      </div>
+  // Table columns config
+  const tableColumns = [
+    { key: 'id', label: 'Mã đơn hàng', className: 'col-id' },
+    { key: 'customer', label: 'Khách hàng', className: 'col-customer' },
+    { key: 'total', label: 'Tổng tiền', className: 'col-total' },
+    { key: 'payment', label: 'Phương thức thanh toán', className: 'col-payment' },
+    { key: 'status', label: 'Trạng thái', className: 'col-status' },
+    { key: 'date', label: 'Ngày đặt', className: 'col-date' },
+    { key: 'actions', label: 'Thao tác', className: 'col-actions' }
+  ];
 
-      {/* Thanh bộ lọc dạng bar */}
-      <div className="filters-bar">
-        <div className="filter-item search">
-          <input
-            type="text"
-            placeholder="🔍 Tìm kiếm theo mã đơn hàng, tên khách hàng hoặc email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+  // Render custom order row
+  const renderOrderRow = (order) => {
+    const orderId = order.id || order.orderId || 'N/A';
+    const customerName = order.customerName || order.fullName || order.name || 'Khách hàng';
+    const total = order.total || order.totalPrice || order.amount || 0;
+    const orderDate = formatDate(order.orderDate || order.createdAt || order.date);
+    const status = order.status || 'pending';
+
+    return (
+      <div 
+        key={orderId} 
+        className="table-row"
+        onClick={() => handleViewDetails(order)}
+        style={{ cursor: 'pointer' }}
+      >
+        <div className="col-id">
+          <span className="id-badge">{orderId}</span>
         </div>
-        <div className="filter-item">
+        <div className="col-customer">
+          <div className="customer-name">{customerName}</div>
+        </div>
+        <div className="col-total">{typeof total === 'number' ? total.toLocaleString() : total} VNĐ</div>
+        <div className="col-payment">
+          {getPaymentMethodText(order.paymentMethodDisplay || order.typesDisplay || order.paymentMethod || order.types)}
+        </div>
+        <div className="col-status">
+          <span className={`status-badge ${getStatusClass(status)}`}>
+            {getStatusText(status)}
+          </span>
+        </div>
+        <div className="col-date">{orderDate}</div>
+        <div className="col-actions" onClick={(e) => e.stopPropagation()}>
           <select 
-            value={filterStatus} 
-            onChange={(e) => setFilterStatus(e.target.value)}
+            className="status-select"
+            value={status}
+            onChange={(e) => handleStatusChange(orderId, e.target.value)}
           >
-            <option value="all">Tất cả trạng thái</option>
             <option value="pending">Chờ xác nhận</option>
             <option value="processing">Đang xử lý</option>
             <option value="delivered">Đã giao</option>
@@ -345,151 +367,87 @@ const AdminOrders = () => {
           </select>
         </div>
       </div>
+    );
+  };
 
-      <div className="data-table-container">
-        {loading && orders.length > 0 ? (
-          <div className="loading-overlay-inline">
-            <div className="spinner"></div>
-            <p>Đang cập nhật...</p>
-          </div>
-        ) : paginatedOrders.length > 0 ? (
-          <div className="data-table">
-            <div className="orders-table">
-              <div className="table-header">
-                <div className="col-id">Mã đơn hàng</div>
-                <div className="col-customer">Khách hàng</div>
-                <div className="col-total">Tổng tiền</div>
-                <div className="col-payment">Phương thức thanh toán</div>
-                <div className="col-status">Trạng thái</div>
-                <div className="col-date">Ngày đặt</div>
-                <div className="col-actions">Thao tác</div>
-              </div>
-              {paginatedOrders.map((order) => {
-                const orderId = order.id || order.orderId || 'N/A';
-                const customerName = order.customerName || order.fullName || order.name || 'Khách hàng';
-                const total = order.total || order.totalPrice || order.amount || 0;
-                const orderDate = formatDate(order.orderDate || order.createdAt || order.date);
-                const status = order.status || 'pending';
-                
-                return (
-                  <div 
-                    key={orderId} 
-                    className="table-row"
-                    onClick={() => handleViewDetails(order)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className="col-id">
-                      <span className="id-badge">{orderId}</span>
-                    </div>
-                    <div className="col-customer">
-                      <div className="customer-name">{customerName}</div>
-                    </div>
-                    <div className="col-total">{typeof total === 'number' ? total.toLocaleString() : total} VNĐ</div>
-                    <div className="col-payment">
-                      {getPaymentMethodText(order.paymentMethodDisplay || order.typesDisplay || order.paymentMethod || order.types)}
-                    </div>
-                    <div className="col-status">
-                      <span className={`status-badge ${getStatusClass(status)}`}>
-                        {getStatusText(status)}
-                      </span>
-                    </div>
-                    <div className="col-date">{orderDate}</div>
-                    <div className="col-actions" onClick={(e) => e.stopPropagation()}>
-                      <select 
-                        className="status-select"
-                        value={status}
-                        onChange={(e) => handleStatusChange(orderId, e.target.value)}
-                      >
-                        <option value="pending">Chờ xác nhận</option>
-                        <option value="processing">Đang xử lý</option>
-                        <option value="delivered">Đã giao</option>
-                        <option value="cancelled">Đã hủy</option>
-                      </select>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="no-results">
-            <p>{orders.length === 0 ? 'Chưa có đơn hàng nào.' : 'Không tìm thấy đơn hàng nào phù hợp với bộ lọc.'}</p>
-          </div>
-        )}
-      </div>
+  // Filter options
+  const statusFilterOptions = [
+    { value: 'all', label: 'Tất cả trạng thái' },
+    { value: 'pending', label: 'Chờ xác nhận' },
+    { value: 'processing', label: 'Đang xử lý' },
+    { value: 'delivered', label: 'Đã giao' },
+    { value: 'cancelled', label: 'Đã hủy' }
+  ];
 
-      {/* Pagination Controls */}
-      {filteredOrders.length > 0 && (
-        <div className="pagination-controls">
-          <div className="pagination-info">
-            Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)} / {filteredOrders.length} đơn hàng
-          </div>
-          
-          <div className="pagination-buttons">
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-            >
-              «
-            </button>
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              ‹
-            </button>
-            
-            <span className="page-indicator">
-              Trang {currentPage} / {totalPages || 1}
-            </span>
-            
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={currentPage >= totalPages}
-            >
-              ›
-            </button>
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage >= totalPages}
-            >
-              »
-            </button>
-          </div>
-          
-          <div className="page-size-selector">
-            <label>Hiển thị: </label>
-            <select value={pageSize} onChange={(e) => {
-              setPageSize(Number(e.target.value));
+  return (
+    <div className="admin-orders">
+      <AdminLoadingOverlay 
+        loading={loading} 
+        hasData={orders.length > 0}
+        message="Đang tải danh sách đơn hàng..."
+      >
+        <AdminPageHeader
+          title="Quản lý đơn hàng"
+          subtitle="Quản lý và theo dõi đơn hàng"
+          showAddButton={false}
+        />
+
+        <AdminFiltersBar
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="🔍 Tìm kiếm theo mã đơn hàng, tên khách hàng hoặc email..."
+          filters={[
+            {
+              key: 'status',
+              value: filterStatus,
+              onChange: setFilterStatus,
+              options: statusFilterOptions
+            }
+          ]}
+        />
+
+        <AdminDataTable
+          columns={tableColumns}
+          data={paginatedOrders}
+          renderRow={renderOrderRow}
+          loading={loading}
+          totalItems={orders.length}
+          emptyMessage="Chưa có đơn hàng nào."
+          noResultsMessage="Không tìm thấy đơn hàng nào phù hợp với bộ lọc."
+          tableClassName="orders-table"
+        />
+
+        {filteredOrders.length > 0 && (
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredOrders.length}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
               setCurrentPage(1);
-            }}>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
-        </div>
-      )}
+            }}
+            pageSizeOptions={[10, 20, 50]}
+            itemName="đơn hàng"
+          />
+        )}
+      </AdminLoadingOverlay>
 
       {/* Modal */}
-      {showModal && selectedOrder && (
-        <div className="modal-overlay">
-          <div className="modal-content order-details">
-            <div className="modal-header">
-              <h3>Chi tiết đơn hàng {selectedOrder.id}</h3>
-              <button 
-                className="close-btn"
-                onClick={() => setShowModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="order-details-content">
+      <AdminModal
+        open={showModal && !!selectedOrder}
+        onOpenChange={setShowModal}
+        title={`Chi tiết đơn hàng ${selectedOrder?.id || ''}`}
+        description="Xem thông tin chi tiết đơn hàng"
+        size="4xl"
+        className="order-details"
+        footer={null}
+      >
+        {selectedOrder && (
+          <div className="order-details-content">
               <div className="details-section">
                 <h4>Thông tin khách hàng</h4>
                 <div className="detail-grid">
@@ -578,9 +536,8 @@ const AdminOrders = () => {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+        )}
+      </AdminModal>
     </div>
   );
 };

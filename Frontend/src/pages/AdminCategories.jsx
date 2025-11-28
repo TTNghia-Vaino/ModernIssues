@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getCategoryTreeFull, createCategory, updateCategory, deleteCategory } from '../services/categoryService';
 import { getProductCountByCategory, listProducts } from '../services/productService';
+import { Edit, CheckCircle, XCircle } from 'lucide-react';
+import {
+  AdminPageHeader,
+  AdminFiltersBar,
+  AdminLoadingOverlay,
+  AdminActionDropdown,
+  AdminModal
+} from '../components/admin';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import './AdminCategories.css';
 
 const AdminCategories = () => {
@@ -47,24 +59,6 @@ const AdminCategories = () => {
     };
   }, []);
 
-  // Close all dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Close all dropdown menus when clicking outside
-      const dropdowns = document.querySelectorAll('.dropdown-menu.show');
-      dropdowns.forEach(dropdown => {
-        const container = dropdown.closest('.dropdown-menu-container');
-        if (container && !container.contains(event.target)) {
-          dropdown.classList.remove('show');
-        }
-      });
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, []);
 
   const loadCategories = async () => {
     try {
@@ -451,46 +445,20 @@ const AdminCategories = () => {
               </div>
 
               <div className="category-actions" onClick={(e) => e.stopPropagation()}>
-                <div className="dropdown-menu-container">
-                  <button
-                    className="action-btn menu-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const menuId = `menu-${category.id}`;
-                      const menu = document.getElementById(menuId);
-                      if (menu) {
-                        menu.classList.toggle('show');
-                      }
-                    }}
-                    title="Menu"
-                  >
-                    ⋯
-                  </button>
-                  <div className="dropdown-menu" id={`menu-${category.id}`}>
-                    <button
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleStatus(category);
-                        const menu = document.getElementById(`menu-${category.id}`);
-                        if (menu) menu.classList.remove('show');
-                      }}
-                    >
-                      {category.isDisabled ? '✅ Kích hoạt' : '❌ Vô hiệu hóa'}
-                    </button>
-                    <button
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEditDialog(category);
-                        const menu = document.getElementById(`menu-${category.id}`);
-                        if (menu) menu.classList.remove('show');
-                      }}
-                    >
-                      ✏️ Sửa
-                    </button>
-                  </div>
-                </div>
+                <AdminActionDropdown
+                  actions={[
+                    {
+                      label: category.isDisabled ? '✅ Kích hoạt' : '❌ Vô hiệu hóa',
+                      icon: category.isDisabled ? CheckCircle : XCircle,
+                      onClick: () => handleToggleStatus(category)
+                    },
+                    {
+                      label: '✏️ Sửa',
+                      icon: Edit,
+                      onClick: () => openEditDialog(category)
+                    }
+                  ]}
+                />
               </div>
             </div>
           </div>
@@ -568,16 +536,11 @@ const AdminCategories = () => {
   // Only show Level 1 and Level 2 in parent selector (Level 3 is products, not categories)
   const level1And2Categories = allCategories.filter(c => c.level <= 2);
 
-  if (loading) {
-    return (
-      <div className="admin-categories">
-        <div className="page-header">
-          <h2>Quản lý danh mục</h2>
-        </div>
-        <div style={{ textAlign: 'center', padding: '40px' }}>Đang tải danh mục...</div>
-      </div>
-    );
-  }
+  const statusFilterOptions = [
+    { value: 'all', label: 'Tất cả trạng thái' },
+    { value: 'active', label: '🟢 Hoạt động' },
+    { value: 'inactive', label: '🔴 Vô hiệu hóa' }
+  ];
 
   return (
     <div className="admin-categories">
@@ -587,155 +550,155 @@ const AdminCategories = () => {
         </div>
       )}
       
-      <div className="page-header">
-        <div>
-          <h2>Quản lý Danh mục</h2>
-          <p className="page-description">Quản lý danh mục sản phẩm 3 cấp phân cấp</p>
-        </div>
-        <button className="add-btn" onClick={() => setIsAddDialogOpen(true)}>
-          ➕ Thêm danh mục mới
-        </button>
-      </div>
-
-      {/* Search Bar and Filters */}
-      <div className="search-bar">
-        <input
-          type="text"
-          placeholder="🔍 Tìm kiếm danh mục..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="search-input"
+      <AdminLoadingOverlay 
+        loading={loading} 
+        hasData={categories.length > 0}
+        message="Đang tải danh mục..."
+      >
+        <AdminPageHeader
+          title="Quản lý Danh mục"
+          subtitle="Quản lý danh mục sản phẩm 3 cấp phân cấp"
+          onAdd={() => setIsAddDialogOpen(true)}
+          addButtonText="➕ Thêm danh mục mới"
         />
-        <select 
-          value={filterStatus} 
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="filter-select"
-        >
-          <option value="all">Tất cả trạng thái</option>
-          <option value="active">🟢 Hoạt động</option>
-          <option value="inactive">🔴 Vô hiệu hóa</option>
-        </select>
-      </div>
 
-      {/* Category Tree */}
-      <div className="category-tree-container">
-        <div className="tree-header">
-          <h3>Cây danh mục</h3>
-          <span className="tree-count">Tổng: {rootCategories.length} danh mục gốc</span>
+        <AdminFiltersBar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="🔍 Tìm kiếm danh mục..."
+          filters={[
+            {
+              key: 'status',
+              value: filterStatus,
+              onChange: setFilterStatus,
+              options: statusFilterOptions
+            }
+          ]}
+        />
+
+        {/* Category Tree */}
+        <div className="category-tree-container">
+          <div className="tree-header">
+            <h3>Cây danh mục</h3>
+            <span className="tree-count">Tổng: {rootCategories.length} danh mục gốc</span>
+          </div>
+
+          <div className="category-tree">
+            {filteredCategories.length === 0 ? (
+              <div className="empty-state">
+                {searchQuery ? 'Không tìm thấy danh mục nào' : 'Chưa có danh mục nào'}
+              </div>
+            ) : (
+              filteredCategories.map(category => renderCategory(category))
+            )}
+          </div>
         </div>
-
-        <div className="category-tree">
-          {filteredCategories.length === 0 ? (
-            <div className="empty-state">
-              {searchQuery ? 'Không tìm thấy danh mục nào' : 'Chưa có danh mục nào'}
-            </div>
-          ) : (
-            filteredCategories.map(category => renderCategory(category))
-              )}
-            </div>
-      </div>
+      </AdminLoadingOverlay>
 
       {/* Add Category Dialog */}
-      {isAddDialogOpen && (
-        <div className="modal-overlay" onClick={() => setIsAddDialogOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Thêm danh mục mới</h3>
-              <button className="close-btn" onClick={() => setIsAddDialogOpen(false)}>✕</button>
+      <AdminModal
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        title="Thêm danh mục mới"
+        description="Tạo danh mục sản phẩm mới"
+        onSubmit={handleAddCategory}
+        submitLabel="Thêm"
+        size="md"
+      >
+        <div className="form-section">
+          <h3 className="form-section-title">Thông tin danh mục</h3>
+          <div className="form-grid">
+            <div className="form-item">
+              <Label htmlFor="category-name" className="form-label">Tên danh mục *</Label>
+              <Input
+                id="category-name"
+                type="text"
+                placeholder="Nhập tên danh mục"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="form-input"
+              />
             </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Tên danh mục *</label>
-                <input
+
+            <div className="form-item">
+              <Label htmlFor="category-parent" className="form-label">Danh mục cha</Label>
+              <Select
+                value={formData.parentId?.toString() || 'null'}
+                onValueChange={(value) => {
+                  setFormData({ 
+                    ...formData, 
+                    parentId: value === 'null' ? null : parseInt(value) 
+                  });
+                }}
+              >
+                <SelectTrigger className="form-select">
+                  <SelectValue placeholder="Chọn danh mục cha" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="null">Không có (Danh mục cấp 1)</SelectItem>
+                  {level1And2Categories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id.toString()}>
+                      {cat.level === 1 ? '📁 ' : '  📂 '}
+                      {cat.name} (Cấp {cat.level})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="form-description">
+                Chọn danh mục cấp 1 để tạo cấp 2, hoặc chọn cấp 2 để tạo cấp 3
+              </p>
+            </div>
+          </div>
+        </div>
+      </AdminModal>
+
+      {/* Edit Category Dialog */}
+      <AdminModal
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        title="Chỉnh sửa danh mục"
+        description="Cập nhật thông tin danh mục"
+        onSubmit={handleEditCategory}
+        submitLabel="Cập nhật"
+        size="md"
+      >
+        {selectedCategory && (
+          <div className="form-section">
+            <h3 className="form-section-title">Thông tin danh mục</h3>
+            <div className="form-grid">
+              <div className="form-item">
+                <Label htmlFor="edit-category-name" className="form-label">Tên danh mục *</Label>
+                <Input
+                  id="edit-category-name"
                   type="text"
                   placeholder="Nhập tên danh mục"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="form-input"
                 />
-            </div>
-
-              <div className="form-group">
-                <label>Danh mục cha</label>
-                <select
-                  value={formData.parentId?.toString() || 'null'}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setFormData({ 
-                      ...formData, 
-                      parentId: value === 'null' ? null : parseInt(value) 
-                    });
-                  }}
-                >
-                  <option value="null">Không có (Danh mục cấp 1)</option>
-                  {level1And2Categories.map(cat => (
-                    <option key={cat.id} value={cat.id.toString()}>
-                      {cat.level === 1 ? '📁 ' : '  📂 '}
-                      {cat.name} (Cấp {cat.level})
-                    </option>
-                  ))}
-                </select>
-                <p className="form-hint">
-                  Chọn danh mục cấp 1 để tạo cấp 2, hoặc chọn cấp 2 để tạo cấp 3
-                </p>
               </div>
-
-            </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setIsAddDialogOpen(false)}>
-                Hủy
-            </button>
-              <button className="btn-primary" onClick={handleAddCategory}>
-                Thêm
-            </button>
-          </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Category Dialog */}
-      {isEditDialogOpen && selectedCategory && (
-        <div className="modal-overlay" onClick={() => setIsEditDialogOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Chỉnh sửa danh mục</h3>
-              <button className="close-btn" onClick={() => setIsEditDialogOpen(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Tên danh mục *</label>
-                      <input
-                        type="text"
-                  placeholder="Nhập tên danh mục"
-                        value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      />
-                    </div>
-                    
-              <div className="form-group">
-                <label>Mô tả</label>
-                      <textarea
+              
+              <div className="form-item full-width">
+                <Label htmlFor="edit-category-description" className="form-label">Mô tả</Label>
+                <Textarea
+                  id="edit-category-description"
                   placeholder="Nhập mô tả"
-                        value={formData.description}
+                  value={formData.description || ''}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        rows="3"
-                      />
-                </div>
+                  rows={3}
+                  className="form-textarea"
+                />
+              </div>
 
-              <div className="info-box">
-                <strong>Cấp hiện tại:</strong> Cấp {selectedCategory.level}
+              <div className="form-item full-width">
+                <div className="p-3 bg-blue-50 rounded-md">
+                  <strong>Cấp hiện tại:</strong> Cấp {selectedCategory.level}
+                </div>
               </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setIsEditDialogOpen(false)}>
-                  Hủy
-                </button>
-              <button className="btn-primary" onClick={handleEditCategory}>
-                Cập nhật
-                </button>
-              </div>
           </div>
-        </div>
-      )}
+        )}
+      </AdminModal>
     </div>
   );
 };

@@ -12,16 +12,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu'
 import { Label } from '../components/ui/label'
 import { Textarea } from '../components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Plus, MoreVertical, Eye, Edit, Trash2, Clock } from 'lucide-react'
+import { Eye, Edit, Trash2, Clock } from 'lucide-react'
+import {
+  AdminPageHeader,
+  AdminFiltersBar,
+  AdminDataTable,
+  AdminPagination,
+  AdminActionDropdown,
+  AdminLoadingOverlay
+} from '../components/admin'
 import './AdminWarranty.css'
 
 // Warranty Timeline Component
@@ -578,201 +580,144 @@ export default function WarrantyPage() {
     }
   }
 
+  // Table columns config
+  const tableColumns = [
+    { key: 'code', label: 'Mã BH', className: 'col-code' },
+    { key: 'customer', label: 'Khách hàng', className: 'col-customer' },
+    { key: 'product', label: 'Sản phẩm', className: 'col-product' },
+    { key: 'purchaseDate', label: 'Ngày mua', className: 'col-purchase-date' },
+    { key: 'warrantyDate', label: 'Ngày yêu cầu', className: 'col-warranty-date' },
+    { key: 'issue', label: 'Vấn đề', className: 'col-issue' },
+    { key: 'status', label: 'Trạng thái', className: 'col-status' },
+    { key: 'actions', label: 'Thao tác', className: 'col-actions' }
+  ]
+
+  // Render custom row với expanded content
+  const renderWarrantyRow = (warranty) => (
+    <div 
+      className="table-row"
+      onClick={() => toggleRowExpansion(warranty.id)}
+      style={{ cursor: 'pointer' }}
+    >
+      <div className="col-code">
+        <span className="code-badge">{warranty.code}</span>
+      </div>
+      <div className="col-customer">
+        <div className="customer-name">{warranty.customerName || '-'}</div>
+        {warranty.phone && <div className="customer-phone">{warranty.phone}</div>}
+      </div>
+      <div className="col-product">{warranty.product || '-'}</div>
+      <div className="col-purchase-date">{warranty.purchaseDate || '-'}</div>
+      <div className="col-warranty-date">{warranty.warrantyDate || '-'}</div>
+      <div className="col-issue">{warranty.issue || '-'}</div>
+      <div className="col-status">
+        <span className={`status-badge status-${warranty.status || 'pending'}`}>
+          {warranty.statusDisplay || statusLabels[warranty.status] || 'Chờ xử lý'}
+        </span>
+      </div>
+      <div className="col-actions" onClick={(e) => e.stopPropagation()}>
+        <AdminActionDropdown
+          actions={[
+            {
+              label: 'Chi tiết',
+              icon: Eye,
+              onClick: () => handleView(warranty)
+            },
+            {
+              label: 'Chỉnh sửa',
+              icon: Edit,
+              onClick: () => handleEdit(warranty)
+            },
+            {
+              label: 'Xóa',
+              icon: Trash2,
+              onClick: () => handleDelete(warranty.id),
+              className: 'text-red-600'
+            }
+          ]}
+        />
+      </div>
+    </div>
+  )
+
+  // Expanded content cho warranty timeline
+  const renderExpandedContent = (warranty) => (
+    <div>
+      <h3 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>
+        Lịch sử bảo hành - {warranty.customerName}
+      </h3>
+      <WarrantyTimeline warrantyId={warranty.id} />
+    </div>
+  )
+
+  // Filter options
+  const statusFilterOptions = [
+    { value: 'all', label: 'Tất cả trạng thái' },
+    { value: 'waiting_reception', label: 'Chờ tiếp nhận' },
+    { value: 'inspecting', label: 'Đang kiểm tra' },
+    { value: 'repairing', label: 'Đang sửa chữa' },
+    { value: 'quality_check', label: 'Kiểm tra chất lượng' },
+    { value: 'completed', label: 'Hoàn tất bảo hành' },
+    { value: 'returned', label: 'Đã trả khách' },
+    { value: 'rejected', label: 'Từ chối' }
+  ]
+
   return (
     <div className="admin-warranty">
-      {loading && warranties.length === 0 && (
-        <div className="loading-overlay">
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-            <p>Đang tải danh sách bảo hành...</p>
-          </div>
-        </div>
-      )}
-      
-      <div className="page-header">
-        <div className="page-titles">
-          <h2>Quản lý Bảo hành</h2>
-          <p className="page-sub">Quản lý các yêu cầu bảo hành sản phẩm</p>
-        </div>
-        <button onClick={handleAdd} className="add-btn">
-          <Plus className="w-4 h-4" />
-          Thêm yêu cầu bảo hành
-        </button>
-      </div>
+      <AdminLoadingOverlay 
+        loading={loading} 
+        hasData={warranties.length > 0}
+        message="Đang tải danh sách bảo hành..."
+      >
+        <AdminPageHeader
+          title="Quản lý Bảo hành"
+          subtitle="Quản lý các yêu cầu bảo hành sản phẩm"
+          onAdd={handleAdd}
+          addButtonText="Thêm yêu cầu bảo hành"
+        />
 
-      {/* Thanh bộ lọc dạng bar */}
-      <div className="filters-bar">
-        <div className="filter-item search">
-          <input
-            type="text"
-            placeholder="🔍 Tìm kiếm theo mã, tên khách hàng, số điện thoại, sản phẩm..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+        <AdminFiltersBar
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="🔍 Tìm kiếm theo mã, tên khách hàng, số điện thoại, sản phẩm..."
+          filters={[
+            {
+              key: 'status',
+              value: filterStatus,
+              onChange: setFilterStatus,
+              options: statusFilterOptions
+            }
+          ]}
+        />
+
+        <AdminDataTable
+          columns={tableColumns}
+          data={paginatedWarranties}
+          renderRow={renderWarrantyRow}
+          loading={loading}
+          totalItems={warranties.length}
+          emptyMessage="Chưa có yêu cầu bảo hành nào."
+          noResultsMessage="Không tìm thấy yêu cầu bảo hành nào phù hợp với bộ lọc."
+          expandedContent={renderExpandedContent}
+          expandedRowId={expandedRowId}
+          tableClassName="warranty-table"
+        />
+
+        {filteredWarranties.length > 0 && (
+          <AdminPagination
+            currentPage={clientPagination.currentPage}
+            totalPages={totalPages}
+            pageSize={clientPagination.pageSize}
+            totalItems={filteredWarranties.length}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            onPageChange={(page) => setClientPagination(prev => ({ ...prev, currentPage: page }))}
+            onPageSizeChange={(size) => setClientPagination({ currentPage: 1, pageSize: size })}
+            pageSizeOptions={[10, 20, 50, 100]}
+            itemName="yêu cầu bảo hành"
           />
-        </div>
-        <div className="filter-item">
-            <select 
-            value={filterStatus} 
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="waiting_reception">Chờ tiếp nhận</option>
-            <option value="inspecting">Đang kiểm tra</option>
-            <option value="repairing">Đang sửa chữa</option>
-            <option value="quality_check">Kiểm tra chất lượng</option>
-            <option value="completed">Hoàn tất bảo hành</option>
-            <option value="returned">Đã trả khách</option>
-            <option value="rejected">Từ chối</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="data-table-container">
-        {loading && warranties.length > 0 ? (
-          <div className="loading-overlay-inline">
-            <div className="spinner"></div>
-            <p>Đang cập nhật...</p>
-          </div>
-        ) : paginatedWarranties.length > 0 ? (
-          <div className="data-table">
-            <div className="warranty-table">
-              <div className="table-header">
-                <div className="col-code">Mã BH</div>
-                <div className="col-customer">Khách hàng</div>
-                <div className="col-product">Sản phẩm</div>
-                <div className="col-purchase-date">Ngày mua</div>
-                <div className="col-warranty-date">Ngày yêu cầu</div>
-                <div className="col-issue">Vấn đề</div>
-                <div className="col-status">Trạng thái</div>
-                <div className="col-actions">Thao tác</div>
-              </div>
-              {paginatedWarranties.map((warranty) => (
-                <React.Fragment key={warranty.id}>
-                  <div 
-                    className="table-row"
-                    onClick={() => toggleRowExpansion(warranty.id)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className="col-code">
-                      <span className="code-badge">{warranty.code}</span>
-                    </div>
-                    <div className="col-customer">
-                      <div className="customer-name">{warranty.customerName || '-'}</div>
-                      {warranty.phone && <div className="customer-phone">{warranty.phone}</div>}
-                    </div>
-                    <div className="col-product">{warranty.product || '-'}</div>
-                    <div className="col-purchase-date">{warranty.purchaseDate || '-'}</div>
-                    <div className="col-warranty-date">{warranty.warrantyDate || '-'}</div>
-                    <div className="col-issue">{warranty.issue || '-'}</div>
-                    <div className="col-status">
-                      <span className={`status-badge status-${warranty.status || 'pending'}`}>
-                        {warranty.statusDisplay || statusLabels[warranty.status] || 'Chờ xử lý'}
-                      </span>
-                    </div>
-                    <div className="col-actions" onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="sm" variant="ghost" className="action-btn">
-                            <MoreVertical className="w-4 h-4 text-black" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleView(warranty)}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            Chi tiết
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEdit(warranty)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Chỉnh sửa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleDelete(warranty.id)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Xóa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                  {expandedRowId === warranty.id && (
-                    <div className="expanded-row">
-                      <div className="expanded-content">
-                        <h3 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>
-                          Lịch sử bảo hành - {warranty.customerName}
-                        </h3>
-                        <WarrantyTimeline warrantyId={warranty.id} />
-                      </div>
-                    </div>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="no-results">
-            <p>{warranties.length === 0 ? 'Chưa có yêu cầu bảo hành nào.' : 'Không tìm thấy yêu cầu bảo hành nào phù hợp với bộ lọc.'}</p>
-          </div>
         )}
-      </div>
-
-      {/* Pagination Controls */}
-      {filteredWarranties.length > 0 && (
-        <div className="pagination-controls">
-          <div className="pagination-info">
-            Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredWarranties.length)} / {filteredWarranties.length} yêu cầu bảo hành
-          </div>
-          
-          <div className="pagination-buttons">
-            <button 
-              className="pg-btn"
-              onClick={() => setClientPagination(prev => ({ ...prev, currentPage: 1 }))}
-              disabled={clientPagination.currentPage === 1}
-            >
-              «
-            </button>
-            <button 
-              className="pg-btn"
-              onClick={() => setClientPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
-              disabled={clientPagination.currentPage === 1}
-            >
-              ‹
-            </button>
-            
-            <span className="page-indicator">
-              Trang {clientPagination.currentPage} / {totalPages || 1}
-            </span>
-            
-            <button 
-              className="pg-btn"
-              onClick={() => setClientPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
-              disabled={clientPagination.currentPage >= totalPages}
-            >
-              ›
-            </button>
-            <button 
-              className="pg-btn"
-              onClick={() => setClientPagination(prev => ({ ...prev, currentPage: totalPages }))}
-              disabled={clientPagination.currentPage >= totalPages}
-            >
-              »
-            </button>
-          </div>
-          
-          <div className="page-size-selector">
-            <label>Hiển thị: </label>
-            <select value={clientPagination.pageSize} onChange={(e) => {
-              setClientPagination({ currentPage: 1, pageSize: Number(e.target.value) })
-            }}>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
-        </div>
-      )}
+      </AdminLoadingOverlay>
 
       {/* Add/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

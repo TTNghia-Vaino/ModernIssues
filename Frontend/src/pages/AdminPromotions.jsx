@@ -16,16 +16,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu'
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { MoreVertical, Plus, X } from 'lucide-react'
+import { Eye, Edit, Trash2, Plus, X, RotateCcw } from 'lucide-react'
 import ImageCrop from '../components/ImageCrop'
+import {
+  AdminPageHeader,
+  AdminFiltersBar,
+  AdminDataTable,
+  AdminPagination,
+  AdminActionDropdown,
+  AdminLoadingOverlay
+} from '../components/admin'
 import './AdminPromotions.css'
 
 const statusLabels = {
@@ -630,188 +632,161 @@ const AdminPromotions = () => {
     }
   }
 
+  // Table columns config
+  const tableColumns = [
+    { key: 'id', label: 'ID', className: 'col-id' },
+    { key: 'name', label: 'Tên chương trình', className: 'col-name' },
+    { key: 'discount', label: 'Giảm giá', className: 'col-discount' },
+    { key: 'products', label: 'Sản phẩm', className: 'col-products' },
+    { key: 'dates', label: 'Thời gian', className: 'col-dates' },
+    { key: 'local', label: 'Vị trí', className: 'col-local' },
+    { key: 'status', label: 'Trạng thái', className: 'col-status' },
+    { key: 'actions', label: 'Thao tác', className: 'col-actions' }
+  ];
+
+  // Render custom promotion row
+  const renderPromotionRow = (promotion) => (
+    <div key={promotion.id || promotion.promotionId} className="table-row">
+      <div className="col-id">#{promotion.id || promotion.promotionId}</div>
+      <div className="col-name">
+        <div>
+          <p className="promotion-name">{promotion.name || promotion.promotionName}</p>
+          <p className="promotion-description">{promotion.description || ''}</p>
+        </div>
+      </div>
+      <div className="col-discount">
+        <span className="discount-badge">
+          {promotion.discountDisplay || 
+            (promotion.discountType === 'fixed' 
+              ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(promotion.discountValue || promotion.discountPercent || 0)
+              : `${Math.round(promotion.discountPercent || promotion.discountValue || 0)}%`
+            )
+          }
+        </span>
+      </div>
+      <div className="col-products">
+        <p>{promotion.productCount || promotion.productIds?.length || promotion.products?.length || 0} sản phẩm</p>
+      </div>
+      <div className="col-dates">
+        <div>
+          <p>{promotion.startDateDisplay || promotion.startDate || ''}</p>
+          <p className="date-to">đến {promotion.endDateDisplay || promotion.endDate || ''}</p>
+        </div>
+      </div>
+      <div className="col-local">
+        <span className={`local-badge local-${promotion.local || 'hero'}`}>
+          {promotion.local === 'hero' ? '🎯 Hero' : promotion.local === 'left' ? '⬅️ Left' : promotion.local === 'right' ? '➡️ Right' : '🎯 Hero'}
+        </span>
+      </div>
+      <div className="col-status">
+        {getStatusBadge(promotion.status)}
+      </div>
+      <div className="col-actions">
+        <AdminActionDropdown
+          actions={[
+            {
+              label: 'Chi tiết',
+              icon: Eye,
+              onClick: () => openDetailDialog(promotion)
+            },
+            {
+              label: 'Chỉnh sửa',
+              icon: Edit,
+              onClick: () => openEditDialog(promotion)
+            },
+            {
+              label: 'Xóa',
+              icon: Trash2,
+              onClick: () => handleDeletePromotion(promotion.id || promotion.promotionId),
+              className: 'text-red-600'
+            }
+          ]}
+        />
+      </div>
+    </div>
+  );
+
+  // Filter options
+  const statusFilterOptions = [
+    { value: 'all', label: 'Tất cả trạng thái' },
+    { value: 'active', label: 'Đang hoạt động' },
+    { value: 'inactive', label: 'Chưa kích hoạt' },
+    { value: 'expired', label: 'Đã hết hạn' }
+  ];
+
+  // Extra action button
+  const extraActions = (
+    <button 
+      className="add-btn"
+      onClick={handleUpdatePrices}
+      style={{ backgroundColor: '#10b981', marginRight: '8px' }}
+      title="Cập nhật giá sản phẩm theo khuyến mãi"
+    >
+      <RotateCcw className="w-4 h-4" style={{ marginRight: '8px' }} />
+      Cập nhật giá sản phẩm
+    </button>
+  );
+
   return (
     <div className="admin-promotions">
-      <div className="page-header">
-        <h2>Quản lý Khuyến mãi</h2>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button 
-            className="add-btn"
-            onClick={handleUpdatePrices}
-            style={{ backgroundColor: '#10b981', marginRight: '8px' }}
-            title="Cập nhật giá sản phẩm theo khuyến mãi"
-          >
-            🔄 Cập nhật giá sản phẩm
-          </button>
-          <button 
-            className="add-btn"
-            onClick={() => {
-              resetForm()
-              setIsAddDialogOpen(true)
+      <AdminLoadingOverlay 
+        loading={loading} 
+        hasData={promotions.length > 0}
+        message="Đang tải..."
+      >
+        <AdminPageHeader
+          title="Quản lý Khuyến mãi"
+          onAdd={() => {
+            resetForm()
+            setIsAddDialogOpen(true)
+          }}
+          addButtonText="Thêm khuyến mãi mới"
+          extraActions={extraActions}
+        />
+
+        <AdminFiltersBar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="🔍 Tìm kiếm theo tên hoặc mô tả..."
+          filters={[
+            {
+              key: 'status',
+              value: filterStatus,
+              onChange: setFilterStatus,
+              options: statusFilterOptions
+            }
+          ]}
+        />
+
+        <AdminDataTable
+          columns={tableColumns}
+          data={filteredPromotions}
+          renderRow={renderPromotionRow}
+          loading={loading}
+          totalItems={promotions.length}
+          emptyMessage="Chưa có chương trình khuyến mãi nào."
+          noResultsMessage="Không tìm thấy chương trình khuyến mãi nào phù hợp với bộ lọc."
+          tableClassName="promotions-table"
+        />
+
+        {totalCount > 0 && (
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalCount}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setCurrentPage(1);
             }}
-          >
-            <Plus className="w-4 h-4" style={{ marginRight: '8px' }} />
-            Thêm khuyến mãi mới
-          </button>
-        </div>
-      </div>
-
-      {/* Filters Bar */}
-      <div className="filters-bar">
-        <div className="filter-item search">
-          <input
-            type="text"
-            placeholder="🔍 Tìm kiếm theo tên hoặc mô tả..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            pageSizeOptions={[10, 20, 50]}
+            itemName="chương trình khuyến mãi"
           />
-        </div>
-        <div className="filter-item">
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Đang hoạt động</option>
-            <option value="inactive">Chưa kích hoạt</option>
-            <option value="expired">Đã hết hạn</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Loading Overlay */}
-      {loading && (
-        <div className="loading-overlay">
-          <div className="loading-spinner"></div>
-          <p>Đang tải...</p>
-        </div>
-      )}
-
-      {/* Data Table */}
-      <div className="data-table-container">
-        {filteredPromotions.length > 0 ? (
-          <div className="promotions-table">
-            <div className="table-header">
-              <div className="col-id">ID</div>
-              <div className="col-name">Tên chương trình</div>
-              <div className="col-discount">Giảm giá</div>
-              <div className="col-products">Sản phẩm</div>
-              <div className="col-dates">Thời gian</div>
-              <div className="col-local">Vị trí</div>
-              <div className="col-status">Trạng thái</div>
-              <div className="col-actions">Thao tác</div>
-            </div>
-
-            {filteredPromotions.map((promotion) => (
-              <div key={promotion.id || promotion.promotionId} className="table-row">
-                <div className="col-id">#{promotion.id || promotion.promotionId}</div>
-                <div className="col-name">
-                  <div>
-                    <p className="promotion-name">{promotion.name || promotion.promotionName}</p>
-                    <p className="promotion-description">{promotion.description || ''}</p>
-                  </div>
-                </div>
-                <div className="col-discount">
-                  <span className="discount-badge">
-                    {promotion.discountDisplay || 
-                      (promotion.discountType === 'fixed' 
-                        ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(promotion.discountValue || promotion.discountPercent || 0)
-                        : `${Math.round(promotion.discountPercent || promotion.discountValue || 0)}%`
-                      )
-                    }
-                  </span>
-                </div>
-                <div className="col-products">
-                  <p>{promotion.productCount || promotion.productIds?.length || promotion.products?.length || 0} sản phẩm</p>
-                </div>
-                <div className="col-dates">
-                  <div>
-                    <p>{promotion.startDateDisplay || promotion.startDate || ''}</p>
-                    <p className="date-to">đến {promotion.endDateDisplay || promotion.endDate || ''}</p>
-                  </div>
-                </div>
-                <div className="col-local">
-                  <span className={`local-badge local-${promotion.local || 'hero'}`}>
-                    {promotion.local === 'hero' ? '🎯 Hero' : promotion.local === 'left' ? '⬅️ Left' : promotion.local === 'right' ? '➡️ Right' : '🎯 Hero'}
-                  </span>
-                </div>
-                <div className="col-status">
-                  {getStatusBadge(promotion.status)}
-                </div>
-                <div className="col-actions">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="action-btn">
-                        <MoreVertical className="w-4 h-4 text-black" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openDetailDialog(promotion)}>
-                        Chi tiết
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openEditDialog(promotion)}>
-                        Chỉnh sửa
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => handleDeletePromotion(promotion.id || promotion.promotionId)}
-                        className="text-red-600"
-                      >
-                        Xóa
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="no-results">
-            <p>{promotions.length === 0 ? 'Chưa có chương trình khuyến mãi nào.' : 'Không tìm thấy chương trình khuyến mãi nào phù hợp với bộ lọc.'}</p>
-          </div>
         )}
-      </div>
-
-      {/* Pagination Controls */}
-      {totalCount > 0 && (
-        <div className="pagination-controls">
-          <div className="pagination-info">
-            Hiển thị {startIndex + 1}-{Math.min(startIndex + promotions.length, totalCount)} / {totalCount} chương trình khuyến mãi
-          </div>
-          
-          <div className="pagination-buttons">
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-            >
-              «
-            </button>
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-            >
-              ‹
-            </button>
-            
-            <span className="page-indicator">
-              Trang {currentPage} / {totalPages || 1}
-            </span>
-            
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage >= totalPages}
-            >
-              ›
-            </button>
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage >= totalPages}
-            >
-              »
-            </button>
-          </div>
-        </div>
-      )}
+      </AdminLoadingOverlay>
 
       {/* Add/Edit Dialog */}
       <Dialog 
