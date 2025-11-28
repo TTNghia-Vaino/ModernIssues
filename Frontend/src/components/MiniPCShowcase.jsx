@@ -3,47 +3,51 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as productService from '../services/productService';
 import { transformProducts } from '../utils/productUtils';
+import SafeImage from './SafeImage';
 import './MiniPCShowcase.css';
 import miniPCBanner from '../assets/section_product_2.webp';
+
+const categories = [
+  { id: 'do-hoa-render', name: 'PC Đồ Họa Render' },
+  { id: 'itx-nho-gon', name: 'PC ITX / Nhỏ Gọn' },
+  { id: 'pc-ai', name: 'PC AI' },
+  { id: 'tu-build', name: 'PC Tự Build' },
+  { id: 'thung-may', name: 'Thùng máy' }
+];
+
+// Helper function to check if product matches category
+const productMatchesCategory = (product, categoryName) => {
+  // Direct category match
+  if (product.category === categoryName) {
+    return true;
+  }
+  
+  // Keyword matching based on category name
+  const productName = (product.name || '').toLowerCase();
+  const productCategory = (product.category || '').toLowerCase();
+  const productDescription = (product.description || '').toLowerCase();
+  const searchText = productName + ' ' + productCategory + ' ' + productDescription;
+  
+  // Map category names to keywords
+  const categoryKeywords = {
+    'PC Đồ Họa Render': ['đồ họa', 'render', 'graphics', 'gpu', 'vga', 'card đồ họa'],
+    'PC ITX / Nhỏ Gọn': ['itx', 'nhỏ gọn', 'compact', 'mini', 'small form'],
+    'PC AI': ['ai', 'artificial intelligence', 'machine learning', 'ml'],
+    'PC Tự Build': ['tự build', 'build', 'custom', 'tùy chọn'],
+    'Thùng máy': ['thùng máy', 'case', 'vỏ máy', 'chassis']
+  };
+  
+  const keywords = categoryKeywords[categoryName] || [];
+  return keywords.some(keyword => searchText.includes(keyword.toLowerCase()));
+};
 
 function MiniPCShowcase() {
   const navigate = useNavigate();
   const { isInTokenGracePeriod } = useAuth();
+  const [allProducts, setAllProducts] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const categories = [
-    { id: 'van-phong-st', name: 'PC Văn Phòng ST' },
-    { id: 'gaming-st', name: 'PC Gaming ST' },
-    { id: 'do-hoa-render', name: 'PC Đồ Họa Render' },
-    { id: 'itx-nho-gon', name: 'PC ITX / Nhỏ Gọn' },
-    { id: 'pc-ai', name: 'PC AI' },
-    { id: 'tu-build', name: 'PC Tự Build' },
-    { id: 'thung-may', name: 'Thùng máy' }
-  ];
-
-  useEffect(() => {
-    let cancelled = false;
-    
-    const attemptLoad = async () => {
-      // If in grace period, wait for it to end
-      if (isInTokenGracePeriod) {
-        console.log('[MiniPCShowcase] Waiting for token grace period to end before loading products');
-        await new Promise(resolve => setTimeout(resolve, 6000));
-        if (cancelled) return;
-      }
-      
-      if (!cancelled) {
-        fetchMiniPCProducts();
-      }
-    };
-    
-    attemptLoad();
-    
-    return () => {
-      cancelled = true;
-    };
-  }, []); // Only run on mount
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   const fetchMiniPCProducts = async () => {
     try {
@@ -125,7 +129,7 @@ function MiniPCShowcase() {
           }
         );
         console.log('[MiniPCShowcase] Filtered Mini PC products:', miniPCProducts.length);
-        setProducts(miniPCProducts.slice(0, 10)); // Lấy 10 sản phẩm đầu tiên
+        setAllProducts(miniPCProducts); // Lưu tất cả sản phẩm
       } catch (apiError) {
         console.error('[MiniPCShowcase] API failed:', apiError);
         console.error('[MiniPCShowcase] Error details:', {
@@ -146,7 +150,7 @@ function MiniPCShowcase() {
                      isNotDisabled;
             }
           );
-          setProducts(miniPCProducts.slice(0, 10));
+          setAllProducts(miniPCProducts); // Lưu tất cả sản phẩm
         } else {
           console.warn('[MiniPCShowcase] No localStorage data available');
         }
@@ -158,6 +162,51 @@ function MiniPCShowcase() {
     }
   };
 
+  useEffect(() => {
+    let cancelled = false;
+    
+    const attemptLoad = async () => {
+      // If in grace period, wait for it to end
+      if (isInTokenGracePeriod) {
+        console.log('[MiniPCShowcase] Waiting for token grace period to end before loading products');
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        if (cancelled) return;
+      }
+      
+      if (!cancelled) {
+        fetchMiniPCProducts();
+      }
+    };
+    
+    attemptLoad();
+    
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // Filter products based on selected category
+  useEffect(() => {
+    if (selectedCategory === null) {
+      // Show all products (limit to 10)
+      setProducts(allProducts.slice(0, 10));
+    } else {
+      // Find the category name from the selected category id
+      const category = categories.find(cat => cat.id === selectedCategory);
+      if (category) {
+        // Filter products by category name using improved matching
+        const filtered = allProducts.filter(product => 
+          productMatchesCategory(product, category.name)
+        );
+        console.log(`[MiniPCShowcase] Filtered ${filtered.length} products for category: ${category.name}`);
+        setProducts(filtered);
+      } else {
+        setProducts(allProducts.slice(0, 10));
+      }
+    }
+  }, [selectedCategory, allProducts]);
+
   const handleProductClick = (productId) => {
     // Scroll to top immediately before navigation
     window.scrollTo(0, 0);
@@ -168,11 +217,11 @@ function MiniPCShowcase() {
   };
 
   const handleCategoryClick = (categoryId) => {
-    navigate(`/products?category=Mini PC&subcategory=${categoryId}`);
+    setSelectedCategory(categoryId);
   };
 
   const handleViewAll = () => {
-    navigate('/products?category=Mini PC');
+    setSelectedCategory(null);
   };
 
   const formatPrice = (price) => {
@@ -200,13 +249,16 @@ function MiniPCShowcase() {
           {categories.map(category => (
             <button
               key={category.id}
-              className="category-tab"
+              className={`category-tab ${selectedCategory === category.id ? 'active' : ''}`}
               onClick={() => handleCategoryClick(category.id)}
             >
               {category.name}
             </button>
           ))}
-          <button className="category-tab view-all" onClick={handleViewAll}>
+          <button 
+            className={`category-tab view-all ${selectedCategory === null ? 'active' : ''}`} 
+            onClick={handleViewAll}
+          >
             Xem tất cả
           </button>
         </div>
@@ -233,17 +285,19 @@ function MiniPCShowcase() {
                     <div className="product-badge">{product.badge}</div>
                   )}
 
-                  <div className="product-image">
-                    <img 
-                      src={product.image || 'https://via.placeholder.com/200'} 
+                  <div className={`product-image ${product.image2 ? 'has-hover-image' : ''}`}>
+                    <SafeImage 
+                      src={product.image} 
                       alt={product.name}
-                      className="product-image-main" 
+                      className="product-image-main"
+                      loading="lazy"
                     />
                     {product.image2 && (
-                      <img 
+                      <SafeImage 
                         src={product.image2} 
                         alt={`${product.name} - View 2`} 
-                        className="product-image-hover" 
+                        className="product-image-hover"
+                        loading="lazy"
                       />
                     )}
                   </div>

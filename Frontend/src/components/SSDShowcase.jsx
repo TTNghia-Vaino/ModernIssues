@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as productService from '../services/productService';
 import { transformProducts } from '../utils/productUtils';
+import { handleProductImageError, getPlaceholderImage } from '../utils/imageUtils';
 import './SSDShowcase.css';
 
 function SSDShowcase() {
@@ -255,7 +256,11 @@ function SSDShowcase() {
                   )}
 
                   <div className="product-image">
-                    <img src={product.image || 'https://via.placeholder.com/200'} alt={product.name} />
+                    <img 
+                      src={product.image || getPlaceholderImage('product')} 
+                      alt={product.name}
+                      onError={handleProductImageError}
+                    />
                   </div>
 
                   <h3 className="product-name">{product.name}</h3>

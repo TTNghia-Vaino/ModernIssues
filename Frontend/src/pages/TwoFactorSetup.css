@@ -1,11 +1,46 @@
 .two-factor-setup-container {
   min-height: 100vh;
+  height: 100vh;
   background: #f7fafc;
   padding: 40px 20px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box;
+  position: relative;
+  margin-left: calc(-230px - 20px);
+  margin-right: calc(-230px - 20px);
+  width: calc(100% + 460px + 40px);
+}
+
+@media (max-width: 1399px) and (min-width: 1200px) {
+  .two-factor-setup-container {
+    margin-left: calc(-210px - 20px);
+    margin-right: calc(-210px - 20px);
+    width: calc(100% + 420px + 40px);
+  }
+}
+
+@media (max-width: 1199px) and (min-width: 1024px) {
+  .two-factor-setup-container {
+    margin-left: calc(-180px - 20px);
+    margin-right: calc(-180px - 20px);
+    width: calc(100% + 360px + 40px);
+  }
+}
+
+@media (max-width: 1023px) {
+  .two-factor-setup-container {
+    margin-left: -20px;
+    margin-right: -20px;
+    width: calc(100% + 40px);
+    min-height: 100vh;
+  }
 }
 
 .two-factor-setup-card {
   max-width: 700px;
+  width: 100%;
   margin: 0 auto;
   background: white;
   border-radius: 16px;
@@ -38,13 +73,13 @@
   position: relative;
 }
 
-.back-button {
+.two-factor-setup-card .back-button {
   position: absolute;
   left: 0;
   top: 0;
   background: none;
   border: none;
-  color: #667eea;
+  color: #0a804a !important;
   font-weight: 600;
   cursor: pointer;
   padding: 8px 16px;
@@ -52,9 +87,9 @@
   transition: all 0.2s;
 }
 
-.back-button:hover {
+.two-factor-setup-card .back-button:hover {
   background: #f7fafc;
-  color: #764ba2;
+  color: #0a804a !important;
 }
 
 .setup-header h1 {
@@ -115,7 +150,7 @@
 }
 
 .status-icon.enabled {
-  background: linear-gradient(135deg, #48bb78, #38a169);
+  background: linear-gradient(135deg, #0a804a, #086b3d) !important;
   color: white;
 }
 
@@ -182,7 +217,7 @@
 .benefits li svg {
   width: 24px;
   height: 24px;
-  color: #48bb78;
+  color: #0a804a !important;
   flex-shrink: 0;
 }
 
@@ -210,14 +245,17 @@
   cursor: not-allowed;
 }
 
-.btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+.two-factor-setup-card .btn-primary,
+.two-factor-setup-container .btn-primary {
+  background: linear-gradient(135deg, #0a804a 0%, #086b3d 100%) !important;
+  color: white !important;
 }
 
-.btn-primary:hover:not(:disabled) {
+.two-factor-setup-card .btn-primary:hover:not(:disabled),
+.two-factor-setup-container .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 10px 20px rgba(10, 128, 74, 0.3) !important;
+  background: linear-gradient(135deg, #086b3d 0%, #065a2f 100%) !important;
 }
 
 .btn-secondary {
@@ -348,8 +386,8 @@
 
 .code-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #0a804a !important;
+  box-shadow: 0 0 0 3px rgba(10, 128, 74, 0.1) !important;
 }
 
 .form-actions {
@@ -401,7 +439,7 @@
   width: 80px;
   height: 80px;
   margin: 0 auto 24px;
-  background: linear-gradient(135deg, #48bb78, #38a169);
+  background: linear-gradient(135deg, #0a804a, #086b3d) !important;
   border-radius: 50%;
   display: flex;
   align-items: center;

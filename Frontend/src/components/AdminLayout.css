@@ -7,7 +7,7 @@
 
 .admin-sidebar {
   width: 280px;
-  background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+  background: #131825;
   color: white;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
@@ -334,31 +334,71 @@
 .action-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
+  gap: 0;
+  padding: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-decoration: none;
+  position: relative;
+  overflow: visible;
+  background: transparent;
 }
 
 .action-btn.secondary {
+  background: transparent;
+  color: white;
+  box-shadow: none;
+}
+
+.action-btn.secondary .btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 24px;
+  position: relative;
+  z-index: 2;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-right: -12px; /* Overlap với text background */
+}
+
+.action-btn.secondary .btn-text {
   background: linear-gradient(135deg, #3498db, #2980b9);
   color: white;
+  padding: 16px 24px 16px 20px; /* Thêm padding trái để tránh che text */
+  border-radius: 12px;
+  font-weight: 600;
+  white-space: nowrap;
   box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 1;
 }
 
 .action-btn.secondary:hover {
-  background: linear-gradient(135deg, #2980b9, #21618c);
   transform: translateY(-2px);
+}
+
+.action-btn.secondary:hover .btn-icon {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.action-btn.secondary:hover .btn-text {
+  background: linear-gradient(135deg, #2980b9, #21618c);
   box-shadow: 0 6px 16px rgba(52, 152, 219, 0.4);
 }
 
 .btn-icon {
-  font-size: 16px;
+  font-size: 24px;
 }
 
 .btn-text {

@@ -1,0 +1,110 @@
+/* Confirmation Dialog Styles */
+.confirmation-dialog {
+  max-width: 420px;
+  padding: 0;
+}
+
+.confirmation-dialog-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 8px;
+}
+
+.confirmation-dialog-message {
+  font-size: 15px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+.confirmation-dialog-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 0;
+}
+
+.confirmation-dialog-btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  min-width: 80px;
+}
+
+.confirmation-dialog-btn-cancel {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.confirmation-dialog-btn-cancel:hover {
+  background-color: #e5e7eb;
+  color: #1f2937;
+}
+
+.confirmation-dialog-btn-confirm {
+  background-color: #3b82f6;
+  color: white;
+  border: 1px solid #3b82f6;
+}
+
+.confirmation-dialog-btn-confirm:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+/* Danger variant */
+.confirmation-dialog-danger .confirmation-dialog-title {
+  color: #dc2626;
+}
+
+.confirmation-dialog-danger .confirmation-dialog-btn-confirm {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}
+
+.confirmation-dialog-danger .confirmation-dialog-btn-confirm:hover {
+  background-color: #b91c1c;
+  border-color: #b91c1c;
+}
+
+/* Warning variant */
+.confirmation-dialog-warning .confirmation-dialog-title {
+  color: #d97706;
+}
+
+.confirmation-dialog-warning .confirmation-dialog-btn-confirm {
+  background-color: #f59e0b;
+  border-color: #f59e0b;
+}
+
+.confirmation-dialog-warning .confirmation-dialog-btn-confirm:hover {
+  background-color: #d97706;
+  border-color: #d97706;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .confirmation-dialog {
+    max-width: calc(100vw - 32px);
+    margin: 16px;
+  }
+
+  .confirmation-dialog-footer {
+    flex-direction: column-reverse;
+  }
+
+  .confirmation-dialog-btn {
+    width: 100%;
+  }
+}
+
+
+
+

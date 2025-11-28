@@ -5,6 +5,9 @@ import './ProductCategories.css';
 
 // Map icon based on category name
 const getCategoryIcon = (categoryName) => {
+  if (!categoryName || typeof categoryName !== 'string') {
+    return 'fas fa-box'; // Default icon if name is invalid
+  }
   const name = categoryName.toLowerCase();
   if (name.includes('laptop')) return 'fas fa-laptop';
   if (name.includes('pc') || name.includes('máy bộ')) return 'fas fa-desktop';
@@ -18,6 +21,9 @@ const getCategoryIcon = (categoryName) => {
 
 // Default placeholder image
 const getCategoryImage = (categoryName) => {
+  if (!categoryName || typeof categoryName !== 'string') {
+    return "/placeholder-product.svg"; // Default image if name is invalid
+  }
   const name = categoryName.toLowerCase();
   if (name.includes('laptop')) return "/category-laptop.jpg";
   if (name.includes('pc')) return "/category-pc.jpg";
@@ -56,18 +62,20 @@ function ProductCategories() {
           }
           
           // Transform API categories to component format
-          const transformed = apiCategories.slice(0, 6).map(cat => {
-            const productCount = countMap[cat.id] || 0;
-            return {
-              id: cat.id,
-              name: cat.name,
-              icon: cat.icon || getCategoryIcon(cat.name),
-              image: cat.image || getCategoryImage(cat.name),
-              description: cat.description || `${cat.name} chất lượng cao`,
-              productCount: productCount > 0 ? `${productCount} sản phẩm` : "0 sản phẩm",
-              link: `/products?category=${cat.id}`
-            };
-          });
+          const transformed = apiCategories.slice(0, 6)
+            .filter(cat => cat && cat.id && cat.name) // Filter out invalid categories
+            .map(cat => {
+              const productCount = countMap[cat.id] || 0;
+              return {
+                id: cat.id,
+                name: cat.name || 'Danh mục không tên',
+                icon: cat.icon || getCategoryIcon(cat.name),
+                image: cat.image || getCategoryImage(cat.name),
+                description: cat.description || `${cat.name || 'Danh mục'} chất lượng cao`,
+                productCount: productCount > 0 ? `${productCount} sản phẩm` : "0 sản phẩm",
+                link: `/products?category=${cat.id}`
+              };
+            });
           setCategories(transformed);
         }
       } catch (error) {

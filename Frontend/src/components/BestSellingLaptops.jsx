@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as productService from '../services/productService';
 import { transformProducts } from '../utils/productUtils';
+import { getPlaceholderImage } from '../utils/imageUtils';
+import SafeImage from './SafeImage';
 import './BestSellingLaptops.css';
 
 function BestSellingLaptops() {
@@ -12,7 +14,7 @@ function BestSellingLaptops() {
   const [laptops, setLaptops] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState('next');
-  const placeholderImage = 'https://via.placeholder.com/300x200?text=Laptop';
+  const placeholderImage = getPlaceholderImage('product');
 
   // Load laptops from API, but delay if in grace period
   useEffect(() => {
@@ -160,6 +162,11 @@ function BestSellingLaptops() {
   };
 
   const handleViewAll = () => {
+    // Scroll to top immediately before navigation
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    // Then navigate
     navigate('/products?category=Laptop');
   };
 
@@ -283,12 +290,12 @@ function BestSellingLaptops() {
                   <div className="carousel-content">
                     <div className="laptops-carousel-grid" style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(5, 1fr)',
+                      gridTemplateColumns: 'repeat(4, 1fr)',
                       gap: '16px'
                     }}>
                       {(() => {
-                        // Show 5 products at a time
-                        const itemsPerSlide = 5;
+                        // Show 4 products at a time
+                        const itemsPerSlide = 4;
                         const visibleLaptops = [];
                         for (let i = 0; i < itemsPerSlide; i++) {
                           if (filteredLaptops.length > 0) {
@@ -312,17 +319,11 @@ function BestSellingLaptops() {
                             {renderBadge(laptop)}
                             
                             <div className="laptop-image-wrapper">
-                              <img 
+                              <SafeImage 
                                 src={getLaptopImage(laptop)} 
                                 alt={laptop.name} 
                                 className="laptop-image"
-                                onError={(event) => {
-                                  if (event.currentTarget.dataset.fallbackApplied === 'true') {
-                                    return;
-                                  }
-                                  event.currentTarget.dataset.fallbackApplied = 'true';
-                                  event.currentTarget.src = placeholderImage;
-                                }} 
+                                loading="lazy"
                               />
                             </div>
 
@@ -377,7 +378,7 @@ function BestSellingLaptops() {
                 {/* Carousel Controls Below */}
                 <div className="carousel-controls">
                   {/* Carousel Indicators */}
-                  {filteredLaptops.length > 5 && (
+                  {filteredLaptops.length > 4 && (
                     <div className="carousel-indicators">
                       {filteredLaptops.map((_, idx) => (
                         <button

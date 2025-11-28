@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getPlaceholderImage } from '../utils/imageUtils';
+import SafeImage from './SafeImage';
 import './RecentlyViewed.css';
 
 function RecentlyViewed() {
@@ -140,12 +142,10 @@ function RecentlyViewed() {
 
                 {/* Product Image */}
                 <div className="product-image">
-                  <img 
-                    src={product.image || '/images/placeholder-product.svg'} 
+                  <SafeImage 
+                    src={product.image} 
                     alt={product.name}
-                    onError={(e) => {
-                      e.target.src = '/images/placeholder-product.svg';
-                    }}
+                    loading="lazy"
                   />
                 </div>
 
@@ -154,9 +154,33 @@ function RecentlyViewed() {
                   <h3 className="product-name">{product.name}</h3>
                   
                   <div className="price-container">
-                    <div className="current-price">
-                      {formatPrice(product.price || product.salePrice || product.originalPrice || product.onPrice)}
-                    </div>
+                    {(() => {
+                      // Xác định giá hiện tại (giá đang bán)
+                      const currentPrice = product.price || product.salePrice || product.originalPrice || product.onPrice;
+                      
+                      // Xác định giá gốc
+                      let originalPrice = null;
+                      if (product.originalPrice && product.originalPrice > currentPrice) {
+                        originalPrice = product.originalPrice;
+                      } else if (product.onPrice && product.onPrice > currentPrice) {
+                        originalPrice = product.onPrice;
+                      } else if (product.originalPrice && product.originalPrice > (product.price || product.salePrice)) {
+                        originalPrice = product.originalPrice;
+                      }
+                      
+                      return (
+                        <>
+                          <div className="current-price">
+                            {formatPrice(currentPrice)}
+                          </div>
+                          {originalPrice && originalPrice > currentPrice && (
+                            <div className="original-price">
+                              {formatPrice(originalPrice)}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Rating */}

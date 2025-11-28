@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useNotification } from '../context/NotificationContext';
 import * as productService from '../services/productService';
 import { transformProduct } from '../utils/productUtils';
+import { handleProductImageError, getPlaceholderImage } from '../utils/imageUtils';
 import RelatedProducts from '../components/RelatedProducts';
 import './ProductDetail.css';
 
@@ -20,7 +21,7 @@ function ProductDetail() {
   const [selectedCapacity, setSelectedCapacity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const placeholderImage = 'https://via.placeholder.com/500?text=No+Image';
+  const placeholderImage = getPlaceholderImage('product');
 
   useEffect(() => {
     let cancelled = false;
@@ -338,13 +339,7 @@ function ProductDetail() {
     );
   }
 
-  const handleImageError = (event) => {
-    if (event.currentTarget.dataset.fallbackApplied === 'true') {
-      return;
-    }
-    event.currentTarget.dataset.fallbackApplied = 'true';
-    event.currentTarget.src = placeholderImage;
-  };
+  const handleImageError = handleProductImageError;
 
   return (
     <div className="product-detail-page">

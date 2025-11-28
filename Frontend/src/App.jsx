@@ -20,6 +20,7 @@ import CheckoutPage from './pages/CheckoutPage';
 import QRPaymentPage from './pages/QRPaymentPage';
 import OrderConfirmationPage from './pages/OrderConfirmationPage';
 import SideBanners from './components/SideBanners';
+import Chatbot from './components/Chatbot';
 import AdminLayout from './components/AdminLayout';
 import AdminRoute from './components/AdminRoute';
 import AdminDashboard from './pages/AdminDashboard';
@@ -98,6 +99,7 @@ function Layout({ children }) {
       {!isCareersPage && <SideBanners />}
       {children}
       <Footer />
+      <Chatbot />
     </>
   );
 }

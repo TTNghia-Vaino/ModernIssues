@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../context/NotificationContext';
 import * as userService from '../services/userService';
 import * as warrantyService from '../services/warrantyService';
@@ -79,7 +78,7 @@ const ProfilePage = () => {
     otpCode: '',
   });
   const [emailStep, setEmailStep] = useState('input'); // 'input' | 'otp'
-  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [, setEmailOtpSent] = useState(false);
   
   // Phone change
   const [phoneData, setPhoneData] = useState({
@@ -89,7 +88,6 @@ const ProfilePage = () => {
   
   // 2FA
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [twoFactorMethod, setTwoFactorMethod] = useState('Email');
   
   // Avatar upload
   const [avatarFile, setAvatarFile] = useState(null);
@@ -101,19 +99,19 @@ const ProfilePage = () => {
 
   // Load user profile
   useEffect(() => {
-    if (!isAuthenticated || !user?.id) return;
+    if (!isAuthenticated) return;
     
     const loadProfile = async () => {
       try {
         setLoading(true);
-        const profile = await userService.getUserById(user.id);
+        const profile = await userService.getCurrentUser();
         setProfileData(profile);
         setFormData({
           username: profile.username || profile.name || '',
           email: profile.email || '',
           phone: profile.phone || '',
           address: profile.address || '',
-          avatarUrl: profile.avatarUrl || null,
+          avatarUrl: profile.avatarUrl || profile.avatar || null,
           confirmPassword: '',
         });
       } catch (err) {
@@ -125,7 +123,7 @@ const ProfilePage = () => {
     };
     
     loadProfile();
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, showError]);
 
   // Load consumption data
   useEffect(() => {
@@ -142,7 +140,7 @@ const ProfilePage = () => {
     };
     
     loadConsumption();
-  }, [isAuthenticated, activeTab]);
+  }, [isAuthenticated, activeTab, showError]);
 
   // Load purchases
   useEffect(() => {
@@ -159,7 +157,7 @@ const ProfilePage = () => {
     };
     
     loadPurchases();
-  }, [isAuthenticated, activeTab]);
+  }, [isAuthenticated, activeTab, showError]);
 
   // Load warranties
   useEffect(() => {
@@ -176,7 +174,7 @@ const ProfilePage = () => {
     };
     
     loadWarranties();
-  }, [isAuthenticated, activeTab]);
+  }, [isAuthenticated, activeTab, showError]);
 
   // Load 2FA status
   useEffect(() => {
@@ -186,7 +184,6 @@ const ProfilePage = () => {
       try {
         const status = await userService.get2FAStatus();
         setTwoFactorEnabled(status.enabled || false);
-        setTwoFactorMethod(status.method || 'Email');
       } catch (err) {
         console.error('Error loading 2FA:', err);
       }
@@ -194,6 +191,11 @@ const ProfilePage = () => {
     
     load2FA();
   }, [isAuthenticated, activeTab]);
+  
+  // Get user ID from profileData or user context
+  const getUserId = () => {
+    return profileData?.id || profileData?.userId || user?.id;
+  };
 
   // Handle avatar upload
   const handleAvatarChange = (e) => {
@@ -210,7 +212,8 @@ const ProfilePage = () => {
 
   // Handle save profile
   const handleSaveProfile = async () => {
-    if (!user?.id) return;
+    const userId = getUserId();
+    if (!userId) return;
     
     if (!formData.confirmPassword) {
       showError('Vui lòng nhập mật khẩu để xác nhận thay đổi');
@@ -227,7 +230,7 @@ const ProfilePage = () => {
         confirmPassword: formData.confirmPassword,
       };
       
-      const updated = await userService.updateUserProfile(user.id, updateData, avatarFile);
+      const updated = await userService.updateUserProfile(userId, updateData, avatarFile);
       setProfileData(updated);
       if (updated.avatarUrl) {
         setFormData(prev => ({ ...prev, avatarUrl: updated.avatarUrl, confirmPassword: '' }));
@@ -238,6 +241,41 @@ const ProfilePage = () => {
       success('Cập nhật thông tin thành công');
     } catch (err) {
       showError(err.message || 'Không thể cập nhật thông tin');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle save avatar only
+  const handleSaveAvatar = async () => {
+    const userId = getUserId();
+    if (!userId || !avatarFile) return;
+    
+    if (!formData.confirmPassword) {
+      showError('Vui lòng nhập mật khẩu để xác nhận thay đổi');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const updateData = {
+        username: profileData?.username || profileData?.name || '',
+        email: profileData?.email || '',
+        phone: profileData?.phone || '',
+        address: profileData?.address || '',
+        confirmPassword: formData.confirmPassword,
+      };
+      
+      const updated = await userService.updateUserProfile(userId, updateData, avatarFile);
+      setProfileData(updated);
+      if (updated.avatarUrl) {
+        setFormData(prev => ({ ...prev, avatarUrl: updated.avatarUrl, confirmPassword: '' }));
+      }
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      success('Cập nhật ảnh đại diện thành công');
+    } catch (err) {
+      showError(err.message || 'Không thể cập nhật ảnh đại diện');
     } finally {
       setLoading(false);
     }
@@ -446,7 +484,7 @@ const ProfilePage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
       <div className="container mx-auto px-6 py-8">
-        <div className="mb-6">
+        <div className="mb-6 mt-8">
           <h2 className="text-3xl font-bold text-gray-900">Trang cá nhân</h2>
           <p className="text-gray-600 mt-1">Quản lý thông tin và hoạt động của bạn</p>
         </div>
@@ -506,8 +544,8 @@ const ProfilePage = () => {
 
           {/* Tab: Thông tin cá nhân */}
           <TabsContent value="info" className="space-y-6">
-            <Card className="shadow-lg border-0">
-              <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+            <Card className="shadow-lg border-0 max-w-2xl mx-auto">
+              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
                 <CardTitle>Thông tin cá nhân</CardTitle>
                 <CardDescription className="text-white/80">
                   {isEditingProfile ? 'Chỉnh sửa thông tin tài khoản của bạn' : 'Xem thông tin tài khoản của bạn'}
@@ -515,30 +553,33 @@ const ProfilePage = () => {
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="flex flex-col items-center mb-8">
-                  <Avatar className="h-32 w-32 mb-4 ring-4 ring-emerald-100">
-                    <AvatarImage src={getAvatarUrl()} />
-                    <AvatarFallback className="text-3xl bg-emerald-100 text-emerald-700">
-                      {formData.username?.charAt(0)?.toUpperCase() || profileData?.username?.charAt(0)?.toUpperCase() || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                  {isEditingProfile && (
-                    <div className="relative">
-                      <input
-                        type="file"
-                        id="avatar-upload"
-                        accept="image/*"
-                        onChange={handleAvatarChange}
-                        className="hidden"
-                      />
-                      <Button
-                        variant="outline"
-                        className="gap-2 border-emerald-500 text-emerald-700 hover:bg-emerald-50 bg-transparent"
-                        onClick={() => document.getElementById('avatar-upload').click()}
-                      >
-                        <Upload className="h-4 w-4" />
-                        Thay đổi ảnh đại diện
-                      </Button>
+                  <div className="relative group mb-4">
+                    <input
+                      type="file"
+                      id="avatar-upload"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
+                    <div 
+                      className="cursor-pointer"
+                      onClick={() => document.getElementById('avatar-upload').click()}
+                    >
+                      <Avatar className="h-32 w-32 ring-4 ring-emerald-100 transition-all group-hover:ring-emerald-300">
+                        <AvatarImage src={getAvatarUrl()} />
+                        <AvatarFallback className="text-3xl bg-emerald-100 text-emerald-700">
+                          {formData.username?.charAt(0)?.toUpperCase() || profileData?.username?.charAt(0)?.toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <div className="bg-black/60 rounded-full p-3">
+                          <Upload className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
                     </div>
+                  </div>
+                  {avatarPreview && (
+                    <p className="text-sm text-emerald-600 mt-2">Ảnh mới sẽ được lưu khi bạn nhấn "Lưu ảnh" hoặc "Lưu thay đổi"</p>
                   )}
                 </div>
                 <div className="grid gap-6 md:grid-cols-2">
@@ -584,7 +625,7 @@ const ProfilePage = () => {
                       className={isEditingProfile ? "border-gray-300" : "bg-gray-50"}
                     />
                   </div>
-                  {isEditingProfile && (
+                  {(isEditingProfile || avatarFile) && (
                     <div className="space-y-2 md:col-span-2">
                       <Label htmlFor="confirm-password-profile">Mật khẩu xác nhận *</Label>
                       <Input
@@ -601,22 +642,47 @@ const ProfilePage = () => {
                 </div>
                 <div className="flex justify-end gap-3 mt-6">
                   {!isEditingProfile ? (
-                    <Button
-                      className="bg-emerald-600 hover:bg-emerald-700"
-                      onClick={() => {
-                        setIsEditingProfile(true);
-                        setFormData({
-                          username: profileData?.username || profileData?.name || '',
-                          email: profileData?.email || '',
-                          phone: profileData?.phone || '',
-                          address: profileData?.address || '',
-                          avatarUrl: profileData?.avatarUrl || null,
-                          confirmPassword: '',
-                        });
-                      }}
-                    >
-                      Chỉnh sửa
-                    </Button>
+                    <>
+                      {avatarFile && (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setAvatarFile(null);
+                              setAvatarPreview(null);
+                              setFormData(prev => ({ ...prev, confirmPassword: '' }));
+                            }}
+                          >
+                            Hủy ảnh
+                          </Button>
+                          <Button
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                            onClick={handleSaveAvatar}
+                            disabled={loading || !formData.confirmPassword}
+                          >
+                            {loading ? 'Đang lưu...' : 'Lưu ảnh'}
+                          </Button>
+                        </>
+                      )}
+                      {!avatarFile && (
+                        <Button
+                          className="bg-emerald-600 hover:bg-emerald-700"
+                          onClick={() => {
+                            setIsEditingProfile(true);
+                            setFormData({
+                              username: profileData?.username || profileData?.name || '',
+                              email: profileData?.email || '',
+                              phone: profileData?.phone || '',
+                              address: profileData?.address || '',
+                              avatarUrl: profileData?.avatarUrl || null,
+                              confirmPassword: '',
+                            });
+                          }}
+                        >
+                          Chỉnh sửa
+                        </Button>
+                      )}
+                    </>
                   ) : (
                     <>
                       <Button
@@ -654,7 +720,7 @@ const ProfilePage = () => {
           {/* Tab: Tiêu dùng */}
           <TabsContent value="spending" className="space-y-6">
             <Card className="shadow-lg border-0">
-              <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
                 <CardTitle>Biểu đồ chi tiêu 12 tháng gần nhất</CardTitle>
                 <CardDescription className="text-white/80">Tổng quan chi tiêu của bạn</CardDescription>
               </CardHeader>
@@ -696,7 +762,7 @@ const ProfilePage = () => {
             </Card>
 
             <Card className="shadow-lg border-0">
-              <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
                 <CardTitle>Danh sách sản phẩm đã mua</CardTitle>
                 <CardDescription className="text-white/80">Lịch sử mua hàng của bạn</CardDescription>
               </CardHeader>
@@ -764,7 +830,7 @@ const ProfilePage = () => {
           {/* Tab: Bảo hành */}
           <TabsContent value="warranty" className="space-y-6">
             <Card className="shadow-lg border-0">
-              <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
                 <CardTitle>Quản lý bảo hành</CardTitle>
                 <CardDescription className="text-white/80">Theo dõi trạng thái bảo hành sản phẩm</CardDescription>
               </CardHeader>
@@ -838,13 +904,13 @@ const ProfilePage = () => {
 
           {/* Tab: Đổi mật khẩu */}
           <TabsContent value="password" className="space-y-6">
-            <Card className="shadow-lg border-0">
-              <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+            <Card className="shadow-lg border-0 max-w-2xl mx-auto">
+              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
                 <CardTitle>Đổi mật khẩu</CardTitle>
                 <CardDescription className="text-white/80">Cập nhật mật khẩu để bảo mật tài khoản</CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="space-y-4 max-w-md">
+                <div className="space-y-4 max-w-md mx-auto">
                   <div className="space-y-2">
                     <Label htmlFor="current-password">Mật khẩu hiện tại</Label>
                     <Input
@@ -883,7 +949,7 @@ const ProfilePage = () => {
                       <li>Có ít nhất 1 số và 1 ký tự đặc biệt</li>
                     </ul>
                   </div>
-                  <div className="flex gap-3 pt-2">
+                  <div className="flex gap-3 pt-2 justify-center">
                     <Button
                       variant="outline"
                       onClick={() => setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })}
@@ -905,15 +971,15 @@ const ProfilePage = () => {
 
           {/* Tab: Email */}
           <TabsContent value="email" className="space-y-6">
-            <Card className="shadow-lg border-0">
-              <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+            <Card className="shadow-lg border-0 max-w-2xl mx-auto">
+              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
                 <CardTitle>Cập nhật Email</CardTitle>
                 <CardDescription className="text-white/80">
                   Thay đổi địa chỉ email liên kết với tài khoản
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="space-y-4 max-w-md">
+                <div className="space-y-4 max-w-md mx-auto">
                   <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                     <div className="flex items-center gap-2 text-emerald-700 mb-2">
                       <Mail className="h-5 w-5" />
@@ -948,7 +1014,7 @@ const ProfilePage = () => {
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
                         <p>⚠️ Sau khi thay đổi email, bạn sẽ nhận được mã OTP qua email hiện tại để xác thực.</p>
                       </div>
-                      <div className="flex gap-3 pt-2">
+                      <div className="flex gap-3 pt-2 justify-center">
                         <Button variant="outline" onClick={() => {
                           setEmailData({ newEmail: '', confirmPassword: '', otpCode: '' });
                           setEmailStep('input');
@@ -985,7 +1051,7 @@ const ProfilePage = () => {
                           className="border-gray-300 text-center text-2xl tracking-widest"
                         />
                       </div>
-                      <div className="flex gap-3 pt-2">
+                      <div className="flex gap-3 pt-2 justify-center">
                         <Button
                           variant="outline"
                           onClick={() => {
@@ -1012,15 +1078,15 @@ const ProfilePage = () => {
 
           {/* Tab: Số điện thoại */}
           <TabsContent value="phone" className="space-y-6">
-            <Card className="shadow-lg border-0">
-              <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+            <Card className="shadow-lg border-0 max-w-2xl mx-auto">
+              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
                 <CardTitle>Cập nhật Số điện thoại</CardTitle>
                 <CardDescription className="text-white/80">
                   Thay đổi số điện thoại liên kết với tài khoản
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="space-y-4 max-w-md">
+                <div className="space-y-4 max-w-md mx-auto">
                   <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                     <div className="flex items-center gap-2 text-emerald-700 mb-2">
                       <Phone className="h-5 w-5" />
@@ -1052,7 +1118,7 @@ const ProfilePage = () => {
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
                     <p>⚠️ Bạn sẽ nhận được mã OTP qua số điện thoại mới để xác nhận thay đổi.</p>
                   </div>
-                  <div className="flex gap-3 pt-2">
+                  <div className="flex gap-3 pt-2 justify-center">
                     <Button
                       variant="outline"
                       onClick={() => setPhoneData({ newPhone: '', confirmPassword: '' })}
@@ -1074,13 +1140,13 @@ const ProfilePage = () => {
 
           {/* Tab: 2FA */}
           <TabsContent value="2fa" className="space-y-6">
-            <Card className="shadow-lg border-0">
-              <CardHeader className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+            <Card className="shadow-lg border-0 max-w-2xl mx-auto">
+              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
                 <CardTitle>Xác thực hai yếu tố (2FA)</CardTitle>
                 <CardDescription className="text-white/80">Tăng cường bảo mật cho tài khoản của bạn</CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="space-y-6 max-w-md">
+                <div className="space-y-6 max-w-md mx-auto">
                   <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex items-center gap-3">
                       <Shield className={`h-8 w-8 ${twoFactorEnabled ? 'text-emerald-600' : 'text-gray-400'}`} />

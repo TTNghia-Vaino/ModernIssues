@@ -793,17 +793,17 @@
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
-  color: white;
+  color: #000000;
   flex-shrink: 0;
 }
 
 .category-form-header .close-btn {
   background: rgba(255, 255, 255, 0.2);
-  color: white;
+  color: #000000;
 }
 
 .category-form-header .close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.1);
   transform: rotate(90deg);
 }
 

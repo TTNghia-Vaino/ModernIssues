@@ -99,11 +99,13 @@
 }
 
 .cart-item > img {
-  width: 80px !important;
-  height: 80px !important;
-  object-fit: cover;
+  width: 150px !important;
+  height: 150px !important;
+  object-fit: contain;
   border-radius: 8px;
   flex-shrink: 0;
+  background: #f9fafb;
+  padding: 8px;
 }
 
 .cart-item > div:nth-child(2) {
@@ -303,8 +305,8 @@
   }
 
   .cart-item > img {
-    width: 70px !important;
-    height: 70px !important;
+    width: 100px !important;
+    height: 100px !important;
   }
 
   .cart-item-link {

@@ -92,10 +92,23 @@ export const updateCartItem = async (cartId, productId, data) => {
  * Response format: { success: boolean, message: string, data: string, errors: string[] }
  * @param {string|number} cartId - Cart ID
  * @param {string|number} productId - Product ID
+ * @param {string|number} capacity - Optional capacity
  * @returns {Promise}
  */
-export const removeCartItem = async (cartId, productId) => {
-  const response = await apiDelete(`Cart/${cartId}/${productId}`);
+export const removeCartItem = async (cartId, productId, capacity = null) => {
+  // Try with capacity in query string if provided
+  let url = `Cart/${cartId}/${productId}`;
+  const options = {};
+  
+  if (capacity !== null && capacity !== undefined) {
+    // Try query string first
+    url += `?capacity=${encodeURIComponent(capacity)}`;
+    // Also try in body as fallback (some APIs might need it in body)
+    // options.body = { capacity };
+  }
+  
+  console.log('[CartService] removeCartItem:', { url, cartId, productId, capacity });
+  const response = await apiDelete(url, options);
   return handleResponse(response);
 };
 
