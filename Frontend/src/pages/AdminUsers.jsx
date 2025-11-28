@@ -567,43 +567,52 @@ const AdminUsers = () => {
                     {new Date().toLocaleDateString('vi-VN')}
                   </div>
                   <div className="col-actions">
-                    <div style={{ position: 'relative' }}>
+                    <div className="actions-dropdown">
                       <button
                         className="btn-menu"
                         title="Tùy chọn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setDropdownOpen(dropdownOpen === (user.userId || user.id) ? null : (user.userId || user.id));
+                          const userId = user.userId || user.id;
+                          console.log('[AdminUsers] Toggle dropdown for user:', userId, 'Current:', dropdownOpen);
+                          console.log('[AdminUsers] Types:', typeof userId, typeof dropdownOpen);
+                          console.log('[AdminUsers] user object:', user);
+                          setDropdownOpen(dropdownOpen === userId ? null : userId);
                         }}
                       >
                         ⋮
                       </button>
-                      {dropdownOpen === (user.userId || user.id) && (
-                        <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            className="dropdown-item edit"
-                            onClick={() => {
-                              handleEdit(user);
-                              setDropdownOpen(null);
-                            }}
-                          >
-                            ✏️ Chỉnh sửa
-                          </button>
-                          <button
-                            className="dropdown-item delete"
-                            onClick={() => {
-                              if (!user.isDisabled) {
-                                handleDelete(user.userId || user.id);
-                              } else {
-                                handleActivate(user.userId || user.id);
-                              }
-                              setDropdownOpen(null);
-                            }}
-                          >
-                            {!user.isDisabled ? '🗑️ Vô hiệu hóa' : '✅ Kích hoạt'}
-                          </button>
-                        </div>
-                      )}
+                      {(() => {
+                        const userId = user.userId || user.id;
+                        const shouldShow = dropdownOpen === userId;
+                        console.log('[AdminUsers] Render check - userId:', userId, 'dropdownOpen:', dropdownOpen, 'shouldShow:', shouldShow);
+                        return shouldShow ? (
+                          <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              className="dropdown-item edit"
+                              onClick={() => {
+                                handleEdit(user);
+                                setDropdownOpen(null);
+                              }}
+                            >
+                              ✏️ Chỉnh sửa
+                            </button>
+                            <button
+                              className="dropdown-item delete"
+                              onClick={() => {
+                                if (!user.isDisabled) {
+                                  handleDelete(user.userId || user.id);
+                                } else {
+                                  handleActivate(user.userId || user.id);
+                                }
+                                setDropdownOpen(null);
+                              }}
+                            >
+                              {!user.isDisabled ? '🗑️ Vô hiệu hóa' : '✅ Kích hoạt'}
+                            </button>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 </div>

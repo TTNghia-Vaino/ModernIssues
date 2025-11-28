@@ -959,57 +959,65 @@ const AdminProducts = () => {
               </div>
             </div>
             <div className="col-actions">
-              <div style={{ position: 'relative' }}>
+              <div className="actions-dropdown">
                 <button
                   className="btn-menu"
                   title="Tùy chọn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setDropdownOpen(dropdownOpen === product.id ? null : product.id);
+                    const productId = product.id || product.productId;
+                    console.log('[AdminProducts] Toggle dropdown for product:', productId, 'Current:', dropdownOpen);
+                    console.log('[AdminProducts] Types:', typeof productId, typeof dropdownOpen);
+                    setDropdownOpen(dropdownOpen === productId ? null : productId);
                   }}
                 >
                   ⋮
                 </button>
-                {dropdownOpen === product.id && (
-                  <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      className="dropdown-item edit"
-                      onClick={() => {
-                        handleEdit(product);
-                        setDropdownOpen(null);
-                      }}
-                    >
-                      ✏️ Chỉnh sửa
-                    </button>
-                    <button
-                      className="dropdown-item delete"
-                      onClick={() => {
-                        if (product.isDisabled) {
-                          handleActivate(product.id);
-                        } else {
-                          handleDisable(product.id);
-                        }
-                        setDropdownOpen(null);
-                      }}
-                    >
-                      {product.isDisabled ? '✅ Kích hoạt' : '🗑️ Ngừng bán'}
-                    </button>
-                    <button
-                      className="dropdown-item"
-                      onClick={() => {
-                        handleUpdateVector(product.id, product.name || product.productName);
-                        setDropdownOpen(null);
-                      }}
-                      disabled={updatingVector === product.id}
-                      style={{
-                        opacity: updatingVector === product.id ? 0.6 : 1,
-                        cursor: updatingVector === product.id ? 'wait' : 'pointer'
-                      }}
-                    >
-                      {updatingVector === product.id ? '⏳ Đang cập nhật...' : '🔄 Cập nhật Vector'}
-                    </button>
-                  </div>
-                )}
+                {(() => {
+                  const productId = product.id || product.productId;
+                  const shouldShow = dropdownOpen === productId;
+                  console.log('[AdminProducts] Render check - productId:', productId, 'dropdownOpen:', dropdownOpen, 'shouldShow:', shouldShow);
+                  return shouldShow ? (
+                    <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="dropdown-item edit"
+                        onClick={() => {
+                          handleEdit(product);
+                          setDropdownOpen(null);
+                        }}
+                      >
+                        ✏️ Chỉnh sửa
+                      </button>
+                      <button
+                        className="dropdown-item delete"
+                        onClick={() => {
+                          if (product.isDisabled) {
+                            handleActivate(product.id || product.productId);
+                          } else {
+                            handleDisable(product.id || product.productId);
+                          }
+                          setDropdownOpen(null);
+                        }}
+                      >
+                        {product.isDisabled ? '✅ Kích hoạt' : '🗑️ Ngừng bán'}
+                      </button>
+                      <button
+                        className="dropdown-item"
+                        onClick={() => {
+                          handleUpdateVector(product.id || product.productId, product.name || product.productName);
+                          setDropdownOpen(null);
+                        }}
+                        disabled={updatingVector === (product.id || product.productId)}
+                        style={{
+                          opacity: updatingVector === (product.id || product.productId) ? 0.6 : 1,
+                          cursor: updatingVector === (product.id || product.productId) ? 'wait' : 'pointer'
+                        }}
+                      >
+                        {updatingVector === (product.id || product.productId) ? '⏳ Đang cập nhật...' : '🔄 Cập nhật Vector'}
+                      </button>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             </div>
           </div>
