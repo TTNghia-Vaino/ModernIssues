@@ -69,7 +69,8 @@ namespace ModernIssues.Repositories
                 AvatarUrl = newUser.avatar_url,
                 Role = newUser.role ?? string.Empty,
                 IsDisabled = newUser.is_disabled ?? false,
-                EmailConfirmed = newUser.email_confirmed ?? false
+                EmailConfirmed = newUser.email_confirmed ?? false,
+                TwoFactorEnabled = newUser.two_factor_enabled
             };
         }
 
@@ -83,6 +84,11 @@ namespace ModernIssues.Repositories
             {
                 return new UserDto();
             }
+<<<<<<< HEAD
+=======
+<<<<<<< Updated upstream
+=======
+>>>>>>> main-be-B6.1
 
             return new UserDto
             {
@@ -94,8 +100,15 @@ namespace ModernIssues.Repositories
                 AvatarUrl = user.avatar_url,
                 Role = user.role ?? string.Empty,
                 IsDisabled = user.is_disabled ?? false,
+<<<<<<< HEAD
                 EmailConfirmed = user.email_confirmed ?? false
             };
+=======
+                EmailConfirmed = user.email_confirmed ?? false,
+                TwoFactorEnabled = user.two_factor_enabled
+            };
+>>>>>>> Stashed changes
+>>>>>>> main-be-B6.1
         }
 
         // --- UPDATE Profile ---
@@ -151,6 +164,26 @@ namespace ModernIssues.Repositories
 
             return new UserDto
             {
+<<<<<<< HEAD
+=======
+<<<<<<< Updated upstream
+                throw new ArgumentException("Không có trường nào để cập nhật.");
+            }
+
+            var sql = $@"
+                UPDATE users
+                SET {string.Join(", ", updateFields)}
+                WHERE user_id = @UserId
+                RETURNING user_id AS UserId, username, email, phone, address, avatar_url AS AvatarUrl, role, is_disabled AS IsDisabled, 
+                          email_confirmed AS EmailConfirmed, created_at AS CreatedAt;
+            ";
+
+            using (var db = Connection)
+            {
+                return await db.QueryFirstOrDefaultAsync<UserDto>(sql, parameters) ?? new UserDto();
+            }
+=======
+>>>>>>> main-be-B6.1
                 UserId = user.user_id,
                 Username = user.username,
                 Email = user.email,
@@ -159,8 +192,15 @@ namespace ModernIssues.Repositories
                 AvatarUrl = user.avatar_url,
                 Role = user.role ?? string.Empty,
                 IsDisabled = user.is_disabled ?? false,
+<<<<<<< HEAD
                 EmailConfirmed = user.email_confirmed ?? false
             };
+=======
+                EmailConfirmed = user.email_confirmed ?? false,
+                TwoFactorEnabled = user.two_factor_enabled
+            };
+>>>>>>> Stashed changes
+>>>>>>> main-be-B6.1
         }
 
         // --- Get By Username (Ví dụ cho Login) ---
@@ -173,6 +213,11 @@ namespace ModernIssues.Repositories
             {
                 return new UserDto();
             }
+<<<<<<< HEAD
+=======
+<<<<<<< Updated upstream
+=======
+>>>>>>> main-be-B6.1
 
             return new UserDto
             {
@@ -184,8 +229,15 @@ namespace ModernIssues.Repositories
                 AvatarUrl = user.avatar_url,
                 Role = user.role ?? string.Empty,
                 IsDisabled = user.is_disabled ?? false,
+<<<<<<< HEAD
                 EmailConfirmed = user.email_confirmed ?? false
             };
+=======
+                EmailConfirmed = user.email_confirmed ?? false,
+                TwoFactorEnabled = user.two_factor_enabled
+            };
+>>>>>>> Stashed changes
+>>>>>>> main-be-B6.1
         }
 
         // --- DELETE (Vô hiệu hóa tài khoản) ---
@@ -229,8 +281,48 @@ namespace ModernIssues.Repositories
         // --- UPDATE AVATAR ONLY ---
         public async Task<UserDto> UpdateAvatarAsync(int userId, string avatarUrl)
         {
+<<<<<<< HEAD
             var user = await _dbContext.users
                 .FirstOrDefaultAsync(u => u.user_id == userId);
+=======
+            var sql = @"
+                UPDATE users
+                SET
+                    avatar_url = @AvatarUrl,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = @UserId
+                RETURNING user_id AS UserId, username, email, phone, address, avatar_url AS AvatarUrl, role, is_disabled AS IsDisabled, 
+                          email_confirmed AS EmailConfirmed, created_at AS CreatedAt;
+            ";
+            
+            var parameters = new
+            {
+<<<<<<< Updated upstream
+                AvatarUrl = avatarUrl, UserId = userId
+=======
+                return new UserDto();
+            }
+
+            user.avatar_url = avatarUrl;
+            user.updated_at = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+
+            return new UserDto
+            {
+                UserId = user.user_id,
+                Username = user.username,
+                Email = user.email,
+                Phone = user.phone ?? string.Empty,
+                Address = user.address ?? string.Empty,
+                AvatarUrl = user.avatar_url,
+                Role = user.role ?? string.Empty,
+                IsDisabled = user.is_disabled ?? false,
+                EmailConfirmed = user.email_confirmed ?? false,
+                TwoFactorEnabled = user.two_factor_enabled
+>>>>>>> Stashed changes
+            };
+>>>>>>> main-be-B6.1
 
             if (user == null)
             {
@@ -259,6 +351,27 @@ namespace ModernIssues.Repositories
         // --- GET ALL USERS (Admin only) - Lấy cả hoạt động và không hoạt động ---
         public async Task<List<UserDto>> GetAllUsersAsync()
         {
+<<<<<<< HEAD
+=======
+<<<<<<< Updated upstream
+            var sql = @"
+                SELECT 
+                    user_id AS UserId,
+                    username,
+                    email,
+                    phone,
+                    address,
+                    avatar_url AS AvatarUrl,
+                    role,
+                    is_disabled AS IsDisabled,
+                    email_confirmed AS EmailConfirmed,
+                    created_at AS CreatedAt
+                FROM users 
+                WHERE is_disabled = FALSE
+                ORDER BY created_at DESC;
+            ";
+=======
+>>>>>>> main-be-B6.1
             var users = await _dbContext.users
                 .OrderByDescending(u => u.created_at)
                 .ThenByDescending(u => u.created_at)
@@ -272,9 +385,17 @@ namespace ModernIssues.Repositories
                     AvatarUrl = u.avatar_url,
                     Role = u.role ?? string.Empty,
                     IsDisabled = u.is_disabled ?? false,
+<<<<<<< HEAD
                     EmailConfirmed = u.email_confirmed ?? false
                 })
                 .ToListAsync();
+=======
+                    EmailConfirmed = u.email_confirmed ?? false,
+                    TwoFactorEnabled = u.two_factor_enabled
+                })
+                .ToListAsync();
+>>>>>>> Stashed changes
+>>>>>>> main-be-B6.1
 
             return users;
         }
