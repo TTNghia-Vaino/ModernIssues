@@ -130,7 +130,7 @@ export const forgotPassword = async (data) => {
   // Handle Swagger response format
   if (response && typeof response === 'object') {
     if (response.success === false) {
-      throw new Error(response.message || 'Failed to send OTP');
+      throw new Error(response.message || 'Gửi mã OTP thất bại. Vui lòng thử lại.');
     }
     
     // If data is string, try to parse
@@ -157,15 +157,24 @@ export const forgotPassword = async (data) => {
  * @returns {Promise} - Response containing tempToken
  */
 export const verifyOtp = async (data) => {
-  const response = await apiPost('Auth/VerifyOtp', data);
-  
-  // Handle Swagger response format
-  let result = response;
-  if (response && typeof response === 'object') {
-    // Check for errors
-    if (response.success === false) {
-      throw new Error(response.message || 'OTP verification failed');
-    }
+  try {
+    const response = await apiPost('Auth/VerifyOtp', data);
+    
+    // Handle Swagger response format
+    let result = response;
+    if (response && typeof response === 'object') {
+      // Check for errors
+      if (response.success === false) {
+        // Translate common OTP error messages to Vietnamese
+        let errorMessage = response.message || 'Xác thực OTP thất bại. Vui lòng thử lại.';
+        const errorLower = errorMessage.toLowerCase();
+        if (errorLower.includes('otp is incorrect') || errorLower.includes('otp incorrect') || errorLower.includes('invalid otp')) {
+          errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+        } else if (errorLower.includes('otp expired') || errorLower.includes('expired')) {
+          errorMessage = 'Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.';
+        }
+        throw new Error(errorMessage);
+      }
     
     // If response has Swagger format, extract data
     if (response.data !== undefined) {
@@ -183,6 +192,24 @@ export const verifyOtp = async (data) => {
   }
   
   return result || response;
+  } catch (error) {
+    // Translate common OTP error messages to Vietnamese
+    let errorMessage = error.message || 'Xác thực OTP thất bại. Vui lòng thử lại.';
+    const errorLower = errorMessage.toLowerCase();
+    if (errorLower.includes('otp is incorrect') || errorLower.includes('otp incorrect') || errorLower.includes('invalid otp')) {
+      errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+    } else if (errorLower.includes('otp expired') || errorLower.includes('expired')) {
+      errorMessage = 'Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.';
+    } else if (errorLower.includes('otp') && errorLower.includes('wrong')) {
+      errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+    }
+    
+    // Create new error with translated message
+    const translatedError = new Error(errorMessage);
+    translatedError.data = error.data;
+    translatedError.status = error.status;
+    throw translatedError;
+  }
 };
 
 /**

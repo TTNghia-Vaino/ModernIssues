@@ -12,6 +12,7 @@ const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false); // Flag to prevent redirect during login
+  const [errors, setErrors] = useState({});
   const { login, user, setUser } = useAuth();
   const { error: showError } = useNotification();
   const navigate = useNavigate();
@@ -40,15 +41,46 @@ const LoginForm = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+    
+    // Validate email
+    if (!formData.email || formData.email.trim() === '') {
+      newErrors.email = 'Vui lòng nhập email';
+    } else {
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email.trim())) {
+        newErrors.email = 'Email không đúng định dạng. Vui lòng nhập email hợp lệ (ví dụ: example@email.com)';
+      }
+    }
+    
+    // Validate password
+    if (!formData.password || formData.password.trim() === '') {
+      newErrors.password = 'Vui lòng nhập mật khẩu';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate form before submitting
+    if (!validateForm()) {
+      showError('Vui lòng điền đầy đủ thông tin');
+      return;
+    }
+    
     setIsLoading(true);
     setIsLoggingIn(true); // Set flag to prevent useEffect redirect
+    setErrors({}); // Clear previous errors
     
     try {
       // Đăng nhập qua API
       const result = await login({
-        email: formData.email,
+        email: formData.email.trim(),
         password: formData.password
       });
       
@@ -107,11 +139,44 @@ const LoginForm = () => {
         }
       } else {
         setIsLoggingIn(false);
-        showError(result.error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+        const errorMsg = result.error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
+        showError(errorMsg);
+        
+        // Set field-specific errors if available
+        if (result.error) {
+          if (result.error.toLowerCase().includes('email') || result.error.toLowerCase().includes('tài khoản')) {
+            setErrors({ email: result.error });
+          } else if (result.error.toLowerCase().includes('mật khẩu') || result.error.toLowerCase().includes('password')) {
+            setErrors({ password: result.error });
+          }
+        }
       }
     } catch (error) {
       setIsLoggingIn(false);
-      showError('Có lỗi xảy ra. Vui lòng thử lại sau.');
+      // Extract error message from API response
+      let errorMessage = 'Có lỗi xảy ra. Vui lòng thử lại sau.';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorMessage = error.response.data.errors.join(', ');
+      }
+      
+      // Check for specific error types
+      if (errorMessage.toLowerCase().includes('email') || errorMessage.toLowerCase().includes('tài khoản') || errorMessage.toLowerCase().includes('user not found')) {
+        setErrors({ email: 'Email hoặc tài khoản không tồn tại' });
+        showError('Email hoặc tài khoản không tồn tại');
+      } else if (errorMessage.toLowerCase().includes('mật khẩu') || errorMessage.toLowerCase().includes('password') || errorMessage.toLowerCase().includes('incorrect password')) {
+        setErrors({ password: 'Mật khẩu không đúng' });
+        showError('Mật khẩu không đúng');
+      } else if (errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('401')) {
+        setErrors({ password: 'Email hoặc mật khẩu không đúng' });
+        showError('Email hoặc mật khẩu không đúng');
+      } else {
+        showError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -141,15 +206,36 @@ const LoginForm = () => {
                 <div className="form-group">
                   <label htmlFor="email">Email *</label>
                   <input
-                    type="email"
+                    type="text"
                     id="email"
                     name="email"
                     placeholder="Email"
                     value={formData.email}
-                    onChange={handleInputChange}
-                    required
+                    onChange={(e) => {
+                      handleInputChange(e);
+                      // Clear error when user starts typing
+                      if (errors.email) {
+                        setErrors(prev => ({ ...prev, email: '' }));
+                      }
+                    }}
+                    onBlur={() => {
+                      // Validate email format when user leaves the field
+                      if (formData.email && formData.email.trim() !== '') {
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (!emailRegex.test(formData.email.trim())) {
+                          setErrors(prev => ({ ...prev, email: 'Email không đúng định dạng. Vui lòng nhập email hợp lệ (ví dụ: example@email.com)' }));
+                        }
+                      }
+                    }}
                     autoComplete="email"
+                    className={errors.email ? 'error' : ''}
                   />
+                  {errors.email && (
+                    <span className="error-text">
+                      <i className="fas fa-exclamation-circle" aria-hidden="true"></i>
+                      {errors.email}
+                    </span>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -161,9 +247,15 @@ const LoginForm = () => {
                       name="password"
                       placeholder="Mật khẩu"
                       value={formData.password}
-                      onChange={handleInputChange}
-                      required
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        // Clear error when user starts typing
+                        if (errors.password) {
+                          setErrors(prev => ({ ...prev, password: '' }));
+                        }
+                      }}
                       autoComplete="current-password"
+                      className={errors.password ? 'error' : ''}
                     />
                     <button
                       type="button"
@@ -174,6 +266,12 @@ const LoginForm = () => {
                       <i className={showPassword ? "fas fa-eye-slash" : "fas fa-eye"}></i>
                     </button>
                   </div>
+                  {errors.password && (
+                    <span className="error-text">
+                      <i className="fas fa-exclamation-circle" aria-hidden="true"></i>
+                      {errors.password}
+                    </span>
+                  )}
                 </div>
 
                 <div className="forgot-password">

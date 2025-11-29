@@ -31,7 +31,7 @@ const TwoFactorVerify = () => {
     setError('');
 
     if (!code.trim()) {
-      setError('Please enter the verification code');
+      setError('Vui lòng nhập mã xác thực');
       return;
     }
 
@@ -66,10 +66,23 @@ const TwoFactorVerify = () => {
         const from = location.state?.from?.pathname || '/';
         navigate(from, { replace: true });
       } else {
-        setError('Login verification failed. Please try again.');
+        setError('Xác thực đăng nhập thất bại. Vui lòng thử lại.');
       }
     } catch (err) {
-      setError(err.message || 'Invalid verification code. Please try again.');
+      // Translate common OTP error messages to Vietnamese
+      let errorMessage = err.message || 'Mã xác thực không đúng. Vui lòng thử lại.';
+      
+      // Translate common English error messages
+      const errorLower = errorMessage.toLowerCase();
+      if (errorLower.includes('otp is incorrect') || errorLower.includes('otp incorrect') || errorLower.includes('invalid otp') || errorLower.includes('invalid verification code')) {
+        errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+      } else if (errorLower.includes('otp expired') || errorLower.includes('expired')) {
+        errorMessage = 'Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.';
+      } else if (errorLower.includes('otp') && errorLower.includes('wrong')) {
+        errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -96,20 +109,20 @@ const TwoFactorVerify = () => {
               <path d="M9 12l2 2 4-4" />
             </svg>
           </div>
-          <h2>Two-Factor Authentication</h2>
+          <h2>Xác Thực Hai Yếu Tố</h2>
           <p className="verify-subtitle">
             {useRecoveryCode 
-              ? 'Enter one of your recovery codes'
+              ? 'Nhập một trong các mã khôi phục của bạn'
               : method === 'email'
-                ? 'Enter the code sent to your email'
-                : 'Enter the 6-digit code from your authenticator app'}
+                ? 'Nhập mã đã được gửi đến email của bạn'
+                : 'Nhập mã 6 số từ ứng dụng xác thực của bạn'}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="verify-form">
           {useRecoveryCode ? (
             <div className="form-group">
-              <label htmlFor="code">Recovery Code</label>
+              <label htmlFor="code">Mã Khôi Phục</label>
               <input
                 type="text"
                 id="code"
@@ -135,15 +148,13 @@ const TwoFactorVerify = () => {
 
           {error && !useRecoveryCode && (
             <div className="error-message" style={{ marginTop: '10px' }}>
+              <i className="fas fa-info-circle" aria-hidden="true"></i>
               {error}
             </div>
           )}
           {error && useRecoveryCode && (
             <div className="error-message">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M15 9l-6 6M9 9l6 6" stroke="white" strokeWidth="2" />
-              </svg>
+              <i className="fas fa-info-circle" aria-hidden="true"></i>
               {error}
             </div>
           )}
@@ -156,10 +167,10 @@ const TwoFactorVerify = () => {
             {loading ? (
               <>
                 <span className="spinner"></span>
-                Verifying...
+                Đang xác thực...
               </>
             ) : (
-              'Verify'
+              'Xác Thực'
             )}
           </button>
 
@@ -177,7 +188,7 @@ const TwoFactorVerify = () => {
                   }
                 }}
               >
-                Use recovery code instead
+                Sử dụng mã khôi phục thay thế
               </button>
             )}
             {useRecoveryCode && (
@@ -193,7 +204,7 @@ const TwoFactorVerify = () => {
                   }
                 }}
               >
-                Use authenticator code instead
+                Sử dụng mã xác thực thay thế
               </button>
             )}
           </div>
@@ -204,16 +215,16 @@ const TwoFactorVerify = () => {
               className="link-button"
               onClick={() => navigate('/login')}
             >
-              ← Back to login
+              ← Quay lại đăng nhập
             </button>
           </div>
         </form>
 
         <div className="verify-footer">
           <p>
-            <strong>Lost access to your authenticator?</strong>
+            <strong>Mất quyền truy cập vào ứng dụng xác thực của bạn?</strong>
             <br />
-            Use one of your recovery codes to sign in, then regenerate new codes.
+            Sử dụng một trong các mã khôi phục của bạn để đăng nhập, sau đó tạo lại mã mới.
           </p>
         </div>
       </div>
