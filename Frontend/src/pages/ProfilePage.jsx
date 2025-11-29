@@ -105,6 +105,9 @@ const ProfilePage = () => {
         // Extract emailConfirmed status (explicitly check for true)
         setEmailConfirmed(profile?.emailConfirmed === true);
         
+        // Extract twoFactorEnabled status from profile data
+        setTwoFactorEnabled(profile?.twoFactorEnabled === true);
+        
         // Extract fields directly from profile (API structure: data object with phone, address, avatarUrl)
         const username = profile?.username || profile?.name || user?.name || '';
         const email = profile?.email || user?.email || '';
@@ -113,7 +116,7 @@ const ProfilePage = () => {
         const avatar = profile?.avatarUrl || profile?.avatar || user?.avatar || null;
         
         if (import.meta.env.DEV) {
-          console.log('[ProfilePage] Extracted values:', { username, email, phone, address, avatar });
+          console.log('[ProfilePage] Extracted values:', { username, email, phone, address, avatar, twoFactorEnabled: profile?.twoFactorEnabled });
         }
         
         setFormData({
@@ -136,9 +139,14 @@ const ProfilePage = () => {
   }, [isAuthenticated, showError]);
 
 
-  // Load 2FA status
+  // Load 2FA status (fallback if not available in profileData)
   useEffect(() => {
     if (!isAuthenticated || activeTab !== '2fa') return;
+    
+    // If twoFactorEnabled is already set from profileData, skip API call
+    if (profileData?.twoFactorEnabled !== undefined) {
+      return;
+    }
     
     const load2FA = async () => {
       try {
@@ -150,7 +158,7 @@ const ProfilePage = () => {
     };
     
     load2FA();
-  }, [isAuthenticated, activeTab]);
+  }, [isAuthenticated, activeTab, profileData]);
   
   // Get user ID from profileData or user context
   const getUserId = () => {

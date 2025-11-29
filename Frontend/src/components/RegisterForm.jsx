@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import * as userService from '../services/userService';
 import './RegisterForm.css';
 
 const RegisterForm = () => {
@@ -176,12 +177,21 @@ const RegisterForm = () => {
       
       const result = await register(registerData);
       
-      if (result.success) {
-        success('Đăng ký thành công! Bạn sẽ được chuyển về trang chủ.');
-        setTimeout(() => navigate('/'), 1000);
+      if (result && (result.success !== false)) {
+        // Backend automatically sends OTP email after registration
+        success('Đăng ký thành công! Email xác thực đã được gửi tự động. Vui lòng kiểm tra hộp thư của bạn.');
+        // Navigate to verify email page with email and password in state for auto-login after verification
+        setTimeout(() => {
+          navigate('/verify-email', { 
+            state: { 
+              email: formData.email.trim(),
+              password: formData.password // Store password for auto-login after verification
+            } 
+          });
+        }, 1500);
       } else {
         // Handle API errors
-        const errorMessage = result.error || 'Đăng ký thất bại. Vui lòng thử lại.';
+        const errorMessage = result?.error || result?.message || 'Đăng ký thất bại. Vui lòng thử lại.';
         setErrors(prev => ({ ...prev, submit: errorMessage }));
       }
     } catch (error) {
