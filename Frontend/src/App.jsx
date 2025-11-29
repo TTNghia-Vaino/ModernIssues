@@ -37,6 +37,7 @@ import CustomerSupportPage from './pages/CustomerSupportPage';
 import PaymentMethodsPage from './pages/PaymentMethodsPage';
 import NewsPage from './pages/NewsPage';
 import ProfilePage from './pages/ProfilePage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import UserWarrantyRequest from './pages/UserWarrantyRequest';
 import UserWarrantyTracking from './pages/UserWarrantyTracking';
 import UserSpending from './pages/UserSpending';
@@ -137,6 +138,7 @@ function App() {
                 <Route path="/news" element={<div className="main-content"><NewsPage /></div>} />
                 <Route path="/news/:id" element={<div className="main-content"><NewsPage /></div>} />
                 <Route path="/profile" element={<div className="main-content"><ProfilePage /></div>} />
+                <Route path="/verify-email" element={<div className="main-content"><VerifyEmailPage /></div>} />
                 <Route path="/warranty-request" element={<div className="main-content"><UserWarrantyRequest /></div>} />
                 <Route path="/warranty-tracking" element={<div className="main-content"><UserWarrantyTracking /></div>} />
                 <Route path="/spending" element={<div className="main-content"><UserSpending /></div>} />

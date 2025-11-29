@@ -1,3 +1,6 @@
+/* Import Admin Status Badge styles */
+@import '../components/admin/AdminStatusBadge.css';
+
 .admin-products {
   max-width: 1600px; /* Quy định chung: 1600px */
   margin: 0 auto;
@@ -431,9 +434,6 @@
   background: #ffebee;
   color: #d32f2f;
 }
-
-/* Import Admin Status Badge styles */
-@import '../components/admin/AdminStatusBadge.css';
 
 .col-status {
   min-width: 0;
