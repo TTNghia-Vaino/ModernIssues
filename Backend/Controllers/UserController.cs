@@ -386,26 +386,42 @@ namespace ModernIssues.Controllers
         // 6. GET CURRENT USER INFO: GET api/v1/User/CurrentUser
         // ============================================
         /// <summary>
-<<<<<<< Updated upstream
-        /// Lấy thông tin user hiện tại.
-=======
         /// Lấy thông tin user hiện tại bao gồm ảnh, số điện thoại, địa chỉ, trạng thái xác nhận mail, trạng thái 2FA.
->>>>>>> Stashed changes
         /// </summary>
         /// <response code="200">Trả về thông tin user hiện tại.</response>
         /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="404">Không tìm thấy user.</response>
         [HttpGet("CurrentUser")]
-        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<UserDto>), HttpStatusCodes.OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.Unauthorized)]
-        public IActionResult GetCurrentUser()
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.NotFound)]
+        public async Task<IActionResult> GetCurrentUser()
         {
             if (!AuthHelper.IsLoggedIn(HttpContext))
             {
                 return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để xem thông tin này."));
             }
 
-            var userInfo = AuthHelper.GetCurrentUser(HttpContext);
-            return Ok(ApiResponse<object>.SuccessResponse(userInfo ?? new { }, "Lấy thông tin user thành công."));
+            try
+            {
+                var userId = AuthHelper.GetCurrentUserId(HttpContext);
+                if (!userId.HasValue)
+                {
+                    return Unauthorized(ApiResponse<object>.ErrorResponse("Không thể xác định user."));
+                }
+
+                var userInfo = await _userService.GetCustomerProfileAsync(userId.Value);
+                return Ok(ApiResponse<UserDto>.SuccessResponse(userInfo, "Lấy thông tin user thành công."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.ErrorResponse(ex.Message));
+            }
+            catch (Exception)
+            {
+                return StatusCode(HttpStatusCodes.InternalServerError,
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi truy xuất thông tin user."));
+            }
         }
 
         // ============================================
