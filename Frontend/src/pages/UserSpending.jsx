@@ -220,54 +220,67 @@ const UserSpending = () => {
       ],
     };
 
-      // Create chart directly with data and animation (like AdminDashboard)
-      try {
-        chartInstanceRef.current = new ChartJS(chartRef.current, {
-          type: 'bar',
-          data: chartData,
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: {
-              duration: 1500, // 1.5 seconds like AdminDashboard
-              easing: 'easeOutCubic'
+    // Create chart with zero data first, then update to actual data to trigger animation from 0
+    try {
+      // Step 1: Create chart with all zeros
+      const zeroData = {
+        labels: labels,
+        datasets: [{
+          label: 'Chi tiêu (VNĐ)',
+          data: new Array(data.length).fill(0),
+          backgroundColor: 'rgba(16, 185, 129, 0.8)',
+          borderColor: 'rgba(16, 185, 129, 1)',
+          borderWidth: 1,
+        }],
+      };
+
+      chartInstanceRef.current = new ChartJS(chartRef.current, {
+        type: 'bar',
+        data: zeroData,
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 1500,
+            easing: 'easeOutCubic'
+          },
+          plugins: {
+            legend: {
+              display: false,
             },
-            animations: {
-              y: {
-                duration: 1500, // 1.5 seconds
-                easing: 'easeOutCubic',
-                from: 0 // Bars animate from 0 (bottom) upward
-              }
-            },
-            plugins: {
-              legend: {
-                display: false,
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    return `${context.parsed.y.toLocaleString('vi-VN')} VNĐ`;
-                  }
-                }
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                suggestedMax: suggestedMax, // Add padding so bars don't hit the top
-                ticks: {
-                  callback: function(value) {
-                    return value.toLocaleString('vi-VN') + 'đ';
-                  }
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `${context.parsed.y.toLocaleString('vi-VN')} VNĐ`;
                 }
               }
             }
           },
-        });
-      } catch (chartErr) {
-        console.error('[UserSpending] Error creating chart:', chartErr);
-      }
-    }, 100); // Small delay to ensure chartRef is ready
+          scales: {
+            y: {
+              beginAtZero: true,
+              suggestedMax: suggestedMax,
+              ticks: {
+                callback: function(value) {
+                  return value.toLocaleString('vi-VN') + 'đ';
+                }
+              }
+            }
+          }
+        },
+      });
+
+      // Step 2: Update to actual data - this will animate from 0 to actual values
+      setTimeout(() => {
+        if (chartInstanceRef.current) {
+          chartInstanceRef.current.data = chartData;
+          chartInstanceRef.current.update('active');
+        }
+      }, 100);
+    } catch (chartErr) {
+      console.error('[UserSpending] Error creating chart:', chartErr);
+    }
+  }, 100); // Small delay to ensure chartRef is ready
 
     return () => {
       clearTimeout(timer);
@@ -287,6 +300,14 @@ const UserSpending = () => {
     product.productName?.toLowerCase().includes(searchProduct.toLowerCase()) ||
     product.name?.toLowerCase().includes(searchProduct.toLowerCase())
   );
+
+  // Calculate total number of products purchased (sum of quantities)
+  const totalProductsCount = purchasedProducts.reduce((total, product) => {
+    // Each product in purchasedProducts might have a quantity field
+    // If not, each item counts as 1 product
+    const quantity = product.quantity || product.Quantity || 1;
+    return total + quantity;
+  }, 0);
 
   return (
     <div className="user-spending-page">
@@ -340,7 +361,7 @@ const UserSpending = () => {
                       <CardContent className="pt-6">
                         <div className="text-sm text-gray-600">Sản phẩm đã mua</div>
                         <div className="text-2xl font-bold text-blue-700">
-                          {consumptionData.totalProducts || 0} sản phẩm
+                          {totalProductsCount} sản phẩm
                         </div>
                       </CardContent>
                     </Card>
