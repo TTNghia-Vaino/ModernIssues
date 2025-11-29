@@ -65,8 +65,22 @@ namespace ModernIssues.Repositories
 
             using (var db = Connection)
             {
+<<<<<<< Updated upstream
                 return await db.QueryFirstOrDefaultAsync<UserDto>(sql, parameters) ?? new UserDto();
             }
+=======
+                UserId = newUser.user_id,
+                Username = newUser.username,
+                Email = newUser.email,
+                Phone = newUser.phone ?? string.Empty,
+                Address = newUser.address ?? string.Empty,
+                AvatarUrl = newUser.avatar_url,
+                Role = newUser.role ?? string.Empty,
+                IsDisabled = newUser.is_disabled ?? false,
+                EmailConfirmed = newUser.email_confirmed ?? false,
+                TwoFactorEnabled = newUser.two_factor_enabled
+            };
+>>>>>>> Stashed changes
         }
 
         // --- READ ONE (By Id) ---
@@ -83,6 +97,23 @@ namespace ModernIssues.Repositories
             {
                 return await db.QueryFirstOrDefaultAsync<UserDto>(sql, new { UserId = userId }) ?? new UserDto();
             }
+<<<<<<< Updated upstream
+=======
+
+            return new UserDto
+            {
+                UserId = user.user_id,
+                Username = user.username,
+                Email = user.email,
+                Phone = user.phone ?? string.Empty,
+                Address = user.address ?? string.Empty,
+                AvatarUrl = user.avatar_url,
+                Role = user.role ?? string.Empty,
+                IsDisabled = user.is_disabled ?? false,
+                EmailConfirmed = user.email_confirmed ?? false,
+                TwoFactorEnabled = user.two_factor_enabled
+            };
+>>>>>>> Stashed changes
         }
 
         // --- UPDATE Profile ---
@@ -127,6 +158,7 @@ namespace ModernIssues.Repositories
 
             if (updateFields.Count <= 1) // Chỉ có updated_at
             {
+<<<<<<< Updated upstream
                 throw new ArgumentException("Không có trường nào để cập nhật.");
             }
 
@@ -142,6 +174,19 @@ namespace ModernIssues.Repositories
             {
                 return await db.QueryFirstOrDefaultAsync<UserDto>(sql, parameters) ?? new UserDto();
             }
+=======
+                UserId = user.user_id,
+                Username = user.username,
+                Email = user.email,
+                Phone = user.phone ?? string.Empty,
+                Address = user.address ?? string.Empty,
+                AvatarUrl = user.avatar_url,
+                Role = user.role ?? string.Empty,
+                IsDisabled = user.is_disabled ?? false,
+                EmailConfirmed = user.email_confirmed ?? false,
+                TwoFactorEnabled = user.two_factor_enabled
+            };
+>>>>>>> Stashed changes
         }
 
         // --- Get By Username (Ví dụ cho Login) ---
@@ -157,6 +202,23 @@ namespace ModernIssues.Repositories
                 // NOTE: Cần tạo một DTO khác nếu bạn muốn lấy cả mật khẩu (cho Login)
                 return await db.QueryFirstOrDefaultAsync<UserDto>(sql, new { Username = username }) ?? new UserDto();
             }
+<<<<<<< Updated upstream
+=======
+
+            return new UserDto
+            {
+                UserId = user.user_id,
+                Username = user.username,
+                Email = user.email,
+                Phone = user.phone ?? string.Empty,
+                Address = user.address ?? string.Empty,
+                AvatarUrl = user.avatar_url,
+                Role = user.role ?? string.Empty,
+                IsDisabled = user.is_disabled ?? false,
+                EmailConfirmed = user.email_confirmed ?? false,
+                TwoFactorEnabled = user.two_factor_enabled
+            };
+>>>>>>> Stashed changes
         }
         
         // File: Repositories/UserRepository.cs (Thêm vào cuối lớp)
@@ -224,7 +286,30 @@ namespace ModernIssues.Repositories
             
             var parameters = new
             {
+<<<<<<< Updated upstream
                 AvatarUrl = avatarUrl, UserId = userId
+=======
+                return new UserDto();
+            }
+
+            user.avatar_url = avatarUrl;
+            user.updated_at = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+
+            return new UserDto
+            {
+                UserId = user.user_id,
+                Username = user.username,
+                Email = user.email,
+                Phone = user.phone ?? string.Empty,
+                Address = user.address ?? string.Empty,
+                AvatarUrl = user.avatar_url,
+                Role = user.role ?? string.Empty,
+                IsDisabled = user.is_disabled ?? false,
+                EmailConfirmed = user.email_confirmed ?? false,
+                TwoFactorEnabled = user.two_factor_enabled
+>>>>>>> Stashed changes
             };
 
             using (var db = Connection)
@@ -236,6 +321,7 @@ namespace ModernIssues.Repositories
         // --- GET ALL USERS (Admin only) ---
         public async Task<List<UserDto>> GetAllUsersAsync()
         {
+<<<<<<< Updated upstream
             var sql = @"
                 SELECT 
                     user_id AS UserId,
@@ -252,6 +338,25 @@ namespace ModernIssues.Repositories
                 WHERE is_disabled = FALSE
                 ORDER BY created_at DESC;
             ";
+=======
+            var users = await _dbContext.users
+                .OrderByDescending(u => u.created_at)
+                .ThenByDescending(u => u.created_at)
+                .Select(u => new UserDto
+                {
+                    UserId = u.user_id,
+                    Username = u.username,
+                    Email = u.email,
+                    Phone = u.phone ?? string.Empty,
+                    Address = u.address ?? string.Empty,
+                    AvatarUrl = u.avatar_url,
+                    Role = u.role ?? string.Empty,
+                    IsDisabled = u.is_disabled ?? false,
+                    EmailConfirmed = u.email_confirmed ?? false,
+                    TwoFactorEnabled = u.two_factor_enabled
+                })
+                .ToListAsync();
+>>>>>>> Stashed changes
 
             using (var db = Connection)
             {

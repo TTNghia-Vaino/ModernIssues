@@ -386,7 +386,11 @@ namespace ModernIssues.Controllers
         // 6. GET CURRENT USER INFO: GET api/v1/User/CurrentUser
         // ============================================
         /// <summary>
+<<<<<<< Updated upstream
         /// Lấy thông tin user hiện tại.
+=======
+        /// Lấy thông tin user hiện tại bao gồm ảnh, số điện thoại, địa chỉ, trạng thái xác nhận mail, trạng thái 2FA.
+>>>>>>> Stashed changes
         /// </summary>
         /// <response code="200">Trả về thông tin user hiện tại.</response>
         /// <response code="401">Chưa đăng nhập.</response>
