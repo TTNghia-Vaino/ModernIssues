@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -12,14 +12,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Switch } from '../components/ui/switch';
-import { User, Lock, Mail, Phone, Shield, Upload } from 'lucide-react';
+import { User, Lock, Mail, Phone, Shield, Upload, X, CheckCircle } from 'lucide-react';
 import { getBaseURL } from '../config/api';
 import './ProfilePage.css';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, refreshUser } = useAuth();
   const { success, error: showError } = useNotification();
   
   // Get tab from URL query params
@@ -44,6 +44,7 @@ const ProfilePage = () => {
   // User profile data
   const [profileData, setProfileData] = useState(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [emailConfirmed, setEmailConfirmed] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -92,13 +93,35 @@ const ProfilePage = () => {
       try {
         setLoading(true);
         const profile = await userService.getCurrentUser();
+        
+        // API returns: { success, message, data: { userId, username, email, phone, address, avatarUrl, ... } }
+        // userService.getCurrentUser() should return the data object directly
+        if (import.meta.env.DEV) {
+          console.log('[ProfilePage] Profile data received:', profile);
+        }
+        
         setProfileData(profile);
+        
+        // Extract emailConfirmed status (explicitly check for true)
+        setEmailConfirmed(profile?.emailConfirmed === true);
+        
+        // Extract fields directly from profile (API structure: data object with phone, address, avatarUrl)
+        const username = profile?.username || profile?.name || user?.name || '';
+        const email = profile?.email || user?.email || '';
+        const phone = profile?.phone || user?.phone || '';
+        const address = profile?.address || user?.address || '';
+        const avatar = profile?.avatarUrl || profile?.avatar || user?.avatar || null;
+        
+        if (import.meta.env.DEV) {
+          console.log('[ProfilePage] Extracted values:', { username, email, phone, address, avatar });
+        }
+        
         setFormData({
-          username: profile.username || profile.name || '',
-          email: profile.email || '',
-          phone: profile.phone || '',
-          address: profile.address || '',
-          avatarUrl: profile.avatarUrl || profile.avatar || null,
+          username,
+          email,
+          phone,
+          address,
+          avatarUrl: avatar,
           confirmPassword: '',
         });
       } catch (err) {
@@ -175,6 +198,8 @@ const ProfilePage = () => {
       setAvatarFile(null);
       setAvatarPreview(null);
       setIsEditingProfile(false);
+      // Refresh user context to sync avatar
+      await refreshUser();
       success('Cập nhật thông tin thành công');
     } catch (err) {
       showError(err.message || 'Không thể cập nhật thông tin');
@@ -210,6 +235,8 @@ const ProfilePage = () => {
       }
       setAvatarFile(null);
       setAvatarPreview(null);
+      // Refresh user context to sync avatar
+      await refreshUser();
       success('Cập nhật ảnh đại diện thành công');
     } catch (err) {
       showError(err.message || 'Không thể cập nhật ảnh đại diện');
@@ -306,17 +333,50 @@ const ProfilePage = () => {
     }
   };
 
-  // Build avatar URL
-  const getAvatarUrl = () => {
+  // Build avatar URL with useMemo to avoid re-renders
+  const avatarUrl = useMemo(() => {
     if (avatarPreview) return avatarPreview;
-    if (formData.avatarUrl) {
-      if (formData.avatarUrl.startsWith('http')) return formData.avatarUrl;
+    
+    // Priority: formData.avatarUrl > profileData.avatarUrl > user.avatar
+    // API returns avatarUrl as filename (e.g., "Screenshot2025-08-12163453_20251129_074815_7973.png")
+    const avatarPath = formData.avatarUrl || profileData?.avatarUrl || profileData?.avatar || user?.avatar;
+    
+    if (avatarPath && avatarPath !== 'null' && avatarPath !== 'undefined' && avatarPath !== '') {
+      // If already a full URL, return as is
+      if (typeof avatarPath === 'string' && (avatarPath.startsWith('http://') || avatarPath.startsWith('https://'))) {
+        return avatarPath;
+      }
+      
+      // Normalize URL using backend domain: http://35.232.61.38:5000/Uploads/Images/{filename}
       const baseUrl = getBaseURL() || 'http://35.232.61.38:5000';
-      const cleanBaseUrl = baseUrl.replace(/\/v1$/, '');
-      return `${cleanBaseUrl}/Uploads/Images/${formData.avatarUrl}`;
+      const cleanBaseUrl = baseUrl.replace(/\/v1$/, '').replace(/\/$/, '');
+      return `${cleanBaseUrl}/Uploads/Images/${avatarPath}`;
     }
+    
     return null;
-  };
+  }, [avatarPreview, formData.avatarUrl, profileData, user]);
+
+  // Get display values with useMemo to avoid re-renders
+  // Priority: formData (when editing) > profileData (from API) > user (from context)
+  const displayValues = useMemo(() => {
+    const values = {
+      username: formData.username || profileData?.username || profileData?.name || user?.name || '',
+      email: formData.email || profileData?.email || user?.email || '',
+      phone: formData.phone || profileData?.phone || user?.phone || '',
+      address: formData.address || profileData?.address || user?.address || '',
+    };
+    
+    if (import.meta.env.DEV) {
+      console.log('[ProfilePage] displayValues calculated:', values, {
+        'formData.phone': formData.phone,
+        'profileData?.phone': profileData?.phone,
+        'formData.address': formData.address,
+        'profileData?.address': profileData?.address,
+      });
+    }
+    
+    return values;
+  }, [profileData, user, formData]);
 
 
   if (!isAuthenticated) {
@@ -410,9 +470,17 @@ const ProfilePage = () => {
                       onClick={() => document.getElementById('avatar-upload').click()}
                     >
                       <Avatar className="h-32 w-32 ring-4 ring-emerald-100 transition-all group-hover:ring-emerald-300">
-                        <AvatarImage src={getAvatarUrl()} />
+                        {avatarUrl ? (
+                          <AvatarImage 
+                            src={avatarUrl} 
+                            alt="Avatar"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
                         <AvatarFallback className="text-3xl bg-emerald-100 text-emerald-700">
-                          {formData.username?.charAt(0)?.toUpperCase() || profileData?.username?.charAt(0)?.toUpperCase() || 'U'}
+                          {displayValues.username?.charAt(0)?.toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
@@ -428,13 +496,13 @@ const ProfilePage = () => {
                 </div>
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="username">Tên đăng nhập</Label>
+                    <Label htmlFor="username">Tên người dùng</Label>
                     <Input
                       id="username"
-                      value={isEditingProfile ? formData.username : (profileData?.username || profileData?.name || '')}
+                      value={isEditingProfile ? formData.username : displayValues.username}
                       onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                      disabled
-                      className="bg-gray-50"
+                      disabled={!isEditingProfile}
+                      className={isEditingProfile ? "border-gray-300" : "bg-gray-50"}
                     />
                   </div>
                   <div className="space-y-2">
@@ -442,31 +510,43 @@ const ProfilePage = () => {
                     <Input
                       id="email-info"
                       type="email"
-                      value={isEditingProfile ? formData.email : (profileData?.email || '')}
+                      value={isEditingProfile ? formData.email : displayValues.email}
                       onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                       disabled={!isEditingProfile}
                       className={isEditingProfile ? "border-gray-300" : "bg-gray-50"}
                     />
+                    {!emailConfirmed && (
+                      <p className="text-sm text-red-600 mt-1">
+                        <a 
+                          href="/verify-email" 
+                          className="text-red-600 underline hover:text-red-700"
+                        >
+                          Xác thực email ngay
+                        </a>
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone-info">Số điện thoại</Label>
                     <Input
                       id="phone-info"
                       type="tel"
-                      value={isEditingProfile ? formData.phone : (profileData?.phone || '')}
+                      value={isEditingProfile ? formData.phone : displayValues.phone}
                       onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                       disabled={!isEditingProfile}
                       className={isEditingProfile ? "border-gray-300" : "bg-gray-50"}
+                      placeholder={!displayValues.phone ? 'Chưa có số điện thoại' : ''}
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="address">Địa chỉ</Label>
                     <Input
                       id="address"
-                      value={isEditingProfile ? formData.address : (profileData?.address || '')}
+                      value={isEditingProfile ? formData.address : displayValues.address}
                       onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
                       disabled={!isEditingProfile}
                       className={isEditingProfile ? "border-gray-300" : "bg-gray-50"}
+                      placeholder={!displayValues.address ? 'Chưa có địa chỉ' : ''}
                     />
                   </div>
                   {(isEditingProfile || avatarFile) && (

@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { listProducts } from '../services/productService';
 import { transformProducts } from '../utils/productUtils';
+import { getBaseURL } from '../config/api';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -298,7 +299,17 @@ const Navbar = () => {
                   <div className="user-dropdown">
                     <div className="user-dropdown-header">
                       <div className="user-avatar">
-                        <i className="far fa-user" aria-hidden="true"></i>
+                        {user?.avatar ? (
+                          <img 
+                            src={user.avatar.startsWith('http') 
+                              ? user.avatar 
+                              : `${getBaseURL()?.replace(/\/v1$/, '') || 'http://35.232.61.38:5000'}/Uploads/Images/${user.avatar}`}
+                            alt={getUserDisplayName()}
+                            className="user-avatar-img"
+                          />
+                        ) : (
+                          <i className="far fa-user" aria-hidden="true"></i>
+                        )}
                       </div>
                       <div className="user-info">
                         <div className="user-name">{getUserDisplayName()}</div>

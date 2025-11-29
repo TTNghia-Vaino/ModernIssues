@@ -717,6 +717,92 @@ export const changePhone = async (phoneData) => {
 };
 
 /**
+ * Resend email verification
+ * Endpoint: POST /v1/User/ResendVerificationEmail or POST /v1/Auth/ResendVerificationEmail
+ * Response format: { success: boolean, message: string, data: object, errors: string[] }
+ * @returns {Promise}
+ */
+export const resendVerificationEmail = async () => {
+  // Try User endpoint first, fallback to Auth endpoint
+  try {
+    const response = await apiPost('User/ResendVerificationEmail', {});
+    
+    // Handle Swagger response format
+    if (response && typeof response === 'object') {
+      if (response.success === false) {
+        throw new Error(response.message || 'Failed to resend verification email');
+      }
+      return response;
+    }
+    return response;
+  } catch (err) {
+    // Fallback to Auth endpoint
+    try {
+      const response = await apiPost('Auth/ResendVerificationEmail', {});
+      if (response && typeof response === 'object') {
+        if (response.success === false) {
+          throw new Error(response.message || 'Failed to resend verification email');
+        }
+        return response;
+      }
+      return response;
+    } catch (fallbackErr) {
+      throw new Error(err.message || fallbackErr.message || 'Failed to resend verification email');
+    }
+  }
+};
+
+/**
+ * Verify email with OTP
+ * Endpoint: POST /v1/User/VerifyEmail or POST /v1/Auth/VerifyEmail
+ * Response format: { success: boolean, message: string, data: object, errors: string[] }
+ * @param {object} verifyData - { otpCode } or { email, otpCode }
+ * @returns {Promise} - Updated user data
+ */
+export const verifyEmail = async (verifyData) => {
+  // Try User endpoint first, fallback to Auth endpoint
+  try {
+    const response = await apiPost('User/VerifyEmail', verifyData);
+    
+    // Handle Swagger response format
+    if (response && typeof response === 'object') {
+      if (response.success === false) {
+        throw new Error(response.message || 'Email verification failed');
+      }
+      
+      // Return data if available
+      if (response.data) {
+        return typeof response.data === 'string' ? (() => {
+          try { return JSON.parse(response.data); } catch { return response.data; }
+        })() : response.data;
+      }
+      return response;
+    }
+    return response;
+  } catch (err) {
+    // Fallback to Auth endpoint
+    try {
+      const response = await apiPost('Auth/VerifyEmail', verifyData);
+      if (response && typeof response === 'object') {
+        if (response.success === false) {
+          throw new Error(response.message || 'Email verification failed');
+        }
+        
+        if (response.data) {
+          return typeof response.data === 'string' ? (() => {
+            try { return JSON.parse(response.data); } catch { return response.data; }
+          })() : response.data;
+        }
+        return response;
+      }
+      return response;
+    } catch (fallbackErr) {
+      throw new Error(err.message || fallbackErr.message || 'Email verification failed');
+    }
+  }
+};
+
+/**
  * Get 2FA status
  * Endpoint: GET /v1/User/2FA
  * Response format: { success: boolean, message: string, data: { enabled, method }, errors: string[] }
