@@ -208,21 +208,21 @@ namespace ModernIssues.Controllers
                 return BadRequest(new { message = "Dữ liệu đăng nhập không hợp lệ. Vui lòng kiểm tra lại định dạng JSON." });
             }
 
-            Console.WriteLine($"[AuthController.Login] UsernameOrEmail: {request.UsernameOrEmail ?? "null"}, Password: {(string.IsNullOrEmpty(request.Password) ? "empty" : "***")}");
+            Console.WriteLine($"[AuthController.Login] Email: {request.Email ?? "null"}, Password: {(string.IsNullOrEmpty(request.Password) ? "empty" : "***")}");
 
-            if (string.IsNullOrWhiteSpace(request.UsernameOrEmail) || string.IsNullOrWhiteSpace(request.Password))
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
-                Console.WriteLine($"[AuthController.Login] Validation failed - UsernameOrEmail empty: {string.IsNullOrWhiteSpace(request.UsernameOrEmail)}, Password empty: {string.IsNullOrWhiteSpace(request.Password)}");
-                return BadRequest(new { message = "Tên đăng nhập/Email và mật khẩu không được để trống." });
+                Console.WriteLine($"[AuthController.Login] Validation failed - Email empty: {string.IsNullOrWhiteSpace(request.Email)}, Password empty: {string.IsNullOrWhiteSpace(request.Password)}");
+                return BadRequest(new { message = "Email và mật khẩu không được để trống." });
             }
 
-            // Tìm user theo username hoặc email
+            // Tìm user theo email
             var user = await _context.users
-                .FirstOrDefaultAsync(u => u.username == request.UsernameOrEmail || u.email == request.UsernameOrEmail);
+                .FirstOrDefaultAsync(u => u.email == request.Email);
 
             if (user == null)
             {
-                return BadRequest(new { message = "Sai tên đăng nhập/email hoặc mật khẩu." });
+                return BadRequest(new { message = "Sai email hoặc mật khẩu." });
             }
 
             // Kiểm tra tài khoản có bị vô hiệu hóa không
@@ -246,7 +246,7 @@ namespace ModernIssues.Controllers
 
             if (!isPasswordValid)
             {
-                return BadRequest(new { message = "Sai tên đăng nhập/email hoặc mật khẩu." });
+                return BadRequest(new { message = "Sai email hoặc mật khẩu." });
             }
 
             // Check if 2FA is enabled
