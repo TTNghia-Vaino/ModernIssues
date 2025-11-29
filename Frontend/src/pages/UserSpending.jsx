@@ -207,13 +207,12 @@ const UserSpending = () => {
     const maxValue = Math.max(...data, 0);
     const suggestedMax = maxValue > 0 ? Math.ceil(maxValue * 1.2) : 1000; // Default to 1000 if all zeros
 
-    // Create initial data with all zeros
-    const initialData = {
+    const chartData = {
       labels: labels,
       datasets: [
         {
           label: 'Chi tiêu (VNĐ)',
-          data: new Array(data.length).fill(0), // Start with zeros
+          data: data,
           backgroundColor: 'rgba(16, 185, 129, 0.8)',
           borderColor: 'rgba(16, 185, 129, 1)',
           borderWidth: 1,
@@ -221,29 +220,25 @@ const UserSpending = () => {
       ],
     };
 
-    // Final data with actual values
-    const finalData = {
-      labels: labels,
-      datasets: [
-        {
-          label: 'Chi tiêu (VNĐ)',
-          data: data, // Actual values
-          backgroundColor: 'rgba(16, 185, 129, 0.8)',
-          borderColor: 'rgba(16, 185, 129, 1)',
-          borderWidth: 1,
-        },
-      ],
-    };
-
-      // Create chart with zeros first (no animation)
+      // Create chart directly with data and animation (like AdminDashboard)
       try {
         chartInstanceRef.current = new ChartJS(chartRef.current, {
           type: 'bar',
-          data: initialData,
+          data: chartData,
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: false, // No animation for initial render
+            animation: {
+              duration: 1500, // 1.5 seconds like AdminDashboard
+              easing: 'easeOutCubic'
+            },
+            animations: {
+              y: {
+                duration: 1500, // 1.5 seconds
+                easing: 'easeOutCubic',
+                from: 0 // Bars animate from 0 (bottom) upward
+              }
+            },
             plugins: {
               legend: {
                 display: false,
@@ -269,24 +264,6 @@ const UserSpending = () => {
             }
           },
         });
-
-        if (import.meta.env.DEV) {
-          console.log('[UserSpending] Chart created with zeros, updating with real data...');
-        }
-
-        // Update chart with real data after a short delay to trigger animation from 0
-        setTimeout(() => {
-          if (chartInstanceRef.current) {
-            // Enable animation
-            chartInstanceRef.current.options.animation = {
-              duration: 3000, // 3 seconds
-              easing: 'easeOutCubic'
-            };
-            // Update data - Chart.js will animate from 0 (current) to actual values
-            chartInstanceRef.current.data = finalData;
-            chartInstanceRef.current.update('active'); // Update with animation
-          }
-        }, 100);
       } catch (chartErr) {
         console.error('[UserSpending] Error creating chart:', chartErr);
       }
