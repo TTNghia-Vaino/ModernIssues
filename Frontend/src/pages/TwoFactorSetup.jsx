@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   get2FAStatus, 
@@ -7,6 +7,8 @@ import {
   disable2FA,
   regenerateRecoveryCodes 
 } from '../services/twoFactorService';
+import OTPInput from '../components/OTPInput';
+import '../components/ForgotPasswordForm.css';
 import './TwoFactorSetup.css';
 
 const TwoFactorSetup = () => {
@@ -21,6 +23,7 @@ const TwoFactorSetup = () => {
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
   const [disablePassword, setDisablePassword] = useState('');
   const [step, setStep] = useState('status'); // 'status', 'setup', 'verify', 'complete'
+  const otpInputRef = useRef(null);
 
   useEffect(() => {
     fetchStatus();
@@ -52,6 +55,11 @@ const TwoFactorSetup = () => {
     }
   };
 
+  const handleOTPComplete = (codeString) => {
+    setVerifyCode(codeString);
+    setError('');
+  };
+
   const handleVerifySetup = async (e) => {
     e.preventDefault();
     
@@ -79,6 +87,10 @@ const TwoFactorSetup = () => {
       }
     } catch (err) {
       setError(err.message || 'Invalid code. Please try again.');
+      setVerifyCode('');
+      if (otpInputRef.current) {
+        otpInputRef.current.reset();
+      }
     } finally {
       setLoading(false);
     }
@@ -339,18 +351,13 @@ const TwoFactorSetup = () => {
             <p>Enter the 6-digit code from your authenticator app</p>
 
             <form onSubmit={handleVerifySetup} className="verify-form">
-              <input
-                type="text"
-                value={verifyCode}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '');
-                  if (value.length <= 6) setVerifyCode(value);
-                }}
-                placeholder="000000"
-                className="code-input"
-                maxLength="6"
-                autoComplete="off"
-                autoFocus
+              <OTPInput
+                ref={otpInputRef}
+                length={6}
+                onComplete={handleOTPComplete}
+                disabled={loading}
+                error={error}
+                autoFocus={true}
               />
 
               <div className="form-actions">

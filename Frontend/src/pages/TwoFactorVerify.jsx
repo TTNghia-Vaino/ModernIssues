@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { verify2FALogin } from '../services/twoFactorService';
+import OTPInput from '../components/OTPInput';
+import '../components/ForgotPasswordForm.css';
 import './TwoFactorVerify.css';
 
 const TwoFactorVerify = () => {
@@ -12,6 +14,7 @@ const TwoFactorVerify = () => {
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const otpInputRef = useRef(null);
   
   const email = location.state?.email;
   const method = location.state?.method || 'authenticator';
@@ -73,17 +76,14 @@ const TwoFactorVerify = () => {
   };
 
   const handleCodeChange = (e) => {
+    // Only for recovery code (not OTP)
     const value = e.target.value.replace(/[^0-9A-Za-z-]/g, ''); // Only numbers, letters, and hyphens
-    
-    if (useRecoveryCode) {
-      // Recovery code format: XXXX-XXXX
-      setCode(value.toUpperCase());
-    } else {
-      // TOTP code: only 6 digits
-      if (value.length <= 6) {
-        setCode(value);
-      }
-    }
+    setCode(value.toUpperCase());
+  };
+
+  const handleOTPComplete = (codeString) => {
+    setCode(codeString);
+    setError('');
   };
 
   return (
@@ -107,24 +107,38 @@ const TwoFactorVerify = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="verify-form">
-          <div className="form-group">
-            <label htmlFor="code">
-              {useRecoveryCode ? 'Recovery Code' : 'Verification Code'}
-            </label>
-            <input
-              type="text"
-              id="code"
-              value={code}
-              onChange={handleCodeChange}
-              placeholder={useRecoveryCode ? 'XXXX-XXXX' : '000000'}
-              className="verify-input"
-              autoComplete="off"
-              autoFocus
-              maxLength={useRecoveryCode ? 9 : 6}
+          {useRecoveryCode ? (
+            <div className="form-group">
+              <label htmlFor="code">Recovery Code</label>
+              <input
+                type="text"
+                id="code"
+                value={code}
+                onChange={handleCodeChange}
+                placeholder="XXXX-XXXX"
+                className="verify-input"
+                autoComplete="off"
+                autoFocus
+                maxLength={9}
+              />
+            </div>
+          ) : (
+            <OTPInput
+              ref={otpInputRef}
+              length={6}
+              onComplete={handleOTPComplete}
+              disabled={loading}
+              error={error}
+              autoFocus={true}
             />
-          </div>
+          )}
 
-          {error && (
+          {error && !useRecoveryCode && (
+            <div className="error-message" style={{ marginTop: '10px' }}>
+              {error}
+            </div>
+          )}
+          {error && useRecoveryCode && (
             <div className="error-message">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="12" cy="12" r="10" />
@@ -137,7 +151,7 @@ const TwoFactorVerify = () => {
           <button
             type="submit"
             className="verify-button"
-            disabled={loading || !code.trim()}
+            disabled={loading || !code.trim() || (!useRecoveryCode && code.length !== 6)}
           >
             {loading ? (
               <>
@@ -158,6 +172,9 @@ const TwoFactorVerify = () => {
                   setUseRecoveryCode(true);
                   setCode('');
                   setError('');
+                  if (otpInputRef.current) {
+                    otpInputRef.current.reset();
+                  }
                 }}
               >
                 Use recovery code instead
@@ -171,6 +188,9 @@ const TwoFactorVerify = () => {
                   setUseRecoveryCode(false);
                   setCode('');
                   setError('');
+                  if (otpInputRef.current) {
+                    otpInputRef.current.reset();
+                  }
                 }}
               >
                 Use authenticator code instead
