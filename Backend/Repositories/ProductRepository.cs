@@ -1,5 +1,3 @@
-using Dapper;
-using Npgsql;
 using ModernIssues.Models.DTOs;
 using System;
 using System.Collections.Generic;
@@ -8,7 +6,6 @@ using System.Threading.Tasks;
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Repositories.Service;
 using ModernIssues.Models.Entities;
-using System.Data;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -18,17 +15,12 @@ namespace ModernIssues.Repositories
 
     public class ProductRepository : IProductRepository
     {
-        private readonly string _connectionString;
         private readonly WebDbContext _context;
 
-        public ProductRepository(IConfiguration configuration, WebDbContext context)
+        public ProductRepository(WebDbContext context)
         {
-            _connectionString = configuration.GetConnectionString("DefaultConnection")
-                                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
             _context = context;
         }
-
-        private IDbConnection Connection => new NpgsqlConnection(_connectionString);
 
         /// <summary>
         /// Tạo serial numbers cho sản phẩm khi nhập hàng vào kho
@@ -100,8 +92,8 @@ namespace ModernIssues.Repositories
             {
                 ProductId = newProduct.product_id,
                 CategoryId = newProduct.category_id ?? 0,
-                ProductName = newProduct.product_name,
-                Description = newProduct.description,
+                ProductName = newProduct.product_name ?? string.Empty,
+                Description = newProduct.description ?? string.Empty,
                 Price = newProduct.price,
                 Stock = newProduct.stock ?? 0,
                 WarrantyPeriod = newProduct.warranty_period ?? 0,
@@ -114,109 +106,102 @@ namespace ModernIssues.Repositories
         // --- READ ONE ---
         public async Task<ProductDto> GetByIdAsync(int productId)
         {
-            var sql = @"
-                SELECT 
-                    p.product_id AS ProductId,
-                    p.category_id AS CategoryId,
-                    p.product_name AS ProductName,
-                    p.description AS Description,
-                    p.price AS Price,
-                    p.stock AS Stock,
-                    p.warranty_period AS WarrantyPeriod,
-                    p.image_url AS ImageUrl,
-                    p.on_prices AS OnPrices,
-                    COALESCE(c.category_name, 'Chưa phân loại') AS CategoryName
-                FROM products p
-                LEFT JOIN categories c ON p.category_id = c.category_id
-                WHERE p.product_id = @ProductId AND p.is_disabled = FALSE;
-            ";
-            using (var db = Connection)
-            {
-                return await db.QueryFirstOrDefaultAsync<ProductDto>(sql, new { ProductId = productId });
-            }
+            var product = await _context.products
+                .Where(p => p.product_id == productId && p.is_disabled == false)
+                .Select(p => new ProductDto
+                {
+                    ProductId = p.product_id,
+                    CategoryId = p.category_id ?? 0,
+                    ProductName = p.product_name ?? string.Empty,
+                    Description = p.description ?? string.Empty,
+                    Price = p.price,
+                    Stock = p.stock ?? 0,
+                    WarrantyPeriod = p.warranty_period ?? 0,
+                    ImageUrl = p.image_url ?? "default.jpg",
+                    OnPrices = p.on_prices ?? 0,
+                    CategoryName = p.category_id.HasValue 
+                        ? _context.categories
+                            .Where(c => c.category_id == p.category_id)
+                            .Select(c => c.category_name)
+                            .FirstOrDefault() ?? "Chưa phân loại"
+                        : "Chưa phân loại"
+                })
+                .FirstOrDefaultAsync();
+
+            return product ?? new ProductDto();
         }
 
         // --- READ ALL ---
         public async Task<IEnumerable<ProductDto>> GetAllAsync(int limit, int offset, int? categoryId, string search)
         {
-            var whereConditions = new List<string>();
-            var parameters = new DynamicParameters();
-
-            // Phân trang
-            parameters.Add("Limit", limit);
-            parameters.Add("Offset", offset);
-
-            // Chỉ lấy sản phẩm chưa bị ẩn
-            whereConditions.Add("p.is_disabled = FALSE");
+            var query = from p in _context.products
+                        join c in _context.categories on p.category_id equals c.category_id into categoryGroup
+                        from c in categoryGroup.DefaultIfEmpty()
+                        where p.is_disabled == false
+                        select new { p, CategoryName = c != null ? c.category_name : null };
 
             // Nếu có categoryId -> lọc theo
             if (categoryId.HasValue && categoryId.Value > 0)
             {
-                whereConditions.Add("p.category_id = @CategoryId");
-                parameters.Add("CategoryId", categoryId.Value);
+                query = query.Where(x => x.p.category_id == categoryId.Value);
             }
 
             // Nếu có từ khóa tìm kiếm -> thêm điều kiện search
             if (!string.IsNullOrWhiteSpace(search))
             {
-                whereConditions.Add("(p.product_name ILIKE @Search OR c.category_name ILIKE @Search)");
-                parameters.Add("Search", $"%{search}%");
+                var searchLower = search.ToLower();
+                query = query.Where(x => 
+                    x.p.product_name.ToLower().Contains(searchLower) ||
+                    (x.CategoryName != null && x.CategoryName.ToLower().Contains(searchLower))
+                );
             }
 
-            // Ghép WHERE cuối cùng
-            var whereClause = whereConditions.Any() ? "WHERE " + string.Join(" AND ", whereConditions) : "";
+            var products = await query
+                .OrderByDescending(x => x.p.product_id)
+                .Skip(offset)
+                .Take(limit)
+                .Select(x => new ProductDto
+                {
+                    ProductId = x.p.product_id,
+                    CategoryId = x.p.category_id ?? 0,
+                    ProductName = x.p.product_name ?? string.Empty,
+                    Description = x.p.description ?? string.Empty,
+                    Price = x.p.price,
+                    Stock = x.p.stock ?? 0,
+                    WarrantyPeriod = x.p.warranty_period ?? 0,
+                    ImageUrl = x.p.image_url ?? "default.jpg",
+                    OnPrices = x.p.on_prices ?? 0,
+                    CategoryName = x.CategoryName ?? "Chưa phân loại"
+                })
+                .ToListAsync();
 
-            // Truy vấn chính
-            var sql = $@"
-                SELECT
-                    p.product_id AS ProductId,
-                    p.category_id AS CategoryId,
-                    p.product_name AS ProductName,
-                    p.description AS Description,
-                    p.price AS Price,
-                    p.stock AS Stock,
-                    p.warranty_period AS WarrantyPeriod, 
-                    p.image_url AS ImageUrl,
-                    p.on_prices AS OnPrices,
-                    COALESCE(c.category_name, 'Chưa phân loại') AS CategoryName
-                FROM products p
-                LEFT JOIN categories c ON p.category_id = c.category_id
-                {whereClause}
-                ORDER BY p.product_id DESC
-                LIMIT @Limit OFFSET @Offset;
-            ";
-
-            using (var db = Connection)
-            {
-                return await db.QueryAsync<ProductDto>(sql, parameters);
-            }
+            return products;
         }
 
         // --- COUNT ALL (Hỗ trợ phân trang) ---
         public async Task<int> CountAllAsync(int? categoryId, string search)
         {
-            var whereConditions = new List<string> { "is_disabled = FALSE" };
-            var parameters = new DynamicParameters();
+            var query = from p in _context.products
+                        join c in _context.categories on p.category_id equals c.category_id into categoryGroup
+                        from c in categoryGroup.DefaultIfEmpty()
+                        where p.is_disabled == false
+                        select new { p, CategoryName = c != null ? c.category_name : null };
 
             if (categoryId.HasValue)
             {
-                whereConditions.Add("category_id = @CategoryId");
-                parameters.Add("CategoryId", categoryId.Value);
+                query = query.Where(x => x.p.category_id == categoryId.Value);
             }
+
             if (!string.IsNullOrEmpty(search))
             {
-                whereConditions.Add("product_name ILIKE @Search");
-                parameters.Add("Search", $"%{search}%");
+                var searchLower = search.ToLower();
+                query = query.Where(x => 
+                    x.p.product_name.ToLower().Contains(searchLower) ||
+                    (x.CategoryName != null && x.CategoryName.ToLower().Contains(searchLower))
+                );
             }
 
-            var whereClause = whereConditions.Any() ? "WHERE " + string.Join(" AND ", whereConditions) : "";
-
-            var sql = $"SELECT COUNT(*) FROM products {whereClause};";
-
-            using (var db = Connection)
-            {
-                return await db.ExecuteScalarAsync<int>(sql, parameters);
-            }
+            return await query.CountAsync();
         }
 
         // --- UPDATE ---
@@ -228,7 +213,7 @@ namespace ModernIssues.Repositories
 
             if (existingProduct == null)
             {
-                return null;
+                return new ProductDto();
             }
 
             // Cập nhật các thuộc tính
@@ -255,8 +240,8 @@ namespace ModernIssues.Repositories
             {
                 ProductId = existingProduct.product_id,
                 CategoryId = existingProduct.category_id ?? 0,
-                ProductName = existingProduct.product_name,
-                Description = existingProduct.description,
+                ProductName = existingProduct.product_name ?? string.Empty,
+                Description = existingProduct.description ?? string.Empty,
                 Price = existingProduct.price,
                 Stock = existingProduct.stock ?? 0,
                 WarrantyPeriod = existingProduct.warranty_period ?? 0,
@@ -269,33 +254,39 @@ namespace ModernIssues.Repositories
         // --- DELETE (Soft Delete) ---
         public async Task<bool> SoftDeleteAsync(int productId, int adminId)
         {
-            var sql = @"
-                UPDATE products
-                SET is_disabled = TRUE, updated_at = CURRENT_TIMESTAMP, updated_by = @AdminId
-                WHERE product_id = @ProductId;
-            ";
+            var product = await _context.products
+                .FirstOrDefaultAsync(p => p.product_id == productId);
 
-            using (var db = Connection)
+            if (product == null)
             {
-                var rowsAffected = await db.ExecuteAsync(sql, new { ProductId = productId, AdminId = adminId });
-                return rowsAffected > 0; // Trả về true nếu có ít nhất một dòng bị ảnh hưởng
+                return false;
             }
+
+            product.is_disabled = true;
+            product.updated_at = DateTime.UtcNow;
+            product.updated_by = adminId;
+
+            var rowsAffected = await _context.SaveChangesAsync();
+            return rowsAffected > 0;
         }
 
         // --- REACTIVATE (Kích hoạt lại sản phẩm) ---
         public async Task<bool> ReactivateAsync(int productId, int adminId)
         {
-            var sql = @"
-                UPDATE products
-                SET is_disabled = FALSE, updated_at = CURRENT_TIMESTAMP, updated_by = @AdminId
-                WHERE product_id = @ProductId AND is_disabled = TRUE;
-            ";
+            var product = await _context.products
+                .FirstOrDefaultAsync(p => p.product_id == productId && p.is_disabled == true);
 
-            using (var db = Connection)
+            if (product == null)
             {
-                var rowsAffected = await db.ExecuteAsync(sql, new { ProductId = productId, AdminId = adminId });
-                return rowsAffected > 0; // Trả về true nếu có ít nhất một dòng bị ảnh hưởng
+                return false;
             }
+
+            product.is_disabled = false;
+            product.updated_at = DateTime.UtcNow;
+            product.updated_by = adminId;
+
+            var rowsAffected = await _context.SaveChangesAsync();
+            return rowsAffected > 0;
         }
 
         // --- GENERATE SERIALS FOR ALL PRODUCTS (Tạo serial cho tất cả sản phẩm hiện có) ---
@@ -307,48 +298,34 @@ namespace ModernIssues.Repositories
         {
             int totalSerialsCreated = 0;
 
-            using (var db = Connection)
+            // Lấy tất cả sản phẩm có stock > 0
+            var products = await _context.products
+                .Where(p => p.stock > 0 && (p.is_disabled == null || p.is_disabled == false))
+                .OrderBy(p => p.product_id)
+                .Select(p => new { p.product_id, p.product_name, p.stock })
+                .ToListAsync();
+
+            foreach (var product in products)
             {
-                // Lấy tất cả sản phẩm có stock > 0
-                var productsSql = @"
-                    SELECT product_id, product_name, stock 
-                    FROM products 
-                    WHERE stock > 0 AND (is_disabled IS NULL OR is_disabled = FALSE)
-                    ORDER BY product_id;
-                ";
+                var productId = product.product_id;
+                var currentStock = product.stock ?? 0;
 
-                var products = await db.QueryAsync<(int product_id, string product_name, int? stock)>(productsSql);
+                if (currentStock <= 0) continue;
 
-                foreach (var product in products)
+                // Đếm số serial hiện có cho sản phẩm này (chưa bán: is_sold = false, còn bảo hành: is_disabled = false)
+                var existingSerialsCount = await _context.product_serials
+                    .CountAsync(ps => ps.product_id == productId 
+                        && (ps.is_sold == null || ps.is_sold == false)
+                        && (ps.is_disabled == null || ps.is_disabled == false));
+
+                // Tính số serial cần tạo thêm
+                var serialsNeeded = currentStock - existingSerialsCount;
+
+                if (serialsNeeded > 0)
                 {
-                    var productId = product.product_id;
-                    var currentStock = product.stock ?? 0;
-
-                    if (currentStock <= 0) continue;
-
-                    // Đếm số serial hiện có cho sản phẩm này (chưa bán: is_sold = false, còn bảo hành: is_disabled = false)
-                    var existingSerialsSql = @"
-                        SELECT COUNT(*) 
-                        FROM product_serials 
-                        WHERE product_id = @ProductId 
-                        AND (is_sold IS NULL OR is_sold = FALSE)
-                        AND (is_disabled IS NULL OR is_disabled = FALSE);
-                    ";
-
-                    var existingSerialsCount = await db.QueryFirstOrDefaultAsync<int>(
-                        existingSerialsSql, 
-                        new { ProductId = productId }
-                    );
-
-                    // Tính số serial cần tạo thêm
-                    var serialsNeeded = currentStock - existingSerialsCount;
-
-                    if (serialsNeeded > 0)
-                    {
-                        // Tạo serial cho phần thiếu
-                        await CreateProductSerialsAsync(productId, serialsNeeded, adminId);
-                        totalSerialsCreated += serialsNeeded;
-                    }
+                    // Tạo serial cho phần thiếu
+                    await CreateProductSerialsAsync(productId, serialsNeeded, adminId);
+                    totalSerialsCreated += serialsNeeded;
                 }
             }
 
