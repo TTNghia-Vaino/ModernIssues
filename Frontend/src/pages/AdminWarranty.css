@@ -1,3 +1,6 @@
+/* Import Admin Status Badge styles */
+@import '../components/admin/AdminStatusBadge.css';
+
 .admin-warranty {
   max-width: 1600px;
   margin: 0 auto;
@@ -411,36 +414,7 @@
   max-width: 100%;
 }
 
-.status-badge {
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-  text-align: center;
-  display: inline-block;
-  white-space: nowrap;
-  margin: 0 auto;
-}
-
-.status-pending {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.status-processing {
-  background: #cfe2ff;
-  color: #084298;
-}
-
-.status-completed {
-  background: #d4edda;
-  color: #155724;
-}
-
-.status-rejected {
-  background: #f8d7da;
-  color: #721c24;
-}
+/* Status badge styles đã được import từ AdminStatusBadge.css */
 
 .col-status {
   display: flex;

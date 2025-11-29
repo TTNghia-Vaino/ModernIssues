@@ -7,7 +7,6 @@ import { useAuth } from '../context/AuthContext'
 import { normalizeImageUrl } from '../utils/productUtils'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { Badge } from '../components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -18,7 +17,7 @@ import {
 } from '../components/ui/dialog'
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Eye, Edit, Trash2, Plus, X, RotateCcw } from 'lucide-react'
+import { Plus, X, RotateCcw } from 'lucide-react'
 import ImageCrop from '../components/ImageCrop'
 import {
   AdminPageHeader,
@@ -26,20 +25,16 @@ import {
   AdminDataTable,
   AdminPagination,
   AdminActionDropdown,
-  AdminLoadingOverlay
+  AdminLoadingOverlay,
+  AdminConfirmModal
 } from '../components/admin'
+import { AdminIcons, AdminActionLabels } from '../utils/adminConstants'
 import './AdminPromotions.css'
 
 const statusLabels = {
   active: 'Đang hoạt động',
   inactive: 'Chưa kích hoạt',
   expired: 'Đã hết hạn'
-}
-
-const statusColors = {
-  active: 'bg-green-100 text-green-800 border-green-300',
-  inactive: 'bg-gray-100 text-gray-800 border-gray-300',
-  expired: 'bg-red-100 text-red-800 border-red-300'
 }
 
 
@@ -64,6 +59,15 @@ const AdminPromotions = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [totalCount, setTotalCount] = useState(0)
+  
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    variant: 'default'
+  })
 
   // Form states
   const [formData, setFormData] = useState({
@@ -374,32 +378,37 @@ const AdminPromotions = () => {
     }
   }
 
-  const handleDeletePromotion = async (id) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa khuyến mãi này?')) {
-      return
-    }
-    
-    try {
-      setLoading(true)
-      await promotionService.deletePromotion(id)
-      success('Xóa khuyến mãi thành công!')
-      
-      // Update product prices after deleting promotion
-      try {
-        await promotionService.updatePromotionPrices()
-        console.log('[AdminPromotions] Product prices updated after deleting promotion')
-      } catch (priceError) {
-        console.warn('[AdminPromotions] Failed to update product prices:', priceError)
-        // Don't show error to user, just log it
+  const handleDeletePromotion = (id) => {
+    const promotion = promotions.find(p => p.id === id)
+    setConfirmModal({
+      open: true,
+      title: 'Xác nhận xóa',
+      message: `Bạn có chắc chắn muốn xóa khuyến mãi "${promotion?.name || id}"?`,
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          setLoading(true)
+          await promotionService.deletePromotion(id)
+          success('Xóa khuyến mãi thành công!')
+          
+          // Update product prices after deleting promotion
+          try {
+            await promotionService.updatePromotionPrices()
+            console.log('[AdminPromotions] Product prices updated after deleting promotion')
+          } catch (priceError) {
+            console.warn('[AdminPromotions] Failed to update product prices:', priceError)
+            // Don't show error to user, just log it
+          }
+          
+          loadPromotions() // Reload list
+        } catch (err) {
+          console.error('[AdminPromotions] Error deleting promotion:', err)
+          error(err.message || 'Không thể xóa khuyến mãi')
+        } finally {
+          setLoading(false)
+        }
       }
-      
-      loadPromotions() // Reload list
-    } catch (err) {
-      console.error('[AdminPromotions] Error deleting promotion:', err)
-      error(err.message || 'Không thể xóa khuyến mãi')
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   const openEditDialog = async (promotion) => {
@@ -607,29 +616,42 @@ const AdminPromotions = () => {
   })
 
   const getStatusBadge = (status) => {
+    // Map status to status-badge class
+    const statusClassMap = {
+      active: 'status-active',
+      inactive: 'status-inactive',
+      expired: 'status-expired'
+    };
+    
+    const statusClass = statusClassMap[status] || 'status-inactive';
+    
     return (
-      <Badge className={statusColors[status] || statusColors.inactive}>
+      <span className={`status-badge ${statusClass}`}>
         {statusLabels[status] || statusLabels.inactive}
-      </Badge>
+      </span>
     )
   }
 
-  const handleUpdatePrices = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn cập nhật giá sản phẩm theo khuyến mãi? Thao tác này sẽ cập nhật giá cho tất cả sản phẩm có khuyến mãi đang hoạt động.')) {
-      return
-    }
-    
-    try {
-      setLoading(true)
-      const result = await promotionService.updatePromotionPrices()
-      console.log('[AdminPromotions] Update prices result:', result)
-      success(`Đã cập nhật giá cho ${result?.updatedProductCount || 0} sản phẩm từ ${result?.processedPromotionCount || 0} khuyến mãi`)
-    } catch (err) {
-      console.error('[AdminPromotions] Error updating prices:', err)
-      error(err.message || 'Không thể cập nhật giá sản phẩm')
-    } finally {
-      setLoading(false)
-    }
+  const handleUpdatePrices = () => {
+    setConfirmModal({
+      open: true,
+      title: 'Xác nhận cập nhật giá',
+      message: 'Bạn có chắc chắn muốn cập nhật giá sản phẩm theo khuyến mãi? Thao tác này sẽ cập nhật giá cho tất cả sản phẩm có khuyến mãi đang hoạt động.',
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          setLoading(true)
+          const result = await promotionService.updatePromotionPrices()
+          console.log('[AdminPromotions] Update prices result:', result)
+          success(`Đã cập nhật giá cho ${result?.updatedProductCount || 0} sản phẩm từ ${result?.processedPromotionCount || 0} khuyến mãi`)
+        } catch (err) {
+          console.error('[AdminPromotions] Error updating prices:', err)
+          error(err.message || 'Không thể cập nhật giá sản phẩm')
+        } finally {
+          setLoading(false)
+        }
+      }
+    })
   }
 
   // Table columns config
@@ -685,18 +707,18 @@ const AdminPromotions = () => {
         <AdminActionDropdown
           actions={[
             {
-              label: 'Chi tiết',
-              icon: Eye,
+              label: AdminActionLabels.view,
+              icon: AdminIcons.view,
               onClick: () => openDetailDialog(promotion)
             },
             {
-              label: 'Chỉnh sửa',
-              icon: Edit,
+              label: AdminActionLabels.edit,
+              icon: AdminIcons.edit,
               onClick: () => openEditDialog(promotion)
             },
             {
-              label: 'Xóa',
-              icon: Trash2,
+              label: AdminActionLabels.delete,
+              icon: AdminIcons.delete,
               onClick: () => handleDeletePromotion(promotion.id || promotion.promotionId),
               className: 'text-red-600'
             }
@@ -1252,6 +1274,17 @@ const AdminPromotions = () => {
           onCancel={handleCropCancel}
         />
       )}
+
+      {/* Confirm Modal */}
+      <AdminConfirmModal
+        open={confirmModal.open}
+        onOpenChange={(open) => setConfirmModal({ ...confirmModal, open })}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.variant === 'danger' ? 'Xóa' : confirmModal.variant === 'warning' ? 'Cập nhật' : 'Xác nhận'}
+        onConfirm={confirmModal.onConfirm}
+      />
     </div>
   )
 }

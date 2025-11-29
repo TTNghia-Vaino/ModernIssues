@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as userService from '../services/userService';
 import { useAuth } from '../context/AuthContext';
-import { Edit, Trash2 } from 'lucide-react';
 import {
   AdminPageHeader,
   AdminFiltersBar,
@@ -9,8 +8,10 @@ import {
   AdminPagination,
   AdminActionDropdown,
   AdminLoadingOverlay,
-  AdminModal
+  AdminModal,
+  AdminConfirmModal
 } from '../components/admin';
+import { AdminIcons, AdminActionLabels } from '../utils/adminConstants';
 import './AdminUsers.css';
 
 const AdminUsers = () => {
@@ -44,6 +45,15 @@ const AdminUsers = () => {
   const [pageSize, setPageSize] = useState(10); // mặc định 10 người / trang
   // Checkbox selection state
   const [selectedUsers, setSelectedUsers] = useState(new Set());
+  
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    variant: 'default'
+  });
 
   // Load users from API on mount, but delay if in grace period
   useEffect(() => {
@@ -144,51 +154,65 @@ const AdminUsers = () => {
     }, 3000);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn vô hiệu hóa người dùng này? (Soft delete)')) {
-      try {
-        setLoadingUsers(prev => ({ ...prev, [id]: true }));
-        console.log('[AdminUsers] Deleting user:', id);
-        const response = await userService.deleteUser(id);
-        console.log('[AdminUsers] Delete response:', response);
-        
-        // Reload list from server to ensure sync
-        await loadUsers();
-        showNotification('Vô hiệu hóa người dùng thành công!');
-      } catch (error) {
-        console.error('[AdminUsers] Error deleting user:', error);
-        
-        // If user not found (404), reload list to remove from UI
-        if (error.message && error.message.includes('Không tìm thấy người dùng')) {
-          showNotification('Người dùng không tồn tại hoặc đã bị xóa. Đang làm mới danh sách...', 'error');
+  const handleDelete = (id) => {
+    const user = users.find(u => u.id === id);
+    setConfirmModal({
+      open: true,
+      title: 'Xác nhận vô hiệu hóa',
+      message: `Bạn có chắc chắn muốn vô hiệu hóa người dùng "${user?.name || user?.email || id}"? (Soft delete)`,
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          setLoadingUsers(prev => ({ ...prev, [id]: true }));
+          console.log('[AdminUsers] Deleting user:', id);
+          const response = await userService.deleteUser(id);
+          console.log('[AdminUsers] Delete response:', response);
+          
+          // Reload list from server to ensure sync
           await loadUsers();
-        } else {
-          showNotification('Lỗi khi vô hiệu hóa người dùng: ' + error.message, 'error');
+          showNotification('Vô hiệu hóa người dùng thành công!');
+        } catch (error) {
+          console.error('[AdminUsers] Error deleting user:', error);
+          
+          // If user not found (404), reload list to remove from UI
+          if (error.message && error.message.includes('Không tìm thấy người dùng')) {
+            showNotification('Người dùng không tồn tại hoặc đã bị xóa. Đang làm mới danh sách...', 'error');
+            await loadUsers();
+          } else {
+            showNotification('Lỗi khi vô hiệu hóa người dùng: ' + error.message, 'error');
+          }
+        } finally {
+          setLoadingUsers(prev => ({ ...prev, [id]: false }));
         }
-      } finally {
-        setLoadingUsers(prev => ({ ...prev, [id]: false }));
       }
-    }
+    });
   };
 
-  const handleActivate = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn kích hoạt lại người dùng này?')) {
-      try {
-        setLoadingUsers(prev => ({ ...prev, [id]: true }));
-        console.log('[AdminUsers] Activating user:', id);
-        const response = await userService.activateUser(id);
-        console.log('[AdminUsers] Activate response:', response);
-        
-        // Reload list from server to ensure sync
-        await loadUsers();
-        showNotification('Kích hoạt người dùng thành công!');
-      } catch (error) {
-        console.error('[AdminUsers] Error activating user:', error);
-        showNotification('Lỗi khi kích hoạt người dùng: ' + error.message, 'error');
-      } finally {
-        setLoadingUsers(prev => ({ ...prev, [id]: false }));
+  const handleActivate = (id) => {
+    const user = users.find(u => u.id === id);
+    setConfirmModal({
+      open: true,
+      title: 'Xác nhận kích hoạt',
+      message: `Bạn có chắc chắn muốn kích hoạt lại người dùng "${user?.name || user?.email || id}"?`,
+      variant: 'default',
+      onConfirm: async () => {
+        try {
+          setLoadingUsers(prev => ({ ...prev, [id]: true }));
+          console.log('[AdminUsers] Activating user:', id);
+          const response = await userService.activateUser(id);
+          console.log('[AdminUsers] Activate response:', response);
+          
+          // Reload list from server to ensure sync
+          await loadUsers();
+          showNotification('Kích hoạt người dùng thành công!');
+        } catch (error) {
+          console.error('[AdminUsers] Error activating user:', error);
+          showNotification('Lỗi khi kích hoạt người dùng: ' + error.message, 'error');
+        } finally {
+          setLoadingUsers(prev => ({ ...prev, [id]: false }));
+        }
       }
-    }
+    });
   };
 
   const validateForm = () => {
@@ -496,13 +520,13 @@ const AdminUsers = () => {
         <AdminActionDropdown
           actions={[
             {
-              label: 'Chỉnh sửa',
-              icon: Edit,
+              label: AdminActionLabels.edit,
+              icon: AdminIcons.edit,
               onClick: () => handleEdit(user)
             },
             {
-              label: !user.isDisabled ? '🗑️ Vô hiệu hóa' : '✅ Kích hoạt',
-              icon: Trash2,
+              label: !user.isDisabled ? AdminActionLabels.deactivate : AdminActionLabels.activate,
+              icon: !user.isDisabled ? AdminIcons.deactivate : AdminIcons.activate,
               onClick: () => {
                 if (!user.isDisabled) {
                   handleDelete(user.userId || user.id);
@@ -777,6 +801,17 @@ const AdminUsers = () => {
               </div>
             </form>
       </AdminModal>
+
+      {/* Confirm Modal */}
+      <AdminConfirmModal
+        open={confirmModal.open}
+        onOpenChange={(open) => setConfirmModal({ ...confirmModal, open })}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.variant === 'danger' ? 'Vô hiệu hóa' : 'Xác nhận'}
+        onConfirm={confirmModal.onConfirm}
+      />
     </div>
   );
 };

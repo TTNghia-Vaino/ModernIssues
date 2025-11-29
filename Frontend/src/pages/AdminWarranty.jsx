@@ -3,7 +3,6 @@ import * as warrantyService from '../services/warrantyService'
 import { useNotification } from '../context/NotificationContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { Badge } from '../components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -15,15 +14,17 @@ import {
 import { Label } from '../components/ui/label'
 import { Textarea } from '../components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Eye, Edit, Trash2, Clock } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import {
   AdminPageHeader,
   AdminFiltersBar,
   AdminDataTable,
   AdminPagination,
   AdminActionDropdown,
-  AdminLoadingOverlay
+  AdminLoadingOverlay,
+  AdminConfirmModal
 } from '../components/admin'
+import { AdminIcons, AdminActionLabels } from '../utils/adminConstants'
 import './AdminWarranty.css'
 
 // Warranty Timeline Component
@@ -126,18 +127,23 @@ const statusLabels = {
   rejected: 'Từ chối'
 }
 
-const statusColors = {
-  waiting_reception: 'bg-yellow-100 text-yellow-800',
-  inspecting: 'bg-blue-100 text-blue-800',
-  repairing: 'bg-purple-100 text-purple-800',
-  quality_check: 'bg-indigo-100 text-indigo-800',
-  completed: 'bg-green-100 text-green-800',
-  returned: 'bg-emerald-100 text-emerald-800',
-  // Legacy statuses
-  pending: 'bg-yellow-100 text-yellow-800',
-  processing: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800'
+// Helper function to get status badge class
+const getStatusBadgeClass = (status) => {
+  // Map status to status-badge class
+  const statusClassMap = {
+    waiting_reception: 'status-waiting_reception',
+    inspecting: 'status-inspecting',
+    repairing: 'status-repairing',
+    quality_check: 'status-quality_check',
+    completed: 'status-completed',
+    returned: 'status-returned',
+    rejected: 'status-rejected',
+    // Legacy statuses
+    pending: 'status-pending',
+    processing: 'status-processing'
+  };
+  
+  return statusClassMap[status] || 'status-pending';
 }
 
   // Helper function to map API response to UI format (WarrantyClaimListDto)
@@ -280,6 +286,15 @@ export default function WarrantyPage() {
   const [warrantyHistory, setWarrantyHistory] = useState([])
   const [imageFiles, setImageFiles] = useState([]) // Array of File objects
   const [imagePreviews, setImagePreviews] = useState([]) // Array of preview URLs
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    variant: 'default'
+  })
+  
   const [pagination, setPagination] = useState({
     currentPage: 1,
     limit: 10,
@@ -518,22 +533,27 @@ export default function WarrantyPage() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa yêu cầu bảo hành này?')) {
-      return
-    }
-
-    try {
-      setLoading(true)
-      await warrantyService.deleteWarranty(id)
-      success('Xóa bảo hành thành công')
-      await loadWarranties()
-    } catch (error) {
-      console.error('Error deleting warranty:', error)
-      error(error.message || 'Không thể xóa bảo hành')
-    } finally {
-      setLoading(false)
-    }
+  const handleDelete = (id) => {
+    const warranty = warranties.find(w => w.id === id)
+    setConfirmModal({
+      open: true,
+      title: 'Xác nhận xóa',
+      message: `Bạn có chắc chắn muốn xóa yêu cầu bảo hành này?`,
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          setLoading(true)
+          await warrantyService.deleteWarranty(id)
+          success('Xóa bảo hành thành công')
+          await loadWarranties()
+        } catch (error) {
+          console.error('Error deleting warranty:', error)
+          error(error.message || 'Không thể xóa bảo hành')
+        } finally {
+          setLoading(false)
+        }
+      }
+    })
   }
 
   const handleSubmit = async () => {
@@ -619,18 +639,18 @@ export default function WarrantyPage() {
         <AdminActionDropdown
           actions={[
             {
-              label: 'Chi tiết',
-              icon: Eye,
+              label: AdminActionLabels.view,
+              icon: AdminIcons.view,
               onClick: () => handleView(warranty)
             },
             {
-              label: 'Chỉnh sửa',
-              icon: Edit,
+              label: AdminActionLabels.edit,
+              icon: AdminIcons.edit,
               onClick: () => handleEdit(warranty)
             },
             {
-              label: 'Xóa',
-              icon: Trash2,
+              label: AdminActionLabels.delete,
+              icon: AdminIcons.delete,
               onClick: () => handleDelete(warranty.id),
               className: 'text-red-600'
             }
@@ -1079,9 +1099,9 @@ export default function WarrantyPage() {
                   {selectedWarranty._apiData?.isExpired !== undefined && (
                     <div className="detail-item">
                       <label className="detail-label">Trạng thái hết hạn</label>
-                      <Badge className={selectedWarranty._apiData.isExpired ? statusColors.rejected : statusColors.completed}>
+                      <span className={`status-badge ${selectedWarranty._apiData.isExpired ? 'status-expired' : 'status-active'}`}>
                         {selectedWarranty._apiData.isExpired ? 'Đã hết hạn' : 'Còn hiệu lực'}
-                      </Badge>
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1099,9 +1119,9 @@ export default function WarrantyPage() {
                   )}
                   <div className="detail-item">
                     <label className="detail-label">Trạng thái</label>
-                    <Badge className={statusColors[selectedWarranty.status] || statusColors.pending}>
+                    <span className={`status-badge ${getStatusBadgeClass(selectedWarranty.status)}`}>
                       {selectedWarranty.statusDisplay || statusLabels[selectedWarranty.status] || 'Chờ xử lý'}
-                    </Badge>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1166,6 +1186,17 @@ export default function WarrantyPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Modal */}
+      <AdminConfirmModal
+        open={confirmModal.open}
+        onOpenChange={(open) => setConfirmModal({ ...confirmModal, open })}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.variant === 'danger' ? 'Xóa' : 'Xác nhận'}
+        onConfirm={confirmModal.onConfirm}
+      />
     </div>
   )
 }

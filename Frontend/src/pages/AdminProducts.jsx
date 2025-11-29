@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import * as productService from '../services/productService';
 import { getCategories } from '../services/categoryService';
 import { useAuth } from '../context/AuthContext';
-import { Edit, RotateCcw } from 'lucide-react';
 import {
   AdminPageHeader,
   AdminFiltersBar,
@@ -10,8 +9,10 @@ import {
   AdminPagination,
   AdminActionDropdown,
   AdminLoadingOverlay,
-  AdminModal
+  AdminModal,
+  AdminConfirmModal
 } from '../components/admin';
+import { AdminIcons, AdminActionLabels } from '../utils/adminConstants';
 import './AdminProducts.css';
 
 const AdminProducts = () => {
@@ -51,6 +52,15 @@ const AdminProducts = () => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [updatingVector, setUpdatingVector] = useState(null); // Track which product is updating vector
+  
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    variant: 'default'
+  });
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -287,114 +297,132 @@ const AdminProducts = () => {
     setShowModal(true);
   };
 
-  const handleDisable = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn ngừng bán sản phẩm này?')) {
-      try {
-        setLoading(true);
-        const product = products.find(p => p.id === id);
-        if (!product) {
-          throw new Error('Không tìm thấy sản phẩm');
+  const handleDisable = (id) => {
+    const product = products.find(p => p.id === id);
+    setConfirmModal({
+      open: true,
+      title: 'Xác nhận ngừng bán',
+      message: `Bạn có chắc chắn muốn ngừng bán sản phẩm "${product?.productName || product?.name || id}"?`,
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          if (!product) {
+            throw new Error('Không tìm thấy sản phẩm');
+          }
+          
+          // Use DELETE API to soft delete (set is_disabled = true)
+          // DELETE /v1/Product/{id} - Vô hiệu hóa sản phẩm (soft delete)
+          console.log('[AdminProducts.handleDisable] Soft deleting product:', id);
+          const deleteResponse = await productService.deleteProduct(id);
+          console.log('[AdminProducts.handleDisable] Product soft deleted successfully, response:', deleteResponse);
+          
+          // Update local state immediately for instant UI feedback
+          // DELETE API sets is_disabled = true, so we set isDisabled to true
+          setProducts(prevProducts => 
+            prevProducts.map(p => 
+              p.id === id 
+                ? { ...p, isDisabled: true } 
+                : p
+            )
+          );
+          
+          // Don't reload automatically - state is already updated
+          // User can manually refresh if needed, or reload will happen on next page load
+          showNotification('Ngừng bán sản phẩm thành công!');
+        } catch (error) {
+          console.error('[AdminProducts.handleDisable] Error disabling product:', error);
+          showNotification('Lỗi khi ngừng bán sản phẩm: ' + error.message, 'error');
+        } finally {
+          setLoading(false);
         }
-        
-        // Use DELETE API to soft delete (set is_disabled = true)
-        // DELETE /v1/Product/{id} - Vô hiệu hóa sản phẩm (soft delete)
-        console.log('[AdminProducts.handleDisable] Soft deleting product:', id);
-        const deleteResponse = await productService.deleteProduct(id);
-        console.log('[AdminProducts.handleDisable] Product soft deleted successfully, response:', deleteResponse);
-        
-        // Update local state immediately for instant UI feedback
-        // DELETE API sets is_disabled = true, so we set isDisabled to true
-        setProducts(prevProducts => 
-          prevProducts.map(p => 
-            p.id === id 
-              ? { ...p, isDisabled: true } 
-              : p
-          )
-        );
-        
-        // Don't reload automatically - state is already updated
-        // User can manually refresh if needed, or reload will happen on next page load
-        showNotification('Ngừng bán sản phẩm thành công!');
-      } catch (error) {
-        console.error('[AdminProducts.handleDisable] Error disabling product:', error);
-        showNotification('Lỗi khi ngừng bán sản phẩm: ' + error.message, 'error');
-      } finally {
-        setLoading(false);
       }
-    }
+    });
   };
 
-  const handleActivate = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn kích hoạt lại sản phẩm này?')) {
-      try {
-        setLoading(true);
-        const product = products.find(p => p.id === id);
-        if (!product) {
-          throw new Error('Không tìm thấy sản phẩm');
+  const handleActivate = (id) => {
+    const product = products.find(p => p.id === id);
+    setConfirmModal({
+      open: true,
+      title: 'Xác nhận kích hoạt',
+      message: `Bạn có chắc chắn muốn kích hoạt lại sản phẩm "${product?.productName || product?.name || id}"?`,
+      variant: 'default',
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          if (!product) {
+            throw new Error('Không tìm thấy sản phẩm');
+          }
+          
+          // Update product with isDisabled = false
+          const updateData = {
+            productName: product.productName || product.name,
+            description: product.description || '',
+            price: product.price || 0,
+            categoryId: product.categoryId || product.category,
+            stock: product.stock || 0,
+            warrantyPeriod: product.warrantyPeriod || 12,
+            isDisabled: false, // Set to false to activate product
+            currentImageUrl: product.imageUrl || product.image
+          };
+          
+          console.log('[AdminProducts.handleActivate] Updating product:', id, 'with data:', updateData);
+          const updatedProduct = await productService.updateProduct(id, updateData, null);
+          console.log('[AdminProducts.handleActivate] Product updated successfully, response:', updatedProduct);
+          
+          // Update local state immediately - we know isDisabled should be false (we're activating)
+          // Use the value we sent to API, not response (response may not include isDisabled)
+          setProducts(prevProducts => 
+            prevProducts.map(p => 
+              p.id === id 
+                ? { 
+                    ...p, 
+                    isDisabled: false, // We're activating, so isDisabled = false
+                    // Also update other fields from response if available
+                    ...(updatedProduct?.productName && { productName: updatedProduct.productName, name: updatedProduct.productName }),
+                    ...(updatedProduct?.price !== undefined && { price: updatedProduct.price }),
+                    ...(updatedProduct?.stock !== undefined && { stock: updatedProduct.stock })
+                  } 
+                : p
+            )
+          );
+          
+          // Don't reload automatically - state is already updated correctly
+          // User can manually refresh if needed, or reload will happen on next page load
+          showNotification('Kích hoạt sản phẩm thành công!');
+        } catch (error) {
+          console.error('[AdminProducts.handleActivate] Error activating product:', error);
+          showNotification('Lỗi khi kích hoạt sản phẩm: ' + error.message, 'error');
+        } finally {
+          setLoading(false);
         }
-        
-        // Update product with isDisabled = false
-        const updateData = {
-          productName: product.productName || product.name,
-          description: product.description || '',
-          price: product.price || 0,
-          categoryId: product.categoryId || product.category,
-          stock: product.stock || 0,
-          warrantyPeriod: product.warrantyPeriod || 12,
-          isDisabled: false, // Set to false to activate product
-          currentImageUrl: product.imageUrl || product.image
-        };
-        
-        console.log('[AdminProducts.handleActivate] Updating product:', id, 'with data:', updateData);
-        const updatedProduct = await productService.updateProduct(id, updateData, null);
-        console.log('[AdminProducts.handleActivate] Product updated successfully, response:', updatedProduct);
-        
-        // Update local state immediately - we know isDisabled should be false (we're activating)
-        // Use the value we sent to API, not response (response may not include isDisabled)
-        setProducts(prevProducts => 
-          prevProducts.map(p => 
-            p.id === id 
-              ? { 
-                  ...p, 
-                  isDisabled: false, // We're activating, so isDisabled = false
-                  // Also update other fields from response if available
-                  ...(updatedProduct?.productName && { productName: updatedProduct.productName, name: updatedProduct.productName }),
-                  ...(updatedProduct?.price !== undefined && { price: updatedProduct.price }),
-                  ...(updatedProduct?.stock !== undefined && { stock: updatedProduct.stock })
-                } 
-              : p
-          )
-        );
-        
-        // Don't reload automatically - state is already updated correctly
-        // User can manually refresh if needed, or reload will happen on next page load
-        showNotification('Kích hoạt sản phẩm thành công!');
-      } catch (error) {
-        console.error('[AdminProducts.handleActivate] Error activating product:', error);
-        showNotification('Lỗi khi kích hoạt sản phẩm: ' + error.message, 'error');
-      } finally {
-        setLoading(false);
       }
-    }
+    });
   };
 
-  const handleUpdateVector = async (productId, productName) => {
-    if (window.confirm(`Bạn có chắc chắn muốn cập nhật vector cho sản phẩm "${productName}"?\n\nVector được dùng cho hệ thống tìm kiếm và gợi ý sản phẩm.`)) {
-      try {
-        setUpdatingVector(productId);
-        console.log('[AdminProducts.handleUpdateVector] Updating vector for product:', productId);
-        
-        const result = await productService.updateVectorByProductId(productId);
-        
-        console.log('[AdminProducts.handleUpdateVector] Vector updated successfully:', result);
-        showNotification(`Cập nhật vector thành công cho sản phẩm "${productName}"!`);
-      } catch (error) {
-        console.error('[AdminProducts.handleUpdateVector] Error updating vector:', error);
-        showNotification(`Lỗi khi cập nhật vector: ${error.message || 'Unknown error'}`, 'error');
-      } finally {
-        setUpdatingVector(null);
+  const handleUpdateVector = (productId, productName) => {
+    setConfirmModal({
+      open: true,
+      title: 'Xác nhận cập nhật vector',
+      message: `Bạn có chắc chắn muốn cập nhật vector cho sản phẩm "${productName}"?\n\nVector được dùng cho hệ thống tìm kiếm và gợi ý sản phẩm.`,
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          setUpdatingVector(productId);
+          console.log('[AdminProducts.handleUpdateVector] Updating vector for product:', productId);
+          
+          const result = await productService.updateVectorByProductId(productId);
+          
+          console.log('[AdminProducts.handleUpdateVector] Vector updated successfully:', result);
+          showNotification(`Cập nhật vector thành công cho sản phẩm "${productName}"!`);
+        } catch (error) {
+          console.error('[AdminProducts.handleUpdateVector] Error updating vector:', error);
+          showNotification(`Lỗi khi cập nhật vector: ${error.message || 'Unknown error'}`, 'error');
+        } finally {
+          setUpdatingVector(null);
+        }
       }
-    }
+    });
   };
 
   const validateForm = () => {
@@ -867,12 +895,13 @@ const AdminProducts = () => {
         <AdminActionDropdown
           actions={[
             {
-              label: 'Chỉnh sửa',
-              icon: Edit,
+              label: AdminActionLabels.edit,
+              icon: AdminIcons.edit,
               onClick: () => handleEdit(product)
             },
             {
-              label: product.isDisabled ? '✅ Kích hoạt' : '🗑️ Ngừng bán',
+              label: product.isDisabled ? AdminActionLabels.enable : AdminActionLabels.disable,
+              icon: product.isDisabled ? AdminIcons.activate : AdminIcons.deactivate,
               onClick: () => {
                 if (product.isDisabled) {
                   handleActivate(product.id || product.productId);
@@ -882,8 +911,8 @@ const AdminProducts = () => {
               }
             },
             {
-              label: updatingVector === (product.id || product.productId) ? '⏳ Đang cập nhật...' : '🔄 Cập nhật Vector',
-              icon: RotateCcw,
+              label: updatingVector === (product.id || product.productId) ? 'Đang cập nhật...' : 'Cập nhật Vector',
+              icon: AdminIcons.reset,
               onClick: () => handleUpdateVector(product.id || product.productId, product.name || product.productName),
               className: updatingVector === (product.id || product.productId) ? 'opacity-60 cursor-wait' : ''
             }
@@ -1290,6 +1319,17 @@ const AdminProducts = () => {
           itemName="sản phẩm"
         />
       )}
+
+      {/* Confirm Modal */}
+      <AdminConfirmModal
+        open={confirmModal.open}
+        onOpenChange={(open) => setConfirmModal({ ...confirmModal, open })}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.variant === 'danger' ? 'Vô hiệu hóa' : confirmModal.variant === 'warning' ? 'Cập nhật' : 'Xác nhận'}
+        onConfirm={confirmModal.onConfirm}
+      />
     </div>
   );
 };

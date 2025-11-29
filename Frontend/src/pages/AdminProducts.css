@@ -432,13 +432,8 @@
   color: #d32f2f;
 }
 
-.status-badge {
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
+/* Import Admin Status Badge styles */
+@import '../components/admin/AdminStatusBadge.css';
 
 .col-status {
   min-width: 0;
@@ -452,26 +447,6 @@
   align-items: center;
   flex-direction: column;
   width: 100%;
-}
-
-.status-active {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.status-inactive {
-  background: #f5f5f5;
-  color: #757575;
-}
-
-.status-disabled {
-  background: #ffebee;
-  color: #c62828;
-}
-
-.status-out-of-stock {
-  background: #fff3e0;
-  color: #e65100;
 }
 
 .col-actions {

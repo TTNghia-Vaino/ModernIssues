@@ -1,3 +1,6 @@
+/* Import Admin Status Badge styles */
+@import '../components/admin/AdminStatusBadge.css';
+
 .admin-promotions {
   max-width: 1600px; /* Quy định chung: 1600px */
   margin: 0 auto;
@@ -154,6 +157,14 @@
   grid-column: unset !important; /* Remove any grid-column to let grid-template-columns control layout */
 }
 
+/* Exception: col-name should be left-aligned */
+.promotions-table .table-header > .col-name,
+.admin-promotions .table-header > .col-name {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  align-items: flex-start !important;
+}
+
 /* Removed old .table-header > * rule - using .promotions-table .table-header > * instead */
 
 .promotions-table .table-row,
@@ -284,11 +295,48 @@
   justify-content: flex-start !important;
   text-align: left !important;
   align-items: flex-start !important;
-  padding: 0 2px !important;
+  padding: 12px 12px 12px 16px !important;
   min-width: 0 !important;
   max-width: 100% !important;
   overflow: hidden !important;
   grid-column: 2 !important; /* Explicitly set to column 2 */
+}
+
+/* ULTIMATE OVERRIDE - Highest specificity for header col-name to ensure left alignment */
+.promotions-table .table-header .col-name,
+.admin-promotions .table-header .col-name,
+.data-table.promotions-table .table-header .col-name,
+.admin-promotions .data-table .table-header .col-name,
+.promotions-table .table-header > .col-name,
+.admin-promotions .table-header > .col-name {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  align-items: flex-start !important;
+  display: flex !important;
+}
+
+/* Ensure text content inside header col-name is left-aligned */
+.promotions-table .table-header .col-name,
+.admin-promotions .table-header .col-name {
+  text-align: left !important;
+  width: 100% !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+}
+
+/* Force left alignment for all children and text nodes */
+.promotions-table .table-header .col-name *,
+.admin-promotions .table-header .col-name * {
+  text-align: left !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+  align-self: flex-start !important;
+}
+
+/* Direct text node alignment */
+.promotions-table .table-header .col-name {
+  text-align: left !important;
 }
 
 .promotion-name {
@@ -297,6 +345,7 @@
   margin: 0;
   text-align: left !important;
   width: 100%;
+  padding-left: 0 !important;
 }
 
 .promotion-description {

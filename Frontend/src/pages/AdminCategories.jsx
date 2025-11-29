@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getCategoryTreeFull, createCategory, updateCategory, deleteCategory } from '../services/categoryService';
 import { getProductCountByCategory, listProducts } from '../services/productService';
-import { Edit, CheckCircle, XCircle } from 'lucide-react';
 import {
   AdminPageHeader,
   AdminFiltersBar,
@@ -10,8 +9,10 @@ import {
   AdminPagination,
   AdminLoadingOverlay,
   AdminActionDropdown,
-  AdminModal
+  AdminModal,
+  AdminConfirmModal
 } from '../components/admin';
+import { AdminIcons, AdminActionLabels } from '../utils/adminConstants';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
@@ -37,9 +38,20 @@ const AdminCategories = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    variant: 'default'
+  });
   const [formData, setFormData] = useState({
     name: '',
-    parentId: null
+    parentId: null,
+    description: ''
   });
 
   // Load categories from API
@@ -252,7 +264,7 @@ const AdminCategories = () => {
     }
 
     try {
-      const allCategories = findAllCategories(categories);
+      setIsSubmitting(true);
       const newCategory = await createCategory({
         categoryName: formData.name.trim(),
         parentId: formData.parentId
@@ -263,11 +275,13 @@ const AdminCategories = () => {
       
       showNotification('Thêm danh mục thành công!', 'success');
       setIsAddDialogOpen(false);
-      setFormData({ name: '', parentId: null });
+      setFormData({ name: '', parentId: null, description: '' });
     } catch (error) {
       console.error('[AdminCategories] Failed to add category:', error);
       const errorMessage = error.data?.message || error.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
       showNotification(errorMessage, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -279,8 +293,10 @@ const AdminCategories = () => {
     }
     
     try {
+      setIsSubmitting(true);
       await updateCategory(selectedCategory.id, {
-        categoryName: formData.name.trim()
+        categoryName: formData.name.trim(),
+        description: formData.description || ''
       });
 
       // Reload categories
@@ -289,50 +305,70 @@ const AdminCategories = () => {
       showNotification('Cập nhật danh mục thành công!', 'success');
       setIsEditDialogOpen(false);
       setSelectedCategory(null);
-      setFormData({ name: '', parentId: null });
+      setFormData({ name: '', parentId: null, description: '' });
     } catch (error) {
       console.error('[AdminCategories] Failed to update category:', error);
       const errorMessage = error.data?.message || error.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
       showNotification(errorMessage, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
 
-  const handleToggleStatus = async (category) => {
+  const handleToggleStatus = (category) => {
     const newStatus = !category.isDisabled;
     const action = newStatus ? 'vô hiệu hóa' : 'kích hoạt';
     
-    if (window.confirm(`Bạn có chắc muốn ${action} danh mục "${category.name}"?`)) {
-      try {
-        const response = await updateCategory(category.id, {
-          isDisabled: newStatus
-        });
-        // Reload categories để cập nhật trạng thái
-        await loadCategories();
-        showNotification(`${action.charAt(0).toUpperCase() + action.slice(1)} danh mục thành công!`, 'success');
-      } catch (error) {
-        console.error('[AdminCategories] Failed to toggle category status:', error);
-        // Kiểm tra nếu lỗi là "Không tìm thấy" nhưng thực ra đã update thành công
-        const errorMessage = error.data?.message || error.message || '';
-        if (errorMessage.includes('Không tìm thấy') && newStatus) {
-          // Nếu vô hiệu hóa thành công nhưng API trả về "Không tìm thấy" (vì filter disabled)
-          // Vẫn reload và thông báo thành công
+    setConfirmModal({
+      open: true,
+      title: 'Xác nhận',
+      message: `Bạn có chắc muốn ${action} danh mục "${category.name}"?`,
+      variant: newStatus ? 'danger' : 'default',
+      onConfirm: async () => {
+        try {
+          const response = await updateCategory(category.id, {
+            isDisabled: newStatus
+          });
+          // Reload categories để cập nhật trạng thái
           await loadCategories();
-          showNotification('Vô hiệu hóa danh mục thành công!', 'success');
-        } else {
-          showNotification(errorMessage || 'Có lỗi xảy ra. Vui lòng thử lại.', 'error');
+          showNotification(`${action.charAt(0).toUpperCase() + action.slice(1)} danh mục thành công!`, 'success');
+        } catch (error) {
+          console.error('[AdminCategories] Failed to toggle category status:', error);
+          // Kiểm tra nếu lỗi là "Không tìm thấy" nhưng thực ra đã update thành công
+          const errorMessage = error.data?.message || error.message || '';
+          if (errorMessage.includes('Không tìm thấy') && newStatus) {
+            // Nếu vô hiệu hóa thành công nhưng API trả về "Không tìm thấy" (vì filter disabled)
+            // Vẫn reload và thông báo thành công
+            await loadCategories();
+            showNotification('Vô hiệu hóa danh mục thành công!', 'success');
+          } else {
+            showNotification(errorMessage || 'Có lỗi xảy ra. Vui lòng thử lại.', 'error');
+          }
         }
       }
-    }
+    });
   };
 
   const openEditDialog = (category) => {
     setSelectedCategory(category);
     setFormData({
-      name: category.name,
-      parentId: category.parentId,
+      name: category.name || '',
+      parentId: category.parentId || null,
+      description: category.description || ''
     });
     setIsEditDialogOpen(true);
+  };
+
+  const handleCloseAddDialog = () => {
+    setIsAddDialogOpen(false);
+    setFormData({ name: '', parentId: null, description: '' });
+  };
+
+  const handleCloseEditDialog = () => {
+    setIsEditDialogOpen(false);
+    setSelectedCategory(null);
+    setFormData({ name: '', parentId: null, description: '' });
   };
 
   const showNotification = (message, type = 'success') => {
@@ -409,9 +445,9 @@ const AdminCategories = () => {
             {/* Trạng thái */}
             <div className="col-status">
               {category.isDisabled ? (
-                <span className="status-badge status-disabled" title="Đã vô hiệu hóa">🔴 Vô hiệu hóa</span>
+                <span className="status-badge status-disabled" title="Đã vô hiệu hóa">Vô hiệu hóa</span>
               ) : (
-                <span className="status-badge status-active" title="Đang hoạt động">🟢 Hoạt động</span>
+                <span className="status-badge status-active" title="Đang hoạt động">Hoạt động</span>
               )}
             </div>
 
@@ -425,13 +461,13 @@ const AdminCategories = () => {
               <AdminActionDropdown
                 actions={[
                   {
-                    label: category.isDisabled ? '✅ Kích hoạt' : '❌ Vô hiệu hóa',
-                    icon: category.isDisabled ? CheckCircle : XCircle,
+                    label: category.isDisabled ? AdminActionLabels.activate : AdminActionLabels.deactivate,
+                    icon: category.isDisabled ? AdminIcons.activate : AdminIcons.deactivate,
                     onClick: () => handleToggleStatus(category)
                   },
                   {
-                    label: '✏️ Sửa',
-                    icon: Edit,
+                    label: AdminActionLabels.edit,
+                    icon: AdminIcons.edit,
                     onClick: () => openEditDialog(category)
                   }
                 ]}
@@ -638,12 +674,17 @@ const AdminCategories = () => {
       {/* Add Category Dialog */}
       <AdminModal
         open={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) handleCloseAddDialog();
+        }}
         title="Thêm danh mục mới"
         description="Tạo danh mục sản phẩm mới"
         onSubmit={handleAddCategory}
+        onCancel={handleCloseAddDialog}
         submitLabel="Thêm"
-        size="md"
+        cancelLabel="Hủy"
+        loading={isSubmitting}
+        size="4xl"
       >
         <div className="form-section">
           <h3 className="form-section-title">Thông tin danh mục</h3>
@@ -695,12 +736,17 @@ const AdminCategories = () => {
       {/* Edit Category Dialog */}
       <AdminModal
         open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) handleCloseEditDialog();
+        }}
         title="Chỉnh sửa danh mục"
         description="Cập nhật thông tin danh mục"
         onSubmit={handleEditCategory}
+        onCancel={handleCloseEditDialog}
         submitLabel="Cập nhật"
-        size="md"
+        cancelLabel="Hủy"
+        loading={isSubmitting}
+        size="4xl"
       >
         {selectedCategory && (
           <div className="form-section">
@@ -739,6 +785,17 @@ const AdminCategories = () => {
           </div>
         )}
       </AdminModal>
+
+      {/* Confirm Modal */}
+      <AdminConfirmModal
+        open={confirmModal.open}
+        onOpenChange={(open) => setConfirmModal({ ...confirmModal, open })}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.variant === 'danger' ? 'Vô hiệu hóa' : 'Xác nhận'}
+        onConfirm={confirmModal.onConfirm}
+      />
     </div>
   );
 };
