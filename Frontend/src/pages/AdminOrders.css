@@ -130,6 +130,24 @@
   overflow: hidden;
 }
 
+.orders-table .table-header,
+.admin-orders .table-header {
+  display: grid !important;
+  /* Mã đơn: 100px | Khách hàng: 2.5fr | Tổng tiền: 1.2fr | Phương thức: 1.5fr | Trạng thái: 1.2fr | Ngày đặt: 1.3fr | Thao tác: 150px */
+  grid-template-columns: 100px 2.5fr 1.2fr 1.5fr 1.2fr 1.3fr 150px !important;
+  width: 100% !important;
+  gap: 20px !important;
+  padding: 16px 20px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  box-sizing: border-box !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-items: center;
+}
+
 .table-header {
   display: grid;
   /* Mã đơn: 100px | Khách hàng: 2.5fr | Tổng tiền: 1.2fr | Phương thức: 1.5fr | Trạng thái: 1.2fr | Ngày đặt: 1.3fr | Thao tác: 150px */
@@ -147,6 +165,21 @@
   align-items: center;
 }
 
+.orders-table .table-row,
+.admin-orders .table-row {
+  display: grid !important;
+  /* Mã đơn: 100px | Khách hàng: 2.5fr | Tổng tiền: 1.2fr | Phương thức: 1.5fr | Trạng thái: 1.2fr | Ngày đặt: 1.3fr | Thao tác: 150px */
+  grid-template-columns: 100px 2.5fr 1.2fr 1.5fr 1.2fr 1.3fr 150px !important;
+  width: 100% !important;
+  gap: 20px !important;
+  padding: 16px 20px !important;
+  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+  transition: all 0.3s ease;
+  box-sizing: border-box !important;
+  min-height: 60px;
+}
+
 .table-row {
   display: grid;
   /* Mã đơn: 100px | Khách hàng: 2.5fr | Tổng tiền: 1.2fr | Phương thức: 1.5fr | Trạng thái: 1.2fr | Ngày đặt: 1.3fr | Thao tác: 150px */
@@ -159,6 +192,19 @@
   transition: all 0.3s ease;
   box-sizing: border-box;
   min-height: 60px;
+}
+
+.orders-table .table-header > *,
+.admin-orders .table-header > *,
+.orders-table .table-row > *,
+.admin-orders .table-row > * {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  padding: 0 8px;
+  box-sizing: border-box;
 }
 
 .table-header > *,
@@ -191,27 +237,58 @@
   border-bottom: none;
 }
 
-/* Column positioning */
-.table-header .col-id { grid-column: 1; }
-.table-header .col-customer { grid-column: 2; }
-.table-header .col-total { grid-column: 3; }
-.table-header .col-payment { grid-column: 4; }
-.table-header .col-status { grid-column: 5; }
-.table-header .col-date { grid-column: 6; }
-.table-header .col-actions { grid-column: 7; }
+/* Column positioning - Removed grid-column as grid-template-columns handles positioning automatically */
+/* Ensure no grid-column conflicts */
+.orders-table .table-header .col-id,
+.admin-orders .table-header .col-id,
+.orders-table .table-row .col-id,
+.admin-orders .table-row .col-id { grid-column: unset !important; }
 
-.table-row .col-id { grid-column: 1; }
-.table-row .col-customer { grid-column: 2; }
-.table-row .col-total { grid-column: 3; }
-.table-row .col-payment { grid-column: 4; }
-.table-row .col-status { grid-column: 5; }
-.table-row .col-date { grid-column: 6; }
-.table-row .col-actions { grid-column: 7; }
+.orders-table .table-header .col-customer,
+.admin-orders .table-header .col-customer,
+.orders-table .table-row .col-customer,
+.admin-orders .table-row .col-customer { grid-column: unset !important; }
+
+.orders-table .table-header .col-total,
+.admin-orders .table-header .col-total,
+.orders-table .table-row .col-total,
+.admin-orders .table-row .col-total { grid-column: unset !important; }
+
+.orders-table .table-header .col-payment,
+.admin-orders .table-header .col-payment,
+.orders-table .table-row .col-payment,
+.admin-orders .table-row .col-payment { grid-column: unset !important; }
+
+.orders-table .table-header .col-status,
+.admin-orders .table-header .col-status,
+.orders-table .table-row .col-status,
+.admin-orders .table-row .col-status { grid-column: unset !important; }
+
+.orders-table .table-header .col-date,
+.admin-orders .table-header .col-date,
+.orders-table .table-row .col-date,
+.admin-orders .table-row .col-date { grid-column: unset !important; }
+
+.orders-table .table-header .col-actions,
+.admin-orders .table-header .col-actions,
+.orders-table .table-row .col-actions,
+.admin-orders .table-row .col-actions { grid-column: unset !important; }
 
 .col-id {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+}
+
+/* ID column - center aligned, move very close to left edge of table */
+.orders-table .table-header .col-id,
+.admin-orders .table-header .col-id,
+.orders-table .table-row .col-id,
+.admin-orders .table-row .col-id {
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 0 8px 0 0 !important;
+  margin-left: -20px !important;
 }
 
 /* ID badge */
@@ -232,6 +309,17 @@
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+}
+
+/* Customer column - left aligned for both header and rows */
+.orders-table .table-header .col-customer,
+.admin-orders .table-header .col-customer,
+.orders-table .table-row .col-customer,
+.admin-orders .table-row .col-customer {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  align-items: flex-start !important;
+  padding: 0 8px !important;
 }
 
 .customer-name {
@@ -302,13 +390,25 @@
 
 .col-date {
   color: #6b7280;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
-  text-align: center;
+  text-align: left;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
+  padding: 0 8px !important;
+}
+
+/* Ensure date column has consistent font size and left alignment */
+.orders-table .table-header .col-date,
+.admin-orders .table-header .col-date,
+.orders-table .table-row .col-date,
+.admin-orders .table-row .col-date {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
 }
 
 .col-actions {
@@ -806,71 +906,7 @@
 }
 
 /* Loading overlay */
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5000;
-}
+/* Loading overlay styles moved to AdminLoadingOverlay.css */
 
-.loading-spinner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
-.spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.loading-spinner p {
-  color: #6b7280;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-/* Loading overlay inline - for data updates */
-.loading-overlay-inline {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  min-height: 300px;
-}
-
-.loading-overlay-inline .spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #e5e7eb;
-  border-top-color: #667eea;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.loading-overlay-inline p {
-  margin-top: 16px;
-  color: #6b7280;
-  font-size: 14px;
-  font-weight: 500;
-}
+/* Loading overlay inline styles moved to AdminLoadingOverlay.css */
 

@@ -132,6 +132,24 @@
   flex-direction: column;
 }
 
+.warranty-table .table-header,
+.admin-warranty .table-header {
+  display: grid !important;
+  /* Mã BH: 100px | Khách hàng: 2fr | Sản phẩm: 1.5fr | Ngày mua: 1fr | Ngày yêu cầu: 1fr | Vấn đề: 1.5fr | Trạng thái: 1fr | Thao tác: 120px */
+  grid-template-columns: 100px 2fr 1.5fr 1fr 1fr 1.5fr 1fr 120px !important;
+  width: 100% !important;
+  gap: 20px !important; /* Quy định chung */
+  padding: 16px 20px !important; /* Quy định chung */
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  box-sizing: border-box !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-items: center;
+}
+
 .table-header {
   display: grid;
   /* Mã BH: 100px | Khách hàng: 2fr | Sản phẩm: 1.5fr | Ngày mua: 1fr | Ngày yêu cầu: 1fr | Vấn đề: 1.5fr | Trạng thái: 1fr | Thao tác: 120px */
@@ -149,10 +167,36 @@
   align-items: center;
 }
 
+.warranty-table .table-header > *,
+.admin-warranty .table-header > * {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
 .table-header > * {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.warranty-table .table-row,
+.admin-warranty .table-row {
+  display: grid !important;
+  /* Mã BH: 100px | Khách hàng: 2fr | Sản phẩm: 1.5fr | Ngày mua: 1fr | Ngày yêu cầu: 1fr | Vấn đề: 1.5fr | Trạng thái: 1fr | Thao tác: 120px */
+  grid-template-columns: 100px 2fr 1.5fr 1fr 1fr 1.5fr 1fr 120px !important;
+  width: 100% !important;
+  gap: 20px !important; /* Quy định chung */
+  padding: 16px 20px !important; /* Quy định chung */
+  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+  transition: all 0.3s ease;
+  box-sizing: border-box !important;
+  min-height: 60px;
 }
 
 .table-row {
@@ -169,18 +213,35 @@
   min-height: 60px;
 }
 
+.warranty-table .table-row > *,
+.admin-warranty .table-row > * {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
 .table-row > * {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
 }
 
-.col-customer,
 .col-product,
 .col-issue {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.col-customer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: visible;
 }
 
 .table-row:hover {
@@ -191,29 +252,63 @@
   border-bottom: none;
 }
 
-/* Column positioning */
-.table-header .col-code { grid-column: 1; }
-.table-header .col-customer { grid-column: 2; }
-.table-header .col-product { grid-column: 3; }
-.table-header .col-purchase-date { grid-column: 4; }
-.table-header .col-warranty-date { grid-column: 5; }
-.table-header .col-issue { grid-column: 6; }
-.table-header .col-status { grid-column: 7; }
-.table-header .col-actions { grid-column: 8; }
+/* Column positioning - Removed grid-column as grid-template-columns handles positioning automatically */
+/* Ensure no grid-column conflicts */
+.warranty-table .table-header .col-code,
+.admin-warranty .table-header .col-code,
+.warranty-table .table-row .col-code,
+.admin-warranty .table-row .col-code { grid-column: unset !important; }
 
-.table-row .col-code { grid-column: 1; }
-.table-row .col-customer { grid-column: 2; }
-.table-row .col-product { grid-column: 3; }
-.table-row .col-purchase-date { grid-column: 4; }
-.table-row .col-warranty-date { grid-column: 5; }
-.table-row .col-issue { grid-column: 6; }
-.table-row .col-status { grid-column: 7; }
-.table-row .col-actions { grid-column: 8; }
+.warranty-table .table-header .col-customer,
+.admin-warranty .table-header .col-customer,
+.warranty-table .table-row .col-customer,
+.admin-warranty .table-row .col-customer { grid-column: unset !important; }
+
+.warranty-table .table-header .col-product,
+.admin-warranty .table-header .col-product,
+.warranty-table .table-row .col-product,
+.admin-warranty .table-row .col-product { grid-column: unset !important; }
+
+.warranty-table .table-header .col-purchase-date,
+.admin-warranty .table-header .col-purchase-date,
+.warranty-table .table-row .col-purchase-date,
+.admin-warranty .table-row .col-purchase-date { grid-column: unset !important; }
+
+.warranty-table .table-header .col-warranty-date,
+.admin-warranty .table-header .col-warranty-date,
+.warranty-table .table-row .col-warranty-date,
+.admin-warranty .table-row .col-warranty-date { grid-column: unset !important; }
+
+.warranty-table .table-header .col-issue,
+.admin-warranty .table-header .col-issue,
+.warranty-table .table-row .col-issue,
+.admin-warranty .table-row .col-issue { grid-column: unset !important; }
+
+.warranty-table .table-header .col-status,
+.admin-warranty .table-header .col-status,
+.warranty-table .table-row .col-status,
+.admin-warranty .table-row .col-status { grid-column: unset !important; }
+
+.warranty-table .table-header .col-actions,
+.admin-warranty .table-header .col-actions,
+.warranty-table .table-row .col-actions,
+.admin-warranty .table-row .col-actions { grid-column: unset !important; }
 
 .col-code {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+}
+
+/* Code column - center aligned, move very close to left edge of table */
+.warranty-table .table-header .col-code,
+.admin-warranty .table-header .col-code,
+.warranty-table .table-row .col-code,
+.admin-warranty .table-row .col-code {
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 0 8px 0 0 !important;
+  margin-left: -20px !important;
 }
 
 /* Code badge */
@@ -236,6 +331,21 @@
   overflow: hidden;
 }
 
+/* Customer column - left aligned for both header and rows, display phone below name */
+.warranty-table .table-header .col-customer,
+.admin-warranty .table-header .col-customer,
+.warranty-table .table-row .col-customer,
+.admin-warranty .table-row .col-customer {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  align-items: flex-start !important;
+  padding: 0 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  overflow: visible !important;
+}
+
 .customer-name {
   font-weight: 600;
   color: #1f2937;
@@ -243,12 +353,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.4;
 }
 
 .customer-phone {
   font-size: 12px;
   color: #6b7280;
-  margin-top: 2px;
+  line-height: 1.4;
+  margin-top: 0;
 }
 
 .col-product {
@@ -264,13 +376,29 @@
 .col-purchase-date,
 .col-warranty-date {
   color: #6b7280;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
-  text-align: center;
+  text-align: left;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
+  padding: 0 8px !important;
+}
+
+/* Ensure date columns have consistent font size and left alignment */
+.warranty-table .table-header .col-purchase-date,
+.admin-warranty .table-header .col-purchase-date,
+.warranty-table .table-row .col-purchase-date,
+.admin-warranty .table-row .col-purchase-date,
+.warranty-table .table-header .col-warranty-date,
+.admin-warranty .table-header .col-warranty-date,
+.warranty-table .table-row .col-warranty-date,
+.admin-warranty .table-row .col-warranty-date {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
 }
 
 .col-issue {
@@ -290,6 +418,8 @@
   font-weight: 500;
   text-align: center;
   display: inline-block;
+  white-space: nowrap;
+  margin: 0 auto;
 }
 
 .status-pending {
@@ -318,7 +448,14 @@
   align-items: center;
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
+  padding: 0 8px !important;
+}
+
+/* Status badge with margin for better spacing */
+.warranty-table .table-row .col-status .status-badge,
+.admin-warranty .table-row .col-status .status-badge {
+  margin: 0 auto;
 }
 
 .col-actions {
@@ -1075,73 +1212,9 @@
 }
 
 /* Loading overlay */
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5000;
-}
+/* Loading overlay styles moved to AdminLoadingOverlay.css */
 
-.loading-spinner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
-.spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.loading-spinner p {
-  color: #6b7280;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-/* Loading overlay inline - for data updates */
-.loading-overlay-inline {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  min-height: 300px;
-}
-
-.loading-overlay-inline .spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #e5e7eb;
-  border-top-color: #667eea;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.loading-overlay-inline p {
-  margin-top: 16px;
-  color: #6b7280;
-  font-size: 14px;
-  font-weight: 500;
-}
+/* Loading overlay inline styles moved to AdminLoadingOverlay.css */
 
 /* Responsive */
 @media (max-width: 1200px) {

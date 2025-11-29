@@ -1,5 +1,5 @@
 .admin-promotions {
-  max-width: 100%;
+  max-width: 1600px; /* Quy định chung: 1600px */
   margin: 0 auto;
   position: relative;
   width: 100%;
@@ -120,11 +120,14 @@
   flex-direction: column;
 }
 
-.table-header {
-  display: grid;
-  grid-template-columns: 60px 2fr 120px 200px 120px 100px 80px 80px;
-  gap: 16px;
-  padding: 16px 20px;
+.promotions-table .table-header,
+.admin-promotions .table-header {
+  display: grid !important;
+  /* 8 cột: ID | Tên | Giảm giá | Sản phẩm | Thời gian | Vị trí | Trạng thái | Thao tác */
+  grid-template-columns: 0.7fr 3fr 1.2fr 1.3fr 1.5fr 0.8fr 0.9fr 0.6fr !important;
+  width: 100% !important;
+  gap: 20px !important; /* Quy định chung */
+  padding: 16px 20px !important; /* Quy định chung */
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   font-weight: 600;
@@ -132,30 +135,82 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   align-items: center;
+  box-sizing: border-box !important;
 }
 
-.table-header > * {
+/* Removed old .table-header rule - using .promotions-table .table-header instead */
+
+.promotions-table .table-header > *,
+.admin-promotions .table-header > * {
+  display: flex;
+  align-items: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding: 0 2px !important;
+  box-sizing: border-box;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  grid-column: unset !important; /* Remove any grid-column to let grid-template-columns control layout */
 }
 
-.table-row {
-  display: grid;
-  grid-template-columns: 60px 2fr 120px 200px 120px 100px 80px 80px;
-  gap: 16px;
-  padding: 16px 20px;
+/* Removed old .table-header > * rule - using .promotions-table .table-header > * instead */
+
+.promotions-table .table-row,
+.admin-promotions .table-row {
+  display: grid !important;
+  /* 8 cột: ID | Tên | Giảm giá | Sản phẩm | Thời gian | Vị trí | Trạng thái | Thao tác */
+  grid-template-columns: 0.7fr 3fr 1.2fr 1.3fr 1.5fr 0.8fr 0.9fr 0.6fr !important;
+  width: 100% !important;
+  gap: 20px !important; /* Quy định chung */
+  padding: 16px 20px !important; /* Quy định chung */
   border-bottom: 1px solid #e5e7eb;
   transition: all 0.2s ease;
   align-items: center;
   min-height: 60px;
+  box-sizing: border-box !important;
 }
 
-.table-row > * {
+/* Removed old .table-row rule - using .promotions-table .table-row instead */
+
+.promotions-table .table-row > *,
+.admin-promotions .table-row > * {
+  display: flex;
+  align-items: center;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 0 2px !important;
+  box-sizing: border-box;
+  grid-column: unset !important; /* Remove any grid-column to let grid-template-columns control layout */
 }
+
+/* Ensure col-discount has proper flex display and centering */
+.promotions-table .table-row .col-discount,
+.admin-promotions .table-row .col-discount {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+/* Override overflow for specific columns that need visible content */
+.promotions-table .table-row .col-discount,
+.admin-promotions .table-row .col-discount {
+  overflow: visible !important;
+}
+
+.promotions-table .table-row .col-status,
+.admin-promotions .table-row .col-status {
+  overflow: visible !important;
+}
+
+.promotions-table .table-row .col-actions,
+.admin-promotions .table-row .col-actions {
+  overflow: visible !important;
+}
+
+/* Removed old .table-row > * rule - using .promotions-table .table-row > * instead */
 
 .col-name {
   overflow: hidden;
@@ -182,26 +237,112 @@
   color: #667eea;
 }
 
+/* ID column - center aligned, move very close to left edge of table */
+.promotions-table .table-header .col-id,
+.admin-promotions .table-header .col-id,
+.promotions-table .table-row .col-id,
+.admin-promotions .table-row .col-id {
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 0 2px 0 0 !important;
+  margin-left: -16px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important; /* Prevent content from overflowing */
+  grid-column: 1 !important; /* Explicitly set to column 1 */
+  position: relative !important; /* Ensure proper positioning */
+  z-index: 1 !important; /* Ensure it stays in its column */
+  width: 100% !important; /* Ensure full width of grid cell */
+  box-sizing: border-box !important;
+}
+
+/* Ensure col-id only shows ID content, not discount badge */
+.promotions-table .table-row .col-id .discount-badge,
+.admin-promotions .table-row .col-id .discount-badge,
+.promotions-table .table-row .col-id span.discount-badge,
+.admin-promotions .table-row .col-id span.discount-badge {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
+
 .col-name {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+}
+
+/* Name column - left aligned for both header and rows */
+.promotions-table .table-header .col-name,
+.admin-promotions .table-header .col-name,
+.promotions-table .table-row .col-name,
+.admin-promotions .table-row .col-name {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  align-items: flex-start !important;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  grid-column: 2 !important; /* Explicitly set to column 2 */
 }
 
 .promotion-name {
   font-weight: 600;
   color: #1f2937;
   margin: 0;
+  text-align: left !important;
+  width: 100%;
 }
 
 .promotion-description {
   font-size: 13px;
   color: #6b7280;
   margin: 0;
+  text-align: left !important;
+  width: 100%;
 }
 
 .col-discount {
-  display: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+}
+
+/* Discount column - center aligned, explicitly set to column 3 */
+.promotions-table .table-header .col-discount,
+.admin-promotions .table-header .col-discount,
+.promotions-table .table-row .col-discount,
+.admin-promotions .table-row .col-discount {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 0 8px !important; /* Increase padding for better spacing */
+  min-width: 100px !important; /* Ensure minimum width for badge */
+  max-width: 100% !important;
+  overflow: visible !important;
+  grid-column: 3 !important; /* Explicitly set to column 3 (ID=1, Name=2, Discount=3) */
+  position: relative !important; /* Ensure proper positioning */
+  z-index: 1 !important; /* Ensure it stays in its column */
+  text-align: center !important; /* Center text alignment */
+  width: 100% !important; /* Ensure full width of grid cell */
+  box-sizing: border-box !important;
+}
+
+/* Ensure discount badge is centered within col-discount */
+.promotions-table .table-row .col-discount .discount-badge,
+.admin-promotions .table-row .col-discount .discount-badge {
+  margin: 0 !important; /* Remove any margin */
+  display: block !important;
+  width: fit-content !important;
 }
 
 .discount-badge {
@@ -211,18 +352,64 @@
   border-radius: 6px;
   font-weight: 700;
   font-size: 14px;
+  white-space: nowrap;
+  display: block; /* Change to block for better centering */
+  flex-shrink: 0;
+  margin: 0; /* Remove margin: 0 auto, let parent flex handle centering */
+  text-align: center; /* Center text inside badge */
+  line-height: 1.2; /* Ensure proper vertical alignment */
+  width: fit-content; /* Fit content width */
+  position: static !important; /* Ensure no absolute positioning */
 }
 
 .col-products {
   font-size: 14px;
   color: #374151;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Products column - left aligned */
+.promotions-table .table-header .col-products,
+.admin-promotions .table-header .col-products,
+.promotions-table .table-row .col-products,
+.admin-promotions .table-row .col-products {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  grid-column: 4 !important; /* Explicitly set to column 4 */
 }
 
 .col-dates {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 13px;
+  font-size: 14px;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Ensure dates column has consistent font size and left alignment */
+.promotions-table .table-header .col-dates,
+.admin-promotions .table-header .col-dates,
+.promotions-table .table-row .col-dates,
+.admin-promotions .table-row .col-dates {
+  font-size: 14px !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  grid-column: 5 !important; /* Explicitly set to column 5 */
 }
 
 .date-to {
@@ -233,6 +420,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Local column - center aligned */
+.promotions-table .table-header .col-local,
+.admin-promotions .table-header .col-local,
+.promotions-table .table-row .col-local,
+.admin-promotions .table-row .col-local {
+  justify-content: center !important;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  grid-column: 6 !important; /* Explicitly set to column 6 */
 }
 
 .local-badge {
@@ -264,12 +468,52 @@
 .col-status {
   display: flex;
   align-items: center;
+  justify-content: center;
+  padding: 0 2px !important;
+  overflow: visible;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  grid-column: 7 !important; /* Explicitly set to column 7 */
+}
+
+/* Status column - explicitly set grid-column */
+.promotions-table .table-header .col-status,
+.admin-promotions .table-header .col-status,
+.promotions-table .table-row .col-status,
+.admin-promotions .table-row .col-status {
+  grid-column: 7 !important; /* Explicitly set to column 7 */
+}
+
+/* Status badge with margin for better spacing */
+.promotions-table .table-row .col-status .status-badge,
+.admin-promotions .table-row .col-status .status-badge,
+.promotions-table .table-row .col-status [class*="status-"],
+.admin-promotions .table-row .col-status [class*="status-"] {
+  margin: 0 auto;
+  white-space: nowrap;
 }
 
 .col-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   align-items: center;
+  padding: 0 2px !important;
+  overflow: visible !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+/* Actions column - center aligned */
+.promotions-table .table-header .col-actions,
+.admin-promotions .table-header .col-actions,
+.promotions-table .table-row .col-actions,
+.admin-promotions .table-row .col-actions {
+  justify-content: center !important;
+  padding: 0 2px !important;
+  overflow: visible !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  grid-column: 8 !important; /* Explicitly set to column 8 */
 }
 
 .action-btn {
@@ -284,42 +528,7 @@
 }
 
 /* Loading Overlay */
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-  gap: 16px;
-}
-
-.loading-spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #e5e7eb;
-  border-top-color: #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.loading-overlay p {
-  font-size: 16px;
-  font-weight: 600;
-  color: #667eea;
-  margin: 0;
-}
+/* Loading overlay styles moved to AdminLoadingOverlay.css */
 
 /* Pagination */
 .pagination-controls {

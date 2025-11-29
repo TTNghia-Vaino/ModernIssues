@@ -1,4 +1,5 @@
 import React from 'react';
+import './AdminLoadingOverlay.css';
 
 /**
  * AdminLoadingOverlay - Component hiển thị loading state

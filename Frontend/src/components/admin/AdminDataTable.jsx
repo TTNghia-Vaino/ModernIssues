@@ -1,4 +1,5 @@
 import React from 'react';
+import '../admin/AdminLoadingOverlay.css';
 import './AdminDataTable.css';
 
 /**

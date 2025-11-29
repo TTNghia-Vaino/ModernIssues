@@ -1,6 +1,10 @@
 .admin-products {
-  padding: 20px;
+  max-width: 1600px; /* Quy định chung: 1600px */
+  margin: 0 auto;
+  position: relative;
+  padding: 40px 20px; /* Quy định chung: 40px 20px */
   width: 100%;
+  box-sizing: border-box;
   overflow: visible;
 }
 
@@ -139,16 +143,16 @@
 
 .table-header {
   display: grid;
-  /* Hình ảnh: 120px | Tên: 2.5fr | Danh mục: 1.3fr | Giá: 1.3fr | Tồn kho: 1.3fr | Trạng thái: 1.5fr | Thao tác: 120px */
-  grid-template-columns: 120px 2.5fr 1.3fr 1.3fr 1.3fr 1.5fr 120px;
-  width: 100%;
-  gap: 15px;
-  padding: 16px 20px;
+  /* Hình ảnh: 120px | Tên: 4.5fr (rộng hơn nữa) | Danh mục: 1fr | Giá: 1.3fr | Tồn kho: 0.9fr | Trạng thái: 1fr | Thao tác: 90px */
+  grid-template-columns: 120px 4.5fr 1fr 1.3fr 0.9fr 1fr 90px !important;
+  width: 100% !important;
+  gap: 20px !important; /* Quy định chung */
+  padding: 16px 20px !important; /* Quy định chung */
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   font-weight: 600;
   font-size: 14px;
-  box-sizing: border-box;
+  box-sizing: border-box !important;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   align-items: center;
@@ -156,9 +160,13 @@
 
 .table-header > div {
   white-space: normal;
-  overflow: visible;
+  overflow: hidden;
   word-wrap: break-word;
-  min-width: 0;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 0 8px;
+  box-sizing: border-box;
+  grid-column: unset !important; /* Remove any grid-column to let grid-template-columns control layout */
 }
 
 .table-header .col-image {
@@ -167,23 +175,32 @@
 }
 
 .table-header .col-status {
-  margin-right: 60px;
+  margin-right: 0;
 }
 
 .table-row {
   display: grid;
-  /* Hình ảnh: 120px | Tên: 2.5fr | Danh mục: 1.3fr | Giá: 1.3fr | Tồn kho: 1.3fr | Trạng thái: 1.5fr | Thao tác: 120px */
-  grid-template-columns: 120px 2.5fr 1.3fr 1.3fr 1.3fr 1.5fr 120px;
-  width: 100%;
-  gap: 15px;
-  padding: 16px 20px;
+  /* Hình ảnh: 120px | Tên: 4.5fr (rộng hơn nữa) | Danh mục: 1fr | Giá: 1.3fr | Tồn kho: 0.9fr | Trạng thái: 1fr | Thao tác: 90px */
+  grid-template-columns: 120px 4.5fr 1fr 1.3fr 0.9fr 1fr 90px !important;
+  width: 100% !important;
+  gap: 20px !important; /* Quy định chung */
+  padding: 16px 20px !important; /* Quy định chung */
   border-bottom: 1px solid #f0f0f0;
   align-items: center;
   transition: all 0.3s ease;
-  box-sizing: border-box;
+  box-sizing: border-box !important;
   position: relative;
   overflow: visible;
   min-height: 60px;
+}
+
+.table-row > div {
+  padding: 0 8px;
+  box-sizing: border-box;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden;
+  grid-column: unset !important; /* Remove any grid-column to let grid-template-columns control layout */
 }
 
 .table-row:hover {
@@ -197,6 +214,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 0 4px !important;
+  overflow: visible !important;
 }
 
 .col-image img {
@@ -209,16 +228,21 @@
   flex-shrink: 0;
 }
 
-.col-name {
-  display: flex;
+/* Override AdminDataTable.css for col-name */
+.col-name,
+.table-header .col-name,
+.table-row .col-name {
+  display: flex !important;
   flex-direction: column;
   gap: 6px;
-  min-width: 0;
-  max-width: 100%;
+  min-width: 0 !important;
+  max-width: 100% !important;
   overflow: hidden;
-  justify-content: flex-start;
-  align-items: flex-start;
-  text-align: left;
+  justify-content: center !important; /* Căn giữa theo chiều dọc */
+  align-items: center !important; /* Căn giữa theo chiều ngang - override flex-start từ AdminDataTable */
+  text-align: center !important; /* Căn giữa text */
+  padding: 0 8px !important;
+  width: 100% !important;
 }
 
 .col-name > * {
@@ -226,7 +250,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
-  text-align: left;
+  text-align: center !important; /* Căn giữa text */
+  margin: 0 auto; /* Căn giữa nội dung */
 }
 
 .col-category {
@@ -234,6 +259,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 0 8px !important;
 }
 
 .col-price {
@@ -297,25 +323,11 @@
 }
 
 .product-badge {
-  display: inline-block;
-  padding: 4px 10px;
-  background: #e3f2fd;
-  color: #1976d2;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  width: fit-content;
+  display: none !important; /* Xóa product badge */
 }
 
 .featured-badge {
-  display: inline-block;
-  padding: 4px 10px;
-  background: #fff3e0;
-  color: #f57c00;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  width: fit-content;
+  display: none !important; /* Xóa featured badge */
 }
 
 .col-category {
@@ -371,6 +383,7 @@
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  padding: 0 8px !important;
 }
 
 .price-current {
@@ -386,14 +399,7 @@
 }
 
 .discount-badge {
-  display: inline-block;
-  padding: 3px 8px;
-  background: #ffebee;
-  color: #d32f2f;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
-  width: fit-content;
+  display: none !important; /* Xóa badge discount */
 }
 
 .col-stock {
@@ -401,6 +407,7 @@
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  padding: 0 8px !important;
 }
 
 .col-stock span {
@@ -437,8 +444,8 @@
   min-width: 0;
   max-width: 100%;
   overflow: visible;
-  padding: 0;
-  margin-right: 60px;
+  padding: 0 8px !important;
+  margin-right: 0;
   position: relative;
   display: flex;
   justify-content: center;
@@ -475,10 +482,12 @@
   min-width: 0;
   max-width: 100%;
   flex-shrink: 0;
-  grid-column: 7;
+  grid-column: unset !important; /* Remove grid-column, let grid-template-columns control */
   position: relative;
   z-index: 1;
   width: 100%;
+  padding: 0 4px !important;
+  overflow: visible !important;
 }
 
 .col-actions .action-btn {
@@ -488,21 +497,8 @@
   align-items: center;
 }
 
-.table-header .col-image { grid-column: 1; }
-.table-header .col-name { grid-column: 2; }
-.table-header .col-category { grid-column: 3; }
-.table-header .col-price { grid-column: 4; }
-.table-header .col-stock { grid-column: 5; }
-.table-header .col-status { grid-column: 6; }
-.table-header .col-actions { grid-column: 7; }
-
-.table-row .col-image { grid-column: 1; }
-.table-row .col-name { grid-column: 2; }
-.table-row .col-category { grid-column: 3; }
-.table-row .col-price { grid-column: 4; }
-.table-row .col-stock { grid-column: 5; }
-.table-row .col-status { grid-column: 6; }
-.table-row .col-actions { grid-column: 7; }
+/* Removed grid-column declarations - let grid-template-columns control layout */
+/* All columns will automatically follow the order defined in grid-template-columns */
 
 /* Actions Dropdown */
 .actions-dropdown {

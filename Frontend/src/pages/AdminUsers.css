@@ -146,9 +146,7 @@ body {
   outline: none;
   border-color: #667eea;
 }
-/* Adjust table row spacing to match design */
-.table-row { padding: 14px 10px; }
-.table-header { padding: 14px 10px; }
+/* Adjust table row spacing to match design - Removed old padding, using new grid layout */
 .table-row:hover { background: #fff; }
 .logout-btn {
     background: #ef4444;
@@ -241,39 +239,7 @@ select {
   box-sizing: border-box;
 }
 
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5000;
-}
-
-.loading-spinner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
-.spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #00a651;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+/* Loading overlay styles moved to AdminLoadingOverlay.css */
 
 /* Apply the new CSS styles for user table */
 .data-table-container {
@@ -316,45 +282,50 @@ select {
   overflow: hidden;
 }
 
-.table-header {
-  display: grid;
-  /* ID: 80px | Người dùng: 3.5fr | Vai trò: 1.4fr | Trạng thái: 1.4fr | Ngày tạo: 1.4fr | Thao tác: 120px */
-  grid-template-columns: 80px 3.5fr 1.4fr 1.4fr 1.4fr 120px;
-  width: 100%;
-  gap: 15px;
-  padding: 16px 20px;
+.users-table .table-header,
+.admin-users .table-header {
+  display: grid !important;
+  /* ID: 9% | Người dùng: 42.5% | Vai trò: 13.5% | Trạng thái: 13.5% | Ngày tạo: 11% | Thao tác: 6.5% */
+  grid-template-columns: 0.9fr 4.25fr 1.35fr 1.35fr 1.1fr 0.65fr !important;
+  width: 100% !important;
+  gap: 20px !important;
+  padding: 16px 20px !important;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   font-weight: 600;
   font-size: 14px;
-  box-sizing: border-box;
+  box-sizing: border-box !important;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   align-items: center;
 }
 
-.table-header > div {
+.users-table .table-header > div,
+.admin-users .table-header > div {
   white-space: normal;
-  overflow: visible;
+  overflow: hidden;
   word-wrap: break-word;
   min-width: 0;
+  padding: 0 8px !important;
+  box-sizing: border-box;
 }
 
 .table-header .col-actions {
   white-space: nowrap;
 }
 
-.table-row {
-  display: grid;
-  /* ID: 80px | Người dùng: 3.5fr | Vai trò: 1.4fr | Trạng thái: 1.4fr | Ngày tạo: 1.4fr | Thao tác: 120px */
-  grid-template-columns: 80px 3.5fr 1.4fr 1.4fr 1.4fr 120px;
-  width: 100%;
-  gap: 15px;
-  padding: 16px 20px;
+.users-table .table-row,
+.admin-users .table-row {
+  display: grid !important;
+  /* ID: 9% | Người dùng: 42.5% | Vai trò: 13.5% | Trạng thái: 13.5% | Ngày tạo: 11% | Thao tác: 6.5% */
+  grid-template-columns: 0.9fr 4.25fr 1.35fr 1.35fr 1.1fr 0.65fr !important;
+  width: 100% !important;
+  gap: 20px !important;
+  padding: 16px 20px !important;
   border-bottom: 1px solid #f0f0f0;
   align-items: center;
   transition: all 0.3s ease;
-  box-sizing: border-box;
+  box-sizing: border-box !important;
   position: relative;
   overflow: visible;
   min-height: 60px;
@@ -368,13 +339,38 @@ select {
   border-bottom: none;
 }
 
-.table-header > *,
-.table-row > * {
+.users-table .table-row > div,
+.admin-users .table-row > div {
+  padding: 0 8px !important;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.users-table .table-header > *,
+.admin-users .table-header > *,
+.users-table .table-row > *,
+.admin-users .table-row > * {
   display: flex;
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
   overflow: hidden;
+}
+
+/* Override justify-content for specific columns */
+.users-table .table-header .col-id,
+.admin-users .table-header .col-id,
+.users-table .table-row .col-id,
+.admin-users .table-row .col-id {
+  justify-content: center !important;
+}
+
+.users-table .table-header .col-user,
+.admin-users .table-header .col-user,
+.users-table .table-row .col-user,
+.admin-users .table-row .col-user {
+  justify-content: flex-start !important;
 }
 
 .table-header > * {
@@ -404,25 +400,53 @@ select {
   text-align: left;
 }
 
-/* Column positioning */
-.table-header .col-id { grid-column: 1; }
-.table-header .col-user { grid-column: 2; }
-.table-header .col-role { grid-column: 3; }
-.table-header .col-status { grid-column: 4; }
-.table-header .col-date { grid-column: 5; }
-.table-header .col-actions { grid-column: 6; }
+/* Column positioning - Removed grid-column as grid-template-columns handles positioning automatically */
+/* Ensure no grid-column conflicts */
+.users-table .table-header .col-id,
+.admin-users .table-header .col-id,
+.users-table .table-row .col-id,
+.admin-users .table-row .col-id { grid-column: unset !important; }
 
-.table-row .col-id { grid-column: 1; }
-.table-row .col-user { grid-column: 2; }
-.table-row .col-role { grid-column: 3; }
-.table-row .col-status { grid-column: 4; }
-.table-row .col-date { grid-column: 5; }
-.table-row .col-actions { grid-column: 6; }
+.users-table .table-header .col-user,
+.admin-users .table-header .col-user,
+.users-table .table-row .col-user,
+.admin-users .table-row .col-user { grid-column: unset !important; }
+
+.users-table .table-header .col-role,
+.admin-users .table-header .col-role,
+.users-table .table-row .col-role,
+.admin-users .table-row .col-role { grid-column: unset !important; }
+
+.users-table .table-header .col-status,
+.admin-users .table-header .col-status,
+.users-table .table-row .col-status,
+.admin-users .table-row .col-status { grid-column: unset !important; }
+
+.users-table .table-header .col-date,
+.admin-users .table-header .col-date,
+.users-table .table-row .col-date,
+.admin-users .table-row .col-date { grid-column: unset !important; }
+
+.users-table .table-header .col-actions,
+.admin-users .table-header .col-actions,
+.users-table .table-row .col-actions,
+.admin-users .table-row .col-actions { grid-column: unset !important; }
 
 .col-id {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+}
+
+/* ID column - center aligned for both header and rows, move very close to left edge of table */
+.users-table .table-header .col-id,
+.admin-users .table-header .col-id,
+.users-table .table-row .col-id,
+.admin-users .table-row .col-id {
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 0 8px 0 0 !important;
+  margin-left: -20px !important;
 }
 
 .col-user {
@@ -431,8 +455,17 @@ select {
   overflow: hidden;
   cursor: help;
   position: relative;
-  justify-content: flex-start;
-  text-align: left;
+  padding: 0 8px !important;
+}
+
+/* User column - left aligned for both header and rows */
+.users-table .table-header .col-user,
+.admin-users .table-header .col-user,
+.users-table .table-row .col-user,
+.admin-users .table-row .col-user {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  align-items: flex-start !important;
 }
 
 .col-user:hover::after {
@@ -498,6 +531,7 @@ select {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  padding: 0 8px !important;
 }
 
 .table-row .col-role {
@@ -511,17 +545,18 @@ select {
   min-width: 0;
   max-width: 100%;
   overflow: visible;
-  margin-right: 60px !important;
+  margin-right: 0 !important;
   width: 100%;
+  padding: 0 8px !important;
 }
 
 .table-row .col-status {
   justify-content: center !important;
-  margin-right: 60px !important;
+  margin-right: 0 !important;
 }
 
 .table-header .col-status {
-  margin-right: 60px !important;
+  margin-right: 0 !important;
   justify-content: center !important;
 }
 
@@ -535,6 +570,8 @@ select {
   position: relative;
   z-index: 1;
   width: 100%;
+  padding: 0 4px !important;
+  overflow: visible !important;
 }
 
 .table-row .col-actions {
@@ -741,13 +778,23 @@ select {
 
 .col-date {
   color: #6b7280;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   text-align: left;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
+  padding: 0 8px !important;
+}
+
+/* Ensure date column has consistent font size */
+.users-table .table-header .col-date,
+.admin-users .table-header .col-date,
+.users-table .table-row .col-date,
+.admin-users .table-row .col-date {
+  font-size: 14px !important;
+  font-weight: 500 !important;
 }
 
 .btn-menu {
@@ -1214,10 +1261,12 @@ select {
 
 /* Responsive */
 @media (max-width: 1200px) {
-  .table-header,
-  .table-row {
-    grid-template-columns: 0.8fr 3.5fr 1.4fr 1.4fr 1.4fr 1.1fr;
-    gap: 12px;
+  .users-table .table-header,
+  .admin-users .table-header,
+  .users-table .table-row,
+  .admin-users .table-row {
+    grid-template-columns: 0.9fr 4.25fr 1.35fr 1.35fr 1.1fr 0.65fr !important;
+    gap: 15px !important;
     font-size: 13px;
   }
   
@@ -1240,33 +1289,7 @@ select {
   }
 }
 
-/* Loading overlay inline - for page transitions */
-.loading-overlay-inline {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  min-height: 300px;
-}
-
-.loading-overlay-inline .spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #e5e7eb;
-  border-top-color: #6366f1;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-.loading-overlay-inline p {
-  margin-top: 16px;
-  color: #6b7280;
-  font-size: 14px;
-  font-weight: 500;
-}
+/* Loading overlay inline styles moved to AdminLoadingOverlay.css */
 
 @media (max-width: 768px) {
   .admin-users {

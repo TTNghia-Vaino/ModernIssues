@@ -6,6 +6,8 @@ import { Edit, CheckCircle, XCircle } from 'lucide-react';
 import {
   AdminPageHeader,
   AdminFiltersBar,
+  AdminDataTable,
+  AdminPagination,
   AdminLoadingOverlay,
   AdminActionDropdown,
   AdminModal
@@ -27,6 +29,10 @@ const AdminCategories = () => {
   const [loadingProducts, setLoadingProducts] = useState(new Set()); // Track loading state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // Filter by isDisabled: 'all', 'active', 'inactive'
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -342,7 +348,7 @@ const AdminCategories = () => {
     const isLevel1 = category.level === 1;
     const isLevel2 = category.level === 2;
     
-    // Level 2 categories automatically show products when expanded
+    // Level 2 categories show products when expanded
     const showProducts = isLevel2 && isExpanded && expandedProducts.has(category.id);
     const isLoadingProducts = loadingProducts.has(category.id);
     const products = categoryProducts[category.id] || [];
@@ -350,42 +356,6 @@ const AdminCategories = () => {
     let bgClass = '';
     if (isLevel1) bgClass = 'bg-blue-50 font-semibold';
     else if (isLevel2) bgClass = 'bg-slate-50';
-
-    // Filter categories based on search and status
-    const matchesSearch = !searchQuery || 
-      category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(category.id).includes(searchQuery);
-    
-    // Filter by status
-    let matchesStatus = true;
-    if (filterStatus === 'active') {
-      matchesStatus = !category.isDisabled;
-    } else if (filterStatus === 'inactive') {
-      matchesStatus = category.isDisabled === true;
-    }
-    
-    const categoryMatches = matchesSearch && matchesStatus;
-
-    if (!categoryMatches && !hasChildren) {
-      return null;
-    }
-
-    // Check if any child matches search and status
-    const hasMatchingChild = hasChildren && category.children.some(child => {
-      const childMatchesSearch = !searchQuery || 
-        child.name.toLowerCase().includes(searchQuery.toLowerCase());
-      let childMatchesStatus = true;
-      if (filterStatus === 'active') {
-        childMatchesStatus = !child.isDisabled;
-      } else if (filterStatus === 'inactive') {
-        childMatchesStatus = child.isDisabled === true;
-      }
-      return childMatchesSearch && childMatchesStatus;
-    });
-
-    if (!categoryMatches && !hasMatchingChild) {
-      return null;
-    }
 
     return (
       <div key={category.id}>
@@ -398,68 +368,74 @@ const AdminCategories = () => {
             }
           }}
           style={{ 
-            paddingLeft: `${level * 2 + 1}rem`, 
-            cursor: (hasChildren || (isLevel2 && category.productCount > 0)) ? 'pointer' : 'default' 
+            cursor: (hasChildren || (isLevel2 && category.productCount > 0)) ? 'pointer' : 'default',
+            paddingLeft: 0,
+            marginLeft: 0
           }}
         >
           <div className="category-row-content">
-            <div className="category-row-left">
-              {(hasChildren || (isLevel2 && category.productCount > 0)) ? (
-                <button
-                  className="expand-btn"
-                  onClick={(e) => {
-                    e.stopPropagation(); // Ngăn event bubble lên category-row
-                    toggleExpand(category.id, category);
-                  }}
-                  title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
-                  data-expanded={isExpanded}
-                />
-              ) : (
-                <div className="expand-placeholder" />
-              )}
-
-              <div className="category-icon">
-                {isLevel1 && '📁'}
-                {isLevel2 && '📂'}
-              </div>
-
-              <div className="category-info">
-                <div className="category-name-row">
-                  <span className={`category-name ${isLevel1 ? 'text-lg' : isLevel2 ? 'text-base' : 'text-sm'} ${category.isDisabled ? 'opacity-60' : ''}`}>
-                    {category.name}
-                  </span>
-                  {isLevel1 && <span className="level-badge level-1">Cấp 1</span>}
-                  {isLevel2 && <span className="level-badge level-2">Cấp 2</span>}
-                  {category.isDisabled ? (
-                    <span className="status-badge status-disabled" title="Đã vô hiệu hóa">🔴 Vô hiệu hóa</span>
-                  ) : (
-                    <span className="status-badge status-active" title="Đang hoạt động">🟢 Hoạt động</span>
-                  )}
+            {/* Tên danh mục */}
+            <div className="col-name">
+              <div className="category-row-left" style={{ paddingLeft: `${level * 1.5}rem` }}>
+                {(hasChildren || (isLevel2 && category.productCount > 0)) ? (
+                  <button
+                    className="expand-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleExpand(category.id, category);
+                    }}
+                    title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
+                    data-expanded={isExpanded}
+                  />
+                ) : (
+                  <div className="expand-placeholder" />
+                )}
+                <div className="category-icon">
+                  {isLevel1 && '📁'}
+                  {isLevel2 && '📂'}
                 </div>
+                <span className={`category-name ${isLevel1 ? 'text-lg' : isLevel2 ? 'text-base' : 'text-sm'} ${category.isDisabled ? 'opacity-60' : ''}`}>
+                  {category.name}
+                </span>
               </div>
             </div>
 
-            <div className="category-row-right">
-              <div className="product-count">
-                <span className="count-number">{category.productCount}</span> sản phẩm
-              </div>
+            {/* Cấp */}
+            <div className="col-level">
+              {isLevel1 && <span className="level-badge level-1">Cấp 1</span>}
+              {isLevel2 && <span className="level-badge level-2">Cấp 2</span>}
+            </div>
 
-              <div className="category-actions" onClick={(e) => e.stopPropagation()}>
-                <AdminActionDropdown
-                  actions={[
-                    {
-                      label: category.isDisabled ? '✅ Kích hoạt' : '❌ Vô hiệu hóa',
-                      icon: category.isDisabled ? CheckCircle : XCircle,
-                      onClick: () => handleToggleStatus(category)
-                    },
-                    {
-                      label: '✏️ Sửa',
-                      icon: Edit,
-                      onClick: () => openEditDialog(category)
-                    }
-                  ]}
-                />
-              </div>
+            {/* Trạng thái */}
+            <div className="col-status">
+              {category.isDisabled ? (
+                <span className="status-badge status-disabled" title="Đã vô hiệu hóa">🔴 Vô hiệu hóa</span>
+              ) : (
+                <span className="status-badge status-active" title="Đang hoạt động">🟢 Hoạt động</span>
+              )}
+            </div>
+
+            {/* Số lượng */}
+            <div className="col-count">
+              <span className="count-number">{category.productCount || 0}</span> sản phẩm
+            </div>
+
+            {/* Thao tác */}
+            <div className="col-actions" onClick={(e) => e.stopPropagation()}>
+              <AdminActionDropdown
+                actions={[
+                  {
+                    label: category.isDisabled ? '✅ Kích hoạt' : '❌ Vô hiệu hóa',
+                    icon: category.isDisabled ? CheckCircle : XCircle,
+                    onClick: () => handleToggleStatus(category)
+                  },
+                  {
+                    label: '✏️ Sửa',
+                    icon: Edit,
+                    onClick: () => openEditDialog(category)
+                  }
+                ]}
+              />
             </div>
           </div>
         </div>
@@ -529,9 +505,49 @@ const AdminCategories = () => {
     return categoryMatches;
   };
 
-  const filteredCategories = categories.filter(cat => matchesFilter(cat));
+  // Flatten categories to a flat array for pagination (keep tree structure but flatten for display)
+  // Helper function to recursively collect visible categories (only root + expanded children)
+  const getVisibleCategories = (cats, result = []) => {
+    cats.forEach(cat => {
+      const isLevel1 = cat.level === 1;
+      const isExpanded = expandedCategories.has(cat.id);
+      const hasChildren = cat.children && cat.children.length > 0;
+      
+      // Only add root categories (level 1) to the list for pagination
+      // Children will be shown when parent is expanded
+      if (isLevel1) {
+        result.push(cat);
+      }
+    });
+    return result;
+  };
 
-  const rootCategories = categories.filter(c => c.parentId === null);
+  // Get only root categories (level 1) for pagination
+  const rootCategories = categories.filter(c => c.level === 1);
+  
+  // Filter root categories
+  const filteredRootCategories = rootCategories.filter(cat => {
+    const matchesSearch = !searchQuery || 
+      cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(cat.id).includes(searchQuery);
+    
+    let matchesStatus = true;
+    if (filterStatus === 'active') {
+      matchesStatus = !cat.isDisabled;
+    } else if (filterStatus === 'inactive') {
+      matchesStatus = cat.isDisabled === true;
+    }
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  // Pagination - only for root categories (level 1)
+  const totalPages = Math.ceil(filteredRootCategories.length / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedCategories = filteredRootCategories.slice(startIndex, endIndex);
+
+  // Use existing findAllCategories function (already declared above)
   const allCategories = findAllCategories(categories);
   // Only show Level 1 and Level 2 in parent selector (Level 3 is products, not categories)
   const level1And2Categories = allCategories.filter(c => c.level <= 2);
@@ -576,23 +592,47 @@ const AdminCategories = () => {
           ]}
         />
 
-        {/* Category Tree */}
+        {/* Category Tree with Table Header */}
         <div className="category-tree-container">
-          <div className="tree-header">
-            <h3>Cây danh mục</h3>
-            <span className="tree-count">Tổng: {rootCategories.length} danh mục gốc</span>
+          {/* Table Header */}
+          <div className="categories-table-header">
+            <div className="col-name">TÊN DANH MỤC</div>
+            <div className="col-level">CẤP</div>
+            <div className="col-status">TRẠNG THÁI</div>
+            <div className="col-count">SỐ LƯỢNG</div>
+            <div className="col-actions">THAO TÁC</div>
           </div>
 
+          {/* Category Tree */}
           <div className="category-tree">
-            {filteredCategories.length === 0 ? (
+            {paginatedCategories.length === 0 ? (
               <div className="empty-state">
                 {searchQuery ? 'Không tìm thấy danh mục nào' : 'Chưa có danh mục nào'}
               </div>
             ) : (
-              filteredCategories.map(category => renderCategory(category))
+              paginatedCategories.map(category => renderCategory(category))
             )}
           </div>
         </div>
+
+        {/* Pagination */}
+        {filteredRootCategories.length > 0 && (
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredRootCategories.length}
+            startIndex={startIndex + 1}
+            endIndex={Math.min(endIndex, filteredRootCategories.length)}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[10, 20, 50]}
+            itemName="danh mục"
+          />
+        )}
       </AdminLoadingOverlay>
 
       {/* Add Category Dialog */}
