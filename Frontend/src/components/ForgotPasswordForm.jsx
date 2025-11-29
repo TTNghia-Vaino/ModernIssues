@@ -5,15 +5,16 @@ import OTPInput from './OTPInput';
 import './ForgotPasswordForm.css';
 
 const ForgotPasswordForm = () => {
-  const { success, info } = useNotification();
+  const { success, info, error: showError } = useNotification();
   const [step, setStep] = useState(1); // 1: Email, 2: Code, 3: New Password
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [code, setCode] = useState('');
   const [tempToken, setTempToken] = useState(''); // Token từ verifyOtp response
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
   const [countdown, setCountdown] = useState(0);
   const codeInputRefs = useRef([]);
 
@@ -32,24 +33,48 @@ const ForgotPasswordForm = () => {
     }
   }, [step]);
 
+  // Validate email
+  const validateEmail = (emailValue) => {
+    if (!emailValue || emailValue.trim() === '') {
+      return 'Vui lòng nhập email';
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailValue.trim())) {
+      return 'Email không đúng định dạng. Vui lòng nhập email hợp lệ (ví dụ: example@email.com)';
+    }
+    return '';
+  };
+
   // Step 1: Send code to email
   const handleSendCode = async (e) => {
     e.preventDefault();
     setError('');
+    setErrors({});
     
-    if (!email) {
-      setError('Vui lòng nhập email!');
+    // Validate email
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setErrors({ email: emailError });
+      showError(emailError);
       return;
     }
     
     setIsLoading(true);
     
     try {
-      await authService.forgotPassword({ email });
+      await authService.forgotPassword({ email: email.trim() });
       setStep(2);
       setCountdown(60); // 60 seconds countdown
+      setErrors({});
     } catch (error) {
-      setError(error.message || 'Có lỗi xảy ra. Vui lòng thử lại sau.');
+      const errorMessage = error.message || 'Có lỗi xảy ra. Vui lòng thử lại sau.';
+      setError(errorMessage);
+      showError(errorMessage);
+      
+      // Set field-specific error if email related
+      if (errorMessage.toLowerCase().includes('email') || errorMessage.toLowerCase().includes('tài khoản') || errorMessage.toLowerCase().includes('not found')) {
+        setErrors({ email: errorMessage });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -60,8 +85,7 @@ const ForgotPasswordForm = () => {
     e.preventDefault();
     setError('');
     
-    const codeString = code.join('');
-    if (codeString.length !== 6) {
+    if (!code || code.length !== 6) {
       setError('Vui lòng nhập đầy đủ 6 số!');
       return;
     }
@@ -69,7 +93,7 @@ const ForgotPasswordForm = () => {
     setIsLoading(true);
     
     try {
-      const response = await authService.verifyOtp({ email, otp: codeString });
+      const response = await authService.verifyOtp({ email, otp: code });
       // Lưu tempToken từ response (có thể là tempToken, token, hoặc resetToken)
       const token = response.tempToken || response.token || response.resetToken || response.data?.tempToken || response.data?.token;
       if (token) {
@@ -79,33 +103,69 @@ const ForgotPasswordForm = () => {
       }
       setStep(3);
     } catch (error) {
-      setError(error.message || 'Mã xác thực không đúng. Vui lòng thử lại.');
-      setCode(['', '', '', '', '', '']);
-      if (codeInputRefs.current[0]) {
-        codeInputRefs.current[0].focus();
+      // Translate common OTP error messages to Vietnamese
+      let errorMessage = error.message || 'Mã xác thực không đúng. Vui lòng thử lại.';
+      
+      // Translate common English error messages
+      const errorLower = errorMessage.toLowerCase();
+      if (errorLower.includes('otp is incorrect') || errorLower.includes('otp incorrect') || errorLower.includes('invalid otp')) {
+        errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+      } else if (errorLower.includes('otp expired') || errorLower.includes('expired')) {
+        errorMessage = 'Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.';
+      } else if (errorLower.includes('otp') && errorLower.includes('wrong')) {
+        errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+      }
+      
+      setError(errorMessage);
+      showError(errorMessage);
+      setCode('');
+      // Reset OTPInput if it has reset method
+      if (codeInputRefs.current && codeInputRefs.current.reset) {
+        codeInputRefs.current.reset();
       }
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Validate password
+  const validatePassword = (password) => {
+    if (!password || password.trim() === '') {
+      return 'Vui lòng nhập mật khẩu';
+    }
+    if (password.length < 6) {
+      return 'Mật khẩu phải có ít nhất 6 ký tự';
+    }
+    return '';
+  };
+
+  // Validate confirm password
+  const validateConfirmPassword = (password, confirmPasswordValue) => {
+    if (!confirmPasswordValue || confirmPasswordValue.trim() === '') {
+      return 'Vui lòng xác nhận mật khẩu';
+    }
+    if (password !== confirmPasswordValue) {
+      return 'Mật khẩu xác nhận không khớp';
+    }
+    return '';
+  };
+
   // Step 3: Reset password
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setError('');
+    setErrors({});
     
-    if (!newPassword || !confirmPassword) {
-      setError('Vui lòng nhập đầy đủ thông tin!');
-      return;
-    }
+    // Validate passwords
+    const passwordError = validatePassword(newPassword);
+    const confirmPasswordError = validateConfirmPassword(newPassword, confirmPassword);
     
-    if (newPassword.length < 6) {
-      setError('Mật khẩu phải có ít nhất 6 ký tự!');
-      return;
-    }
-    
-    if (newPassword !== confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp!');
+    if (passwordError || confirmPasswordError) {
+      const newErrors = {};
+      if (passwordError) newErrors.newPassword = passwordError;
+      if (confirmPasswordError) newErrors.confirmPassword = confirmPasswordError;
+      setErrors(newErrors);
+      showError('Vui lòng kiểm tra lại thông tin mật khẩu');
       return;
     }
     
@@ -113,7 +173,9 @@ const ForgotPasswordForm = () => {
     
     try {
       if (!tempToken) {
-        setError('Phiên làm việc đã hết hạn. Vui lòng bắt đầu lại từ đầu.');
+        const errorMsg = 'Phiên làm việc đã hết hạn. Vui lòng bắt đầu lại từ đầu.';
+        setError(errorMsg);
+        showError(errorMsg);
         setStep(1);
         setEmail('');
         setTempToken('');
@@ -130,32 +192,19 @@ const ForgotPasswordForm = () => {
         window.location.href = '/login';
       }, 1500);
     } catch (error) {
-      setError(error.message || 'Có lỗi xảy ra. Vui lòng thử lại sau.');
+      const errorMessage = error.message || 'Có lỗi xảy ra. Vui lòng thử lại sau.';
+      setError(errorMessage);
+      showError(errorMessage);
+      
+      // Set field-specific errors if password related
+      if (errorMessage.toLowerCase().includes('mật khẩu') || errorMessage.toLowerCase().includes('password')) {
+        setErrors({ newPassword: errorMessage });
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle code input - keep for backward compatibility but use OTPInput component
-  const handleCodeChange = (index, value) => {
-    if (!/^\d*$/.test(value)) return; // Only numbers
-    
-    const newCode = [...code];
-    newCode[index] = value.slice(-1); // Only take last character
-    setCode(newCode);
-    
-    // Auto focus next input
-    if (value && index < 5 && codeInputRefs.current[index + 1]) {
-      codeInputRefs.current[index + 1].focus();
-    }
-  };
-
-  // Handle backspace in code input
-  const handleCodeKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !code[index] && index > 0) {
-      codeInputRefs.current[index - 1].focus();
-    }
-  };
 
   // Resend code
   const handleResendCode = async () => {
@@ -167,14 +216,17 @@ const ForgotPasswordForm = () => {
     try {
       await authService.forgotPassword({ email });
       setCountdown(60);
-      setCode(['', '', '', '', '', '']);
+      setCode('');
       setTempToken(''); // Reset tempToken khi gửi lại code
-      if (codeInputRefs.current[0]) {
-        codeInputRefs.current[0].focus();
+      // Reset OTPInput if it has reset method
+      if (codeInputRefs.current && codeInputRefs.current.reset) {
+        codeInputRefs.current.reset();
       }
       info('Mã xác thực mới đã được gửi đến email của bạn!');
     } catch (error) {
-      setError(error.message || 'Có lỗi xảy ra. Vui lòng thử lại sau.');
+      const errorMessage = error.message || 'Có lỗi xảy ra. Vui lòng thử lại sau.';
+      setError(errorMessage);
+      showError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -193,22 +245,41 @@ const ForgotPasswordForm = () => {
                 Nhớ mật khẩu? <a href="/login">Đăng nhập tại đây</a>
               </p>
 
-      {error && <div className="error-message">{error}</div>}
-
       <form className="forgot-password-form" onSubmit={handleSendCode}>
                 <div className="form-group">
                   <label htmlFor="email">Email *</label>
                   <input
-                    type="email"
+                    type="text"
                     id="email"
                     name="email"
                     placeholder="Nhập email của bạn"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      // Clear error when user starts typing
+                      if (errors.email) {
+                        setErrors(prev => ({ ...prev, email: '' }));
+                      }
+                    }}
+                    onBlur={() => {
+                      // Validate email format when user leaves the field
+                      if (email && email.trim() !== '') {
+                        const emailError = validateEmail(email);
+                        if (emailError) {
+                          setErrors(prev => ({ ...prev, email: emailError }));
+                        }
+                      }
+                    }}
                     autoComplete="email"
-            disabled={isLoading}
+                    disabled={isLoading}
+                    className={errors.email ? 'error' : ''}
                   />
+                  {errors.email && (
+                    <span className="error-text">
+                      <i className="fas fa-exclamation-circle" aria-hidden="true"></i>
+                      {errors.email}
+                    </span>
+                  )}
                 </div>
 
                 <button 
@@ -241,22 +312,27 @@ const ForgotPasswordForm = () => {
         Chúng tôi đã gửi mã xác thực 6 số đến email <strong>{email}</strong>
       </p>
 
-      {error && <div className="error-message">{error}</div>}
+      {error && (
+        <div className="error-message">
+          <i className="fas fa-info-circle" aria-hidden="true"></i>
+          {error}
+        </div>
+      )}
 
       <form className="forgot-password-form" onSubmit={handleVerifyCode}>
         <OTPInput
+          ref={codeInputRefs}
           length={6}
           onComplete={(codeString) => {
-            setCode(codeString.split(''));
+            setCode(codeString);
           }}
           disabled={isLoading}
-          error={error}
         />
 
         <button 
           type="submit" 
           className="send-reset-btn"
-          disabled={isLoading || code.join('').length !== 6}
+          disabled={isLoading || !code || code.length !== 6}
         >
           {isLoading ? (
             <>
@@ -294,8 +370,12 @@ const ForgotPasswordForm = () => {
           className="back-btn"
           onClick={() => {
             setStep(1);
-            setCode(['', '', '', '', '', '']);
+            setCode('');
             setError('');
+            // Reset OTPInput if it has reset method
+            if (codeInputRefs.current && codeInputRefs.current.reset) {
+              codeInputRefs.current.reset();
+            }
           }}
           disabled={isLoading}
         >
@@ -315,7 +395,12 @@ const ForgotPasswordForm = () => {
         Vui lòng nhập mật khẩu mới cho tài khoản <strong>{email}</strong>
       </p>
 
-      {error && <div className="error-message">{error}</div>}
+      {error && (
+        <div className="error-message">
+          <i className="fas fa-info-circle" aria-hidden="true"></i>
+          {error}
+        </div>
+      )}
 
       <form className="forgot-password-form" onSubmit={handleResetPassword}>
         <div className="form-group">
@@ -326,12 +411,34 @@ const ForgotPasswordForm = () => {
             name="newPassword"
             placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
             value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
+            onChange={(e) => {
+              setNewPassword(e.target.value);
+              // Clear error when user starts typing
+              if (errors.newPassword) {
+                setErrors(prev => ({ ...prev, newPassword: '' }));
+              }
+              // Revalidate confirm password if it has value
+              if (confirmPassword) {
+                const confirmError = validateConfirmPassword(e.target.value, confirmPassword);
+                setErrors(prev => ({ ...prev, confirmPassword: confirmError }));
+              }
+            }}
+            onBlur={() => {
+              const passwordError = validatePassword(newPassword);
+              if (passwordError) {
+                setErrors(prev => ({ ...prev, newPassword: passwordError }));
+              }
+            }}
             autoComplete="new-password"
             disabled={isLoading}
-            minLength="6"
+            className={errors.newPassword ? 'error' : ''}
           />
+          {errors.newPassword && (
+            <span className="error-text">
+              <i className="fas fa-exclamation-circle" aria-hidden="true"></i>
+              {errors.newPassword}
+            </span>
+          )}
         </div>
 
         <div className="form-group">
@@ -342,12 +449,29 @@ const ForgotPasswordForm = () => {
             name="confirmPassword"
             placeholder="Nhập lại mật khẩu mới"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
+            onChange={(e) => {
+              setConfirmPassword(e.target.value);
+              // Clear error when user starts typing
+              if (errors.confirmPassword) {
+                setErrors(prev => ({ ...prev, confirmPassword: '' }));
+              }
+            }}
+            onBlur={() => {
+              const confirmError = validateConfirmPassword(newPassword, confirmPassword);
+              if (confirmError) {
+                setErrors(prev => ({ ...prev, confirmPassword: confirmError }));
+              }
+            }}
             autoComplete="new-password"
             disabled={isLoading}
-            minLength="6"
+            className={errors.confirmPassword ? 'error' : ''}
           />
+          {errors.confirmPassword && (
+            <span className="error-text">
+              <i className="fas fa-exclamation-circle" aria-hidden="true"></i>
+              {errors.confirmPassword}
+            </span>
+          )}
         </div>
 
         <button 

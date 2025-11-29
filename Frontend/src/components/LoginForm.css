@@ -142,6 +142,27 @@
   box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
 }
 
+.form-group input.error {
+  border-color: #e74c3c;
+  border-width: 2px;
+}
+
+.form-group .error-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e74c3c;
+  font-size: 13px;
+  margin-top: 5px;
+  margin-bottom: 0;
+  font-weight: 400;
+}
+
+.form-group .error-text i {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
 /* Password input wrapper */
 .password-input-wrapper {
   position: relative;

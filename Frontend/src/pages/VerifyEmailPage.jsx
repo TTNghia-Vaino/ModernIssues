@@ -152,7 +152,19 @@ const VerifyEmailPage = () => {
         }, 2000);
       }
     } catch (err) {
-      const errorMessage = err.message || 'Mã xác thực không đúng hoặc đã hết hạn. Vui lòng thử lại.';
+      // Translate common OTP error messages to Vietnamese
+      let errorMessage = err.message || 'Mã xác thực không đúng hoặc đã hết hạn. Vui lòng thử lại.';
+      
+      // Translate common English error messages
+      const errorLower = errorMessage.toLowerCase();
+      if (errorLower.includes('otp is incorrect') || errorLower.includes('otp incorrect') || errorLower.includes('invalid otp')) {
+        errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+      } else if (errorLower.includes('otp expired') || errorLower.includes('expired')) {
+        errorMessage = 'Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.';
+      } else if (errorLower.includes('otp') && errorLower.includes('wrong')) {
+        errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+      }
+      
       setOtpError(errorMessage);
       showError(`❌ Xác thực thất bại: ${errorMessage}`);
       setOtpCode(''); // Clear OTP input
@@ -208,7 +220,12 @@ const VerifyEmailPage = () => {
                     Chúng tôi đã gửi mã xác thực 6 số đến email <strong>{currentEmail || 'N/A'}</strong>
                   </p>
 
-                  {otpError && <div className="error-message">{otpError}</div>}
+                  {otpError && (
+                    <div className="error-message">
+                      <i className="fas fa-info-circle" aria-hidden="true"></i>
+                      {otpError}
+                    </div>
+                  )}
 
                   <form className="forgot-password-form" onSubmit={handleVerify}>
                     <OTPInput

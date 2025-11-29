@@ -19,7 +19,7 @@ const RegisterForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register } = useAuth();
-  const { success } = useNotification();
+  const { success, error: showError } = useNotification();
   const navigate = useNavigate();
 
   // Validation functions
@@ -41,11 +41,11 @@ const RegisterForm = () => {
 
   const validateEmail = (email) => {
     if (!email.trim()) {
-      return 'Email là bắt buộc';
+      return 'Vui lòng nhập email';
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return 'Email không hợp lệ';
+    if (!emailRegex.test(email.trim())) {
+      return 'Email không đúng định dạng. Vui lòng nhập email hợp lệ (ví dụ: example@email.com)';
     }
     return '';
   };
@@ -153,7 +153,9 @@ const RegisterForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validate form before submitting
     if (!validateForm()) {
+      showError('Vui lòng điền đầy đủ thông tin và kiểm tra lại các trường bắt buộc');
       return;
     }
     
@@ -192,11 +194,41 @@ const RegisterForm = () => {
       } else {
         // Handle API errors
         const errorMessage = result?.error || result?.message || 'Đăng ký thất bại. Vui lòng thử lại.';
+        showError(errorMessage);
         setErrors(prev => ({ ...prev, submit: errorMessage }));
+        
+        // Set field-specific errors if available
+        if (errorMessage.toLowerCase().includes('email') || errorMessage.toLowerCase().includes('tài khoản')) {
+          setErrors(prev => ({ ...prev, email: errorMessage }));
+        } else if (errorMessage.toLowerCase().includes('username') || errorMessage.toLowerCase().includes('tên đăng nhập')) {
+          setErrors(prev => ({ ...prev, username: errorMessage }));
+        } else if (errorMessage.toLowerCase().includes('mật khẩu') || errorMessage.toLowerCase().includes('password')) {
+          setErrors(prev => ({ ...prev, password: errorMessage }));
+        }
       }
     } catch (error) {
-      const errorMessage = error.message || 'Có lỗi xảy ra. Vui lòng thử lại sau.';
+      // Extract error message from API response
+      let errorMessage = 'Có lỗi xảy ra. Vui lòng thử lại sau.';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorMessage = error.response.data.errors.join(', ');
+      }
+      
+      showError(errorMessage);
       setErrors(prev => ({ ...prev, submit: errorMessage }));
+      
+      // Set field-specific errors if available
+      if (errorMessage.toLowerCase().includes('email') || errorMessage.toLowerCase().includes('tài khoản')) {
+        setErrors(prev => ({ ...prev, email: errorMessage }));
+      } else if (errorMessage.toLowerCase().includes('username') || errorMessage.toLowerCase().includes('tên đăng nhập')) {
+        setErrors(prev => ({ ...prev, username: errorMessage }));
+      } else if (errorMessage.toLowerCase().includes('mật khẩu') || errorMessage.toLowerCase().includes('password')) {
+        setErrors(prev => ({ ...prev, password: errorMessage }));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -224,7 +256,7 @@ const RegisterForm = () => {
               <form className="register-form" onSubmit={handleSubmit}>
                 {errors.submit && (
                   <div className="error-message submit-error">
-                    <i className="fas fa-exclamation-circle" aria-hidden="true"></i>
+                    <i className="fas fa-info-circle" aria-hidden="true"></i>
                     {errors.submit}
                   </div>
                 )}
@@ -239,7 +271,6 @@ const RegisterForm = () => {
                     value={formData.username}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    required
                     autoComplete="username"
                     className={errors.username ? 'error' : ''}
                   />
@@ -254,14 +285,13 @@ const RegisterForm = () => {
                 <div className="form-group">
                   <label htmlFor="email">Email *</label>
                   <input
-                    type="email"
+                    type="text"
                     id="email"
                     name="email"
                     placeholder="Nhập email"
                     value={formData.email}
                     onChange={handleInputChange}
                     onBlur={handleBlur}
-                    required
                     autoComplete="email"
                     className={errors.email ? 'error' : ''}
                   />
@@ -318,7 +348,6 @@ const RegisterForm = () => {
                       value={formData.password}
                       onChange={handleInputChange}
                       onBlur={handleBlur}
-                      required
                       autoComplete="new-password"
                       className={errors.password ? 'error' : ''}
                     />
@@ -350,7 +379,6 @@ const RegisterForm = () => {
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
                       onBlur={handleBlur}
-                      required
                       autoComplete="new-password"
                       className={errors.confirmPassword ? 'error' : ''}
                     />

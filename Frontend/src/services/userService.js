@@ -653,7 +653,7 @@ export const sendEmailOtp = async (emailData) => {
   // Handle Swagger response format
   if (response && typeof response === 'object') {
     if (response.success === false) {
-      throw new Error(response.message || 'Failed to send OTP');
+      throw new Error(response.message || 'Gửi mã OTP thất bại. Vui lòng thử lại.');
     }
     
     return response;
@@ -750,7 +750,7 @@ export const resendVerificationEmail = async (email) => {
  */
 export const verifyEmail = async (verifyData) => {
   if (!verifyData.email || !verifyData.otp) {
-    throw new Error('Email and OTP are required');
+    throw new Error('Email và mã OTP là bắt buộc');
   }
   
   try {
@@ -762,7 +762,15 @@ export const verifyEmail = async (verifyData) => {
     // Handle response format
     if (response && typeof response === 'object') {
       if (response.success === false) {
-        throw new Error(response.message || 'Email verification failed');
+        // Translate common OTP error messages to Vietnamese
+        let errorMessage = response.message || 'Xác thực email thất bại. Vui lòng thử lại.';
+        const errorLower = errorMessage.toLowerCase();
+        if (errorLower.includes('otp is incorrect') || errorLower.includes('otp incorrect') || errorLower.includes('invalid otp')) {
+          errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+        } else if (errorLower.includes('otp expired') || errorLower.includes('expired')) {
+          errorMessage = 'Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.';
+        }
+        throw new Error(errorMessage);
       }
       return response;
     }
@@ -770,7 +778,7 @@ export const verifyEmail = async (verifyData) => {
     return response;
   } catch (error) {
     // Check if error message or data indicates email is already verified
-    const errorMessage = error.message || '';
+    let errorMessage = error.message || '';
     const errorData = error.data || {};
     const errorDataMessage = errorData.message || errorData.errors?.[0] || '';
     
@@ -789,8 +797,21 @@ export const verifyEmail = async (verifyData) => {
       };
     }
     
-    // Re-throw other errors
-    throw error;
+    // Translate common OTP error messages to Vietnamese
+    const errorLower = errorMessage.toLowerCase();
+    if (errorLower.includes('otp is incorrect') || errorLower.includes('otp incorrect') || errorLower.includes('invalid otp')) {
+      errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+    } else if (errorLower.includes('otp expired') || errorLower.includes('expired')) {
+      errorMessage = 'Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.';
+    } else if (errorLower.includes('otp') && errorLower.includes('wrong')) {
+      errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+    }
+    
+    // Create new error with translated message
+    const translatedError = new Error(errorMessage);
+    translatedError.data = error.data;
+    translatedError.status = error.status;
+    throw translatedError;
   }
 };
 

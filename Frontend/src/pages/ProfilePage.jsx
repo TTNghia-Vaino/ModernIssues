@@ -904,8 +904,7 @@ const ProfilePage = () => {
                     </div>
                     <Switch
                       checked={twoFactorEnabled}
-                      onCheckedChange={handleToggle2FA}
-                      disabled={loading}
+                      disabled={true}
                     />
                   </div>
 

@@ -35,7 +35,7 @@ const TwoFactorSetup = () => {
       const data = await get2FAStatus();
       setStatus(data);
     } catch (err) {
-      setError('Failed to load 2FA status. Please refresh the page.');
+      setError('Không thể tải trạng thái 2FA. Vui lòng làm mới trang.');
     } finally {
       setLoading(false);
     }
@@ -49,7 +49,7 @@ const TwoFactorSetup = () => {
       setSetupData(data);
       setStep('setup');
     } catch (err) {
-      setError(err.message || 'Failed to start 2FA setup. Please try again.');
+      setError(err.message || 'Không thể bắt đầu thiết lập 2FA. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,7 @@ const TwoFactorSetup = () => {
     e.preventDefault();
     
     if (!verifyCode || verifyCode.length !== 6) {
-      setError('Please enter a valid 6-digit code');
+      setError('Vui lòng nhập đầy đủ 6 số');
       return;
     }
 
@@ -78,15 +78,28 @@ const TwoFactorSetup = () => {
       
       if (response.success || response.message) {
         setRecoveryCodes(response.recoveryCodes || result.recoveryCodes);
-        setSuccess(response.message || result.message || '2FA has been enabled successfully!');
+        setSuccess(response.message || result.message || '2FA đã được kích hoạt thành công!');
         setStep('complete');
         // Refresh status to update UI
         await fetchStatus();
       } else {
-        setError('Failed to verify 2FA setup. Please try again.');
+        setError('Xác thực thiết lập 2FA thất bại. Vui lòng thử lại.');
       }
     } catch (err) {
-      setError(err.message || 'Invalid code. Please try again.');
+      // Translate common OTP error messages to Vietnamese
+      let errorMessage = err.message || 'Mã xác thực không đúng. Vui lòng thử lại.';
+      
+      // Translate common English error messages
+      const errorLower = errorMessage.toLowerCase();
+      if (errorLower.includes('otp is incorrect') || errorLower.includes('otp incorrect') || errorLower.includes('invalid otp') || errorLower.includes('invalid code')) {
+        errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+      } else if (errorLower.includes('otp expired') || errorLower.includes('expired')) {
+        errorMessage = 'Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.';
+      } else if (errorLower.includes('otp') && errorLower.includes('wrong')) {
+        errorMessage = 'Mã xác thực không đúng. Vui lòng thử lại.';
+      }
+      
+      setError(errorMessage);
       setVerifyCode('');
       if (otpInputRef.current) {
         otpInputRef.current.reset();
@@ -100,7 +113,7 @@ const TwoFactorSetup = () => {
     e.preventDefault();
     
     if (!disablePassword) {
-      setError('Please enter your password');
+      setError('Vui lòng nhập mật khẩu của bạn');
       return;
     }
 
@@ -108,20 +121,20 @@ const TwoFactorSetup = () => {
       setLoading(true);
       setError('');
       await disable2FA(disablePassword);
-      setSuccess('Two-factor authentication has been disabled.');
+      setSuccess('Xác thực hai yếu tố đã được tắt.');
       setShowDisableConfirm(false);
       setDisablePassword('');
       await fetchStatus();
       setStep('status');
     } catch (err) {
-      setError(err.message || 'Failed to disable 2FA. Please check your password.');
+      setError(err.message || 'Không thể tắt 2FA. Vui lòng kiểm tra mật khẩu của bạn.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleRegenerateRecoveryCodes = async () => {
-    if (!confirm('Are you sure you want to regenerate recovery codes? Your old codes will no longer work.')) {
+    if (!confirm('Bạn có chắc chắn muốn tạo lại mã khôi phục? Các mã cũ sẽ không còn hoạt động.')) {
       return;
     }
 
@@ -133,14 +146,14 @@ const TwoFactorSetup = () => {
       setSuccess(result.message);
       setStep('complete');
     } catch (err) {
-      setError(err.message || 'Failed to regenerate recovery codes.');
+      setError(err.message || 'Không thể tạo lại mã khôi phục.');
     } finally {
       setLoading(false);
     }
   };
 
   const downloadRecoveryCodes = () => {
-    const text = `ModernIssues Recovery Codes\nGenerated: ${new Date().toLocaleString()}\n\nKeep these codes safe! Each can be used once.\n\n${recoveryCodes.join('\n')}`;
+    const text = `ModernIssues Mã Khôi Phục\nĐã tạo: ${new Date().toLocaleString()}\n\nHãy giữ các mã này an toàn! Mỗi mã chỉ có thể sử dụng một lần.\n\n${recoveryCodes.join('\n')}`;
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -154,14 +167,14 @@ const TwoFactorSetup = () => {
 
   const copyRecoveryCodes = () => {
     navigator.clipboard.writeText(recoveryCodes.join('\n'));
-    setSuccess('Recovery codes copied to clipboard!');
+    setSuccess('Đã sao chép mã khôi phục vào clipboard!');
     setTimeout(() => setSuccess(''), 3000);
   };
 
   if (loading && !setupData) {
     return (
       <div className="two-factor-setup-container">
-        <div className="loading-spinner">Loading...</div>
+        <div className="loading-spinner">Đang tải...</div>
       </div>
     );
   }
@@ -171,10 +184,10 @@ const TwoFactorSetup = () => {
       <div className="two-factor-setup-card">
         <div className="setup-header">
           <button className="back-button" onClick={() => navigate('/profile')}>
-            ← Back to Profile
+            ←
           </button>
-          <h1>Two-Factor Authentication</h1>
-          <p>Add an extra layer of security to your account</p>
+          <h1>Xác Thực Hai Yếu Tố</h1>
+          <p>Thêm một lớp bảo mật cho tài khoản của bạn</p>
         </div>
 
         {error && (
@@ -208,10 +221,10 @@ const TwoFactorSetup = () => {
                     <path d="M9 12l2 2 4-4" />
                   </svg>
                 </div>
-                <h3>Two-Factor Authentication is Enabled</h3>
-                <p>Your account is protected with {status.method}</p>
+                <h3>Xác Thực Hai Yếu Tố Đã Được Bật</h3>
+                <p>Tài khoản của bạn được bảo vệ bằng {status.method}</p>
                 <p className="enabled-date">
-                  Enabled on: {new Date(status.enabledAt).toLocaleDateString()}
+                  Đã bật vào: {new Date(status.enabledAt).toLocaleDateString('vi-VN')}
                 </p>
 
                 <div className="action-buttons">
@@ -220,25 +233,25 @@ const TwoFactorSetup = () => {
                     onClick={handleRegenerateRecoveryCodes}
                     disabled={loading}
                   >
-                    Regenerate Recovery Codes
+                    Tạo Lại Mã Khôi Phục
                   </button>
                   <button
                     className="btn btn-danger"
                     onClick={() => setShowDisableConfirm(true)}
                   >
-                    Disable 2FA
+                    Tắt 2FA
                   </button>
                 </div>
 
                 {showDisableConfirm && (
                   <form onSubmit={handleDisable2FA} className="disable-form">
-                    <h4>Confirm Disable 2FA</h4>
-                    <p>Enter your password to disable two-factor authentication:</p>
+                    <h4>Xác Nhận Tắt 2FA</h4>
+                    <p>Nhập mật khẩu của bạn để tắt xác thực hai yếu tố:</p>
                     <input
                       type="password"
                       value={disablePassword}
                       onChange={(e) => setDisablePassword(e.target.value)}
-                      placeholder="Your password"
+                      placeholder="Mật khẩu của bạn"
                       className="form-input"
                       autoFocus
                     />
@@ -247,10 +260,10 @@ const TwoFactorSetup = () => {
                         setShowDisableConfirm(false);
                         setDisablePassword('');
                       }}>
-                        Cancel
+                        Hủy
                       </button>
                       <button type="submit" className="btn btn-danger" disabled={loading}>
-                        {loading ? 'Disabling...' : 'Disable 2FA'}
+                        {loading ? 'Đang tắt...' : 'Tắt 2FA'}
                       </button>
                     </div>
                   </form>
@@ -263,32 +276,32 @@ const TwoFactorSetup = () => {
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                   </svg>
                 </div>
-                <h3>Two-Factor Authentication is Disabled</h3>
-                <p>Protect your account with an extra layer of security</p>
+                <h3>Xác Thực Hai Yếu Tố Đã Được Tắt</h3>
+                <p>Bảo vệ tài khoản của bạn với một lớp bảo mật bổ sung</p>
 
                 <div className="benefits">
-                  <h4>Why enable 2FA?</h4>
+                  <h4>Tại sao nên bật 2FA?</h4>
                   <ul>
                     <li>
                       <svg viewBox="0 0 24 24" fill="currentColor">
                         <circle cx="12" cy="12" r="10" />
                         <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" />
                       </svg>
-                      Protects against unauthorized access
+                      Bảo vệ chống lại truy cập trái phép
                     </li>
                     <li>
                       <svg viewBox="0 0 24 24" fill="currentColor">
                         <circle cx="12" cy="12" r="10" />
                         <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" />
                       </svg>
-                      Works with Microsoft Authenticator, Google Authenticator, and more
+                      Hoạt động với Microsoft Authenticator, Google Authenticator và nhiều ứng dụng khác
                     </li>
                     <li>
                       <svg viewBox="0 0 24 24" fill="currentColor">
                         <circle cx="12" cy="12" r="10" />
                         <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" />
                       </svg>
-                      Backup codes for account recovery
+                      Mã khôi phục để khôi phục tài khoản
                     </li>
                   </ul>
                 </div>
@@ -298,7 +311,7 @@ const TwoFactorSetup = () => {
                   onClick={handleStartSetup}
                   disabled={loading}
                 >
-                  {loading ? 'Setting up...' : 'Enable Two-Factor Authentication'}
+                  {loading ? 'Đang thiết lập...' : 'Bật Xác Thực Hai Yếu Tố'}
                 </button>
               </div>
             )}
@@ -308,16 +321,16 @@ const TwoFactorSetup = () => {
         {/* Setup View - Show QR Code */}
         {step === 'setup' && setupData && (
           <div className="setup-view">
-            <h3>Step 1: Scan QR Code</h3>
-            <p>Use Microsoft Authenticator or any TOTP authenticator app</p>
+            <h3>Bước 1: Quét Mã QR</h3>
+            <p>Sử dụng Microsoft Authenticator hoặc bất kỳ ứng dụng xác thực TOTP nào</p>
 
             <div className="qr-code-container">
               <img src={setupData.qrCodeDataUrl} alt="QR Code" className="qr-code" />
             </div>
 
             <div className="manual-entry">
-              <p><strong>Can't scan the code?</strong></p>
-              <p>Enter this key manually in your authenticator app:</p>
+              <p><strong>Không thể quét mã?</strong></p>
+              <p>Nhập khóa này thủ công vào ứng dụng xác thực của bạn:</p>
               <div className="secret-key">
                 <code>{setupData.manualEntryKey}</code>
                 <button
@@ -325,10 +338,10 @@ const TwoFactorSetup = () => {
                   className="btn-icon"
                   onClick={() => {
                     navigator.clipboard.writeText(setupData.secret);
-                    setSuccess('Secret key copied!');
+                    setSuccess('Đã sao chép khóa bí mật!');
                     setTimeout(() => setSuccess(''), 2000);
                   }}
-                  title="Copy secret key"
+                  title="Sao chép khóa bí mật"
                 >
                   📋
                 </button>
@@ -339,7 +352,7 @@ const TwoFactorSetup = () => {
               className="btn btn-primary"
               onClick={() => setStep('verify')}
             >
-              Next: Verify Code
+              Tiếp theo: Xác Thực Mã
             </button>
           </div>
         )}
@@ -347,8 +360,8 @@ const TwoFactorSetup = () => {
         {/* Verify View */}
         {step === 'verify' && (
           <div className="verify-view">
-            <h3>Step 2: Verify Code</h3>
-            <p>Enter the 6-digit code from your authenticator app</p>
+            <h3>Bước 2: Xác Thực Mã</h3>
+            <p>Nhập mã 6 số từ ứng dụng xác thực của bạn</p>
 
             <form onSubmit={handleVerifySetup} className="verify-form">
               <OTPInput
@@ -366,14 +379,14 @@ const TwoFactorSetup = () => {
                   className="btn btn-secondary"
                   onClick={() => setStep('setup')}
                 >
-                  Back
+                  Quay lại
                 </button>
                 <button
                   type="submit"
                   className="btn btn-primary"
                   disabled={loading || verifyCode.length !== 6}
                 >
-                  {loading ? 'Verifying...' : 'Verify & Enable'}
+                  {loading ? 'Đang xác thực...' : 'Xác Thực & Bật'}
                 </button>
               </div>
             </form>
@@ -389,9 +402,9 @@ const TwoFactorSetup = () => {
                 <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" />
               </svg>
             </div>
-            <h3>Save Your Recovery Codes</h3>
+            <h3>Lưu Mã Khôi Phục Của Bạn</h3>
             <p className="warning-text">
-              ⚠️ Store these codes in a safe place. Each code can only be used once.
+              ⚠️ Hãy lưu các mã này ở nơi an toàn. Mỗi mã chỉ có thể sử dụng một lần.
             </p>
 
             <div className="recovery-codes">
@@ -404,10 +417,10 @@ const TwoFactorSetup = () => {
 
             <div className="recovery-actions">
               <button className="btn btn-secondary" onClick={downloadRecoveryCodes}>
-                📥 Download Codes
+                📥 Tải Xuống Mã
               </button>
               <button className="btn btn-secondary" onClick={copyRecoveryCodes}>
-                📋 Copy to Clipboard
+                📋 Sao Chép Vào Clipboard
               </button>
             </div>
 
@@ -419,7 +432,7 @@ const TwoFactorSetup = () => {
                 setSetupData(null);
               }}
             >
-              Done
+              Hoàn thành
             </button>
           </div>
         )}
