@@ -11,7 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Input } from '../components/ui/input';
-import { ShieldCheck, ArrowLeft, Eye, Clock, User, Package, FileText, Image as ImageIcon, Calendar, Search, List } from 'lucide-react';
+import { Textarea } from '../components/ui/textarea';
+import { Label } from '../components/ui/label';
+import { ShieldCheck, ArrowLeft, Eye, Clock, User, Package, FileText, Image as ImageIcon, Calendar, Search, List, Upload, X } from 'lucide-react';
 import { normalizeImageUrl } from '../utils/productUtils';
 import './UserWarrantyTracking.css';
 
@@ -31,6 +33,7 @@ const UserWarrantyTracking = () => {
   
   // Warranty claims (Tab 2)
   const [claims, setClaims] = useState([]);
+  const [allClaims, setAllClaims] = useState([]); // Store all claims (unfiltered) to check for active claims
   const [loading, setLoading] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -40,6 +43,19 @@ const UserWarrantyTracking = () => {
   const [searchClaim, setSearchClaim] = useState('');
   const [currentPageClaims, setCurrentPageClaims] = useState(1);
   const [pageSizeClaims, setPageSizeClaims] = useState(10);
+  
+  // Warranty request modal
+  const [isWarrantyModalOpen, setIsWarrantyModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [warrantyFormData, setWarrantyFormData] = useState({
+    warrantyId: '',
+    description: '',
+    notes: '',
+  });
+  const [warrantyImageFiles, setWarrantyImageFiles] = useState([]);
+  const [warrantyImagePreviews, setWarrantyImagePreviews] = useState([]);
+  const [submittingWarranty, setSubmittingWarranty] = useState(false);
+  const [warrantyErrors, setWarrantyErrors] = useState({});
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -48,6 +64,8 @@ const UserWarrantyTracking = () => {
     }
     if (activeTab === 'products') {
       loadWarrantyProducts();
+      // Also load claims to check for active claims
+      loadClaims();
     } else {
       loadClaims();
     }
@@ -71,6 +89,9 @@ const UserWarrantyTracking = () => {
       setLoading(true);
       const data = await warrantyService.getMyWarrantyClaims();
       const claimsList = Array.isArray(data) ? data : [];
+      
+      // Store all claims (unfiltered) to check for active claims
+      setAllClaims(claimsList);
       
       // Filter by status if needed
       let filtered = claimsList;
@@ -163,6 +184,12 @@ const UserWarrantyTracking = () => {
     return normalizeImageUrl(imageUrl) || '/placeholder.svg';
   };
 
+  const truncateProductName = (name, maxLength = 40) => {
+    if (!name) return '-';
+    if (name.length <= maxLength) return name;
+    return name.substring(0, maxLength) + '...';
+  };
+
   // Filter warranty products by search
   const filteredWarrantyProducts = warrantyProducts.filter((product) => {
     if (!searchProduct) return true;
@@ -208,30 +235,173 @@ const UserWarrantyTracking = () => {
     setCurrentPageClaims(1);
   }, [searchClaim, filterStatus, filteredClaims.length]);
 
+  // Handle warranty image upload
+  const handleWarrantyImageChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    
+    if (files.length === 0) return;
+    
+    const validFiles = [];
+    const invalidFiles = [];
+    
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) {
+        invalidFiles.push(`${file.name}: Không phải file ảnh`);
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        invalidFiles.push(`${file.name}: Kích thước vượt quá 5MB`);
+        return;
+      }
+      
+      validFiles.push(file);
+    });
+    
+    if (invalidFiles.length > 0) {
+      setWarrantyErrors(prev => ({ ...prev, images: invalidFiles.join(', ') }));
+      showError(invalidFiles.join(', '));
+    } else {
+      // Clear image errors if all files are valid
+      setWarrantyErrors(prev => ({ ...prev, images: '' }));
+    }
+    
+    if (validFiles.length > 0) {
+      const newFiles = [...warrantyImageFiles, ...validFiles];
+      setWarrantyImageFiles(newFiles);
+      
+      // Create previews
+      const newPreviews = [];
+      validFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newPreviews.push(reader.result);
+          if (newPreviews.length === validFiles.length) {
+            setWarrantyImagePreviews([...warrantyImagePreviews, ...newPreviews]);
+          }
+        };
+        reader.onerror = () => {
+          setWarrantyErrors(prev => ({ ...prev, images: `Lỗi khi đọc file ${file.name}` }));
+          showError(`Lỗi khi đọc file ${file.name}`);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const removeWarrantyImage = (index) => {
+    const newFiles = [...warrantyImageFiles];
+    const newPreviews = [...warrantyImagePreviews];
+    newFiles.splice(index, 1);
+    newPreviews.splice(index, 1);
+    setWarrantyImageFiles(newFiles);
+    setWarrantyImagePreviews(newPreviews);
+  };
+
+  const handleWarrantySubmit = async (e) => {
+    e.preventDefault();
+    
+    // Validate form
+    const newErrors = {};
+    
+    if (!warrantyFormData.warrantyId) {
+      newErrors.warrantyId = 'Vui lòng chọn sản phẩm cần bảo hành';
+    }
+    
+    if (!warrantyFormData.description || warrantyFormData.description.trim() === '') {
+      newErrors.description = 'Vui lòng mô tả vấn đề/lỗi của sản phẩm';
+    }
+    
+    // Require at least one image
+    if (!warrantyImageFiles || warrantyImageFiles.length === 0) {
+      newErrors.images = 'Vui lòng upload ít nhất một ảnh minh chứng';
+    }
+    
+    setWarrantyErrors(newErrors);
+    
+    if (Object.keys(newErrors).length > 0) {
+      showError('Vui lòng điền đầy đủ thông tin bắt buộc');
+      return;
+    }
+    
+    try {
+      setSubmittingWarranty(true);
+      
+      const claimData = {
+        WarrantyId: parseInt(warrantyFormData.warrantyId),
+        Description: warrantyFormData.description.trim(),
+        Notes: warrantyFormData.notes?.trim() || null,
+        ImageUrls: null
+      };
+      
+      await warrantyService.createWarrantyClaim(claimData, warrantyImageFiles);
+      
+      success('Tạo yêu cầu bảo hành thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.');
+      
+      // Reset form
+      setWarrantyFormData({
+        warrantyId: '',
+        description: '',
+        notes: '',
+      });
+      setWarrantyImageFiles([]);
+      setWarrantyImagePreviews([]);
+      setSelectedProduct(null);
+      setWarrantyErrors({});
+      setIsWarrantyModalOpen(false);
+      
+      // Reload data
+      if (activeTab === 'products') {
+        loadWarrantyProducts();
+      } else {
+        loadClaims();
+      }
+      
+    } catch (err) {
+      console.error('[UserWarrantyTracking] Error creating claim:', err);
+      
+      // Translate common error messages to Vietnamese
+      let errorMessage = err.message || 'Không thể tạo yêu cầu bảo hành. Vui lòng thử lại.';
+      const errorLower = errorMessage.toLowerCase();
+      
+      // Translate common English error messages
+      if (errorLower.includes('warranty not found') || errorLower.includes('warranty does not exist')) {
+        errorMessage = 'Không tìm thấy sản phẩm bảo hành. Vui lòng thử lại.';
+      } else if (errorLower.includes('warranty expired') || errorLower.includes('warranty has expired')) {
+        errorMessage = 'Sản phẩm đã hết hạn bảo hành.';
+      } else if (errorLower.includes('invalid') && errorLower.includes('warranty')) {
+        errorMessage = 'Thông tin bảo hành không hợp lệ. Vui lòng kiểm tra lại.';
+      } else if (errorLower.includes('description') && (errorLower.includes('required') || errorLower.includes('empty'))) {
+        errorMessage = 'Vui lòng mô tả vấn đề/lỗi của sản phẩm.';
+      } else if (errorLower.includes('image') && (errorLower.includes('invalid') || errorLower.includes('error'))) {
+        errorMessage = 'Có lỗi khi tải ảnh. Vui lòng kiểm tra lại file ảnh.';
+      } else if (errorLower.includes('file size') || errorLower.includes('too large')) {
+        errorMessage = 'Kích thước file quá lớn. Vui lòng chọn file nhỏ hơn 5MB.';
+      } else if (errorLower.includes('network') || errorLower.includes('connection')) {
+        errorMessage = 'Lỗi kết nối. Vui lòng kiểm tra kết nối mạng và thử lại.';
+      } else if (errorLower.includes('unauthorized') || errorLower.includes('forbidden')) {
+        errorMessage = 'Bạn không có quyền thực hiện thao tác này.';
+      } else if (errorLower.includes('server error') || errorLower.includes('internal error')) {
+        errorMessage = 'Lỗi hệ thống. Vui lòng thử lại sau.';
+      }
+      
+      showError(errorMessage);
+    } finally {
+      setSubmittingWarranty(false);
+    }
+  };
+
   return (
     <div className="user-warranty-tracking-page">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate(-1)}
-              className="mb-4"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Quay lại
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Theo dõi bảo hành</h1>
-              <p className="text-gray-600 mt-1">Xem chi tiết và trạng thái các yêu cầu bảo hành của bạn</p>
-            </div>
-          </div>
+        <div className="mb-6">
           <Button
-            onClick={() => navigate('/warranty-request')}
-            className="bg-emerald-600 hover:bg-emerald-700"
+            variant="ghost"
+            onClick={() => navigate(-1)}
+            className="mb-4"
           >
-            <ShieldCheck className="w-4 h-4 mr-2" />
-            Tạo yêu cầu mới
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Quay lại
           </Button>
         </div>
 
@@ -256,12 +426,14 @@ const UserWarrantyTracking = () => {
 
           {/* Tab 1: Warranty Products */}
           <TabsContent value="products" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Sản phẩm bảo hành</CardTitle>
-                <CardDescription>Danh sách sản phẩm đang trong thời hạn bảo hành</CardDescription>
+            <Card className="shadow-lg border-0 max-w-full">
+              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
+                <CardTitle>Theo dõi bảo hành</CardTitle>
+                <CardDescription className="text-white/80">
+                  Xem chi tiết và trạng thái các sản phẩm bảo hành của bạn
+                </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {/* Search */}
                 <div className="mb-4 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -283,14 +455,6 @@ const UserWarrantyTracking = () => {
                     <p className="text-gray-500 mb-4">
                       {searchProduct ? 'Không tìm thấy sản phẩm' : 'Chưa có sản phẩm bảo hành'}
                     </p>
-                    {!searchProduct && (
-                      <Button
-                        onClick={() => navigate('/warranty-request')}
-                        variant="outline"
-                      >
-                        Tạo yêu cầu bảo hành
-                      </Button>
-                    )}
                   </div>
                 ) : (
                   <div className="rounded-lg border border-gray-200 overflow-hidden">
@@ -308,7 +472,26 @@ const UserWarrantyTracking = () => {
                       </TableHeader>
                       <TableBody>
                         {paginatedProducts.map((product) => {
-                          const isValid = !product.isExpired && product.status === 'active';
+                          // Check if product has an active claim (pending/processing/approved/inspecting/repairing)
+                          // Use allClaims (unfiltered) to check for active claims
+                          const productWarrantyId = product.warrantyId || product.id;
+                          const hasActiveClaim = allClaims.some(claim => {
+                            const claimWarrantyId = claim.warrantyId || claim.warranty_id;
+                            if (claimWarrantyId && String(claimWarrantyId) === String(productWarrantyId)) {
+                              // Check if claim is not completed/rejected/cancelled
+                              const claimStatus = claim.status?.toLowerCase();
+                              return claimStatus && 
+                                     claimStatus !== 'completed' && 
+                                     claimStatus !== 'rejected' && 
+                                     claimStatus !== 'cancelled';
+                            }
+                            return false;
+                          });
+                          
+                          // Hide button if expired, not active, or has active claim
+                          const isExpired = product.isExpired;
+                          const isActive = product.status === 'active' || product.statusDisplay === 'Còn hạn';
+                          const isValid = !isExpired && isActive && !hasActiveClaim;
                           return (
                             <TableRow key={product.warrantyId || product.id} className="hover:bg-gray-50">
                               <TableCell>
@@ -321,7 +504,9 @@ const UserWarrantyTracking = () => {
                                   }}
                                 />
                               </TableCell>
-                              <TableCell className="font-medium">{product.productName}</TableCell>
+                              <TableCell className="font-medium" title={product.productName}>
+                                {truncateProductName(product.productName)}
+                              </TableCell>
                               <TableCell className="font-mono text-sm text-gray-600">
                                 {product.serialNumber}
                               </TableCell>
@@ -356,15 +541,26 @@ const UserWarrantyTracking = () => {
                                 )}
                               </TableCell>
                               <TableCell>
-                                {isValid && (
+                                {isValid ? (
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => navigate('/warranty-request')}
+                                    onClick={() => {
+                                      setSelectedProduct(product);
+                                      setWarrantyFormData({
+                                        warrantyId: String(product.warrantyId || product.id),
+                                        description: '',
+                                        notes: '',
+                                      });
+                                      setWarrantyImageFiles([]);
+                                      setWarrantyImagePreviews([]);
+                                      setWarrantyErrors({});
+                                      setIsWarrantyModalOpen(true);
+                                    }}
                                   >
                                     Yêu cầu BH
                                   </Button>
-                                )}
+                                ) : null}
                               </TableCell>
                             </TableRow>
                           );
@@ -473,14 +669,14 @@ const UserWarrantyTracking = () => {
             </Card>
 
             {/* Claims List */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Danh sách yêu cầu bảo hành</CardTitle>
-                <CardDescription>
+            <Card className="shadow-lg border-0 max-w-full">
+              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
+                <CardTitle>Yêu cầu bảo hành</CardTitle>
+                <CardDescription className="text-white/80">
                   Tổng cộng: {filteredClaims.length} yêu cầu
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {loading ? (
                   <div className="text-center py-8 text-gray-500">
                     <p>Đang tải...</p>
@@ -493,14 +689,6 @@ const UserWarrantyTracking = () => {
                         ? 'Không tìm thấy yêu cầu bảo hành' 
                         : 'Bạn chưa có yêu cầu bảo hành nào'}
                     </p>
-                    {!searchClaim && filterStatus === 'all' && (
-                      <Button
-                        onClick={() => navigate('/warranty-request')}
-                        variant="outline"
-                      >
-                        Tạo yêu cầu bảo hành
-                      </Button>
-                    )}
                   </div>
                 ) : (
                   <div className="rounded-lg border border-gray-200 overflow-hidden">
@@ -534,7 +722,9 @@ const UserWarrantyTracking = () => {
                                   />
                                 )}
                                 <div>
-                                  <div className="font-medium">{claim.productName || '-'}</div>
+                                  <div className="font-medium" title={claim.productName || '-'}>
+                                    {truncateProductName(claim.productName)}
+                                  </div>
                                   {claim.serialNumber && (
                                     <div className="text-xs text-gray-500">Serial: {claim.serialNumber}</div>
                                   )}
@@ -630,16 +820,17 @@ const UserWarrantyTracking = () => {
 
         {/* Detail Dialog */}
         <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-6xl w-full max-h-[65vh] flex flex-col p-0" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', margin: 0 }}>
+            <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4">
               <DialogTitle>Chi tiết yêu cầu bảo hành</DialogTitle>
               <DialogDescription>
                 Mã yêu cầu: BH{String(selectedClaim?.detailId || selectedClaim?.detail_id || 0).padStart(3, '0')}
               </DialogDescription>
             </DialogHeader>
 
-            {selectedClaim && (
-              <div className="space-y-6 mt-4">
+            <div className="flex-1 overflow-y-auto px-6 pb-6">
+              {selectedClaim && (
+                <div className="space-y-6">
                 {/* Basic Info */}
                 <div className="grid grid-cols-2 gap-4">
                   <Card>
@@ -849,8 +1040,193 @@ const UserWarrantyTracking = () => {
                     )}
                   </CardContent>
                 </Card>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Warranty Request Modal */}
+        <Dialog open={isWarrantyModalOpen} onOpenChange={setIsWarrantyModalOpen}>
+          <DialogContent className="max-w-4xl w-full max-h-[65vh] flex flex-col p-0" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', margin: 0 }}>
+            <DialogHeader className="text-white flex-shrink-0" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)', padding: '24px', borderRadius: '8px 8px 0 0' }}>
+              <DialogTitle className="text-2xl">Tạo yêu cầu bảo hành</DialogTitle>
+              <DialogDescription className="text-white/80">
+                Điền thông tin để tạo yêu cầu bảo hành cho sản phẩm của bạn
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <form onSubmit={handleWarrantySubmit} className="space-y-6">
+              {/* Product Info (Read-only) */}
+              {selectedProduct && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <Label className="text-sm font-semibold text-gray-700 mb-2 block">Thông tin sản phẩm</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Tên sản phẩm:</p>
+                      <p className="font-medium">{selectedProduct.productName}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Số Serial:</p>
+                      <p className="font-mono text-sm">{selectedProduct.serialNumber}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Ngày mua:</p>
+                      <p>{selectedProduct.startDate ? new Date(selectedProduct.startDate).toLocaleDateString('vi-VN') : '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Hết hạn BH:</p>
+                      <p>{selectedProduct.endDate ? new Date(selectedProduct.endDate).toLocaleDateString('vi-VN') : '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="description">Mô tả vấn đề/lỗi *</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Vui lòng mô tả chi tiết vấn đề hoặc lỗi mà sản phẩm đang gặp phải..."
+                  value={warrantyFormData.description}
+                  onChange={(e) => {
+                    setWarrantyFormData({ ...warrantyFormData, description: e.target.value });
+                    // Clear error when user starts typing
+                    if (warrantyErrors.description) {
+                      setWarrantyErrors(prev => ({ ...prev, description: '' }));
+                    }
+                  }}
+                  onBlur={() => {
+                    // Validate when user leaves the field
+                    if (!warrantyFormData.description || warrantyFormData.description.trim() === '') {
+                      setWarrantyErrors(prev => ({ ...prev, description: 'Vui lòng mô tả vấn đề/lỗi của sản phẩm' }));
+                    } else {
+                      setWarrantyErrors(prev => ({ ...prev, description: '' }));
+                    }
+                  }}
+                  rows={5}
+                  disabled={submittingWarranty}
+                  className={warrantyErrors.description ? 'error' : ''}
+                />
+                {warrantyErrors.description && (
+                  <span className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#e74c3c', fontSize: '13px', marginTop: '5px' }}>
+                    <i className="fas fa-info-circle" aria-hidden="true"></i>
+                    {warrantyErrors.description}
+                  </span>
+                )}
+                {!warrantyErrors.description && (
+                  <p className="text-sm text-gray-500">
+                    Mô tả càng chi tiết càng tốt để chúng tôi có thể hỗ trợ bạn nhanh chóng.
+                  </p>
+                )}
               </div>
-            )}
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="notes">Ghi chú thêm (tùy chọn)</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Thông tin bổ sung, yêu cầu đặc biệt..."
+                  value={warrantyFormData.notes}
+                  onChange={(e) => setWarrantyFormData({ ...warrantyFormData, notes: e.target.value })}
+                  rows={3}
+                  disabled={submittingWarranty}
+                />
+              </div>
+
+              {/* Image Upload */}
+              <div className="space-y-2">
+                <Label>Ảnh minh chứng *</Label>
+                <p className="text-sm text-gray-500 mb-2">
+                  Upload ảnh mô tả tình trạng sản phẩm (ví dụ: vỡ màn hình, đen màn, v.v.)
+                </p>
+                <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                  warrantyErrors.images 
+                    ? 'border-red-300 hover:border-red-400' 
+                    : 'border-gray-300 hover:border-blue-400'
+                }`}>
+                  <input
+                    type="file"
+                    id="warranty-images"
+                    accept="image/*"
+                    multiple
+                    onChange={handleWarrantyImageChange}
+                    disabled={submittingWarranty}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="warranty-images"
+                    className={`cursor-pointer flex flex-col items-center gap-2 ${submittingWarranty ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <Upload className={`w-8 h-8 ${submittingWarranty ? 'text-gray-300' : warrantyErrors.images ? 'text-red-400' : 'text-gray-400'}`} />
+                    <span className={`text-sm ${submittingWarranty ? 'text-gray-400' : warrantyErrors.images ? 'text-red-600' : 'text-gray-600'}`}>
+                      Click để tải lên ảnh (tối đa 5MB/ảnh, có thể chọn nhiều ảnh)
+                    </span>
+                  </label>
+                </div>
+                {warrantyErrors.images && (
+                  <span className="error-text" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#e74c3c', fontSize: '13px', marginTop: '5px' }}>
+                    <i className="fas fa-info-circle" aria-hidden="true"></i>
+                    {warrantyErrors.images}
+                  </span>
+                )}
+                
+                {/* Image Previews */}
+                {warrantyImagePreviews.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+                    {warrantyImagePreviews.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={preview}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
+                          onClick={() => removeWarrantyImage(index)}
+                          disabled={submittingWarranty}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b-lg">
+                          Ảnh {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+                {/* Submit Buttons */}
+                <div className="flex gap-4 pt-4">
+                  <Button
+                    type="submit"
+                    disabled={submittingWarranty}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    {submittingWarranty ? 'Đang gửi...' : 'Gửi yêu cầu bảo hành'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsWarrantyModalOpen(false);
+                      setWarrantyFormData({ warrantyId: '', description: '', notes: '' });
+                      setWarrantyImageFiles([]);
+                      setWarrantyImagePreviews([]);
+                      setSelectedProduct(null);
+                    }}
+                    disabled={submittingWarranty}
+                  >
+                    Hủy
+                  </Button>
+                </div>
+              </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

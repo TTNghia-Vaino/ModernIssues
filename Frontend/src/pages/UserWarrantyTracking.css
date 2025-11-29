@@ -4,6 +4,29 @@
   padding: 2rem 0;
 }
 
+/* Error styles for warranty form */
+.error-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e74c3c;
+  font-size: 13px;
+  margin-top: 5px;
+  margin-bottom: 0;
+  font-weight: 400;
+}
+
+.error-text i {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+textarea.error,
+input.error {
+  border-color: #e74c3c !important;
+  border-width: 2px !important;
+}
+
 .user-warranty-tracking-page .container {
   max-width: 1200px;
 }
