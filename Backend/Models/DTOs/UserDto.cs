@@ -47,6 +47,7 @@ namespace ModernIssues.Models.DTOs
         public string Role { get; set; } = string.Empty;
         public bool IsDisabled { get; set; }
         public bool EmailConfirmed { get; set; }
+        public bool TwoFactorEnabled { get; set; } // Trạng thái bật/tắt 2FA
         // public DateTime CreatedAt { get; set; } // Tùy chọn
     }
 
