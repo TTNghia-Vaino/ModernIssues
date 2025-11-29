@@ -38,7 +38,7 @@ namespace ModernIssues.Controllers
 
         // POST: api/Auth/Register
         [HttpPost("Register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request, [FromServices] IMemoryCache cache)
         {
             if (string.IsNullOrWhiteSpace(request.Username) ||
                 string.IsNullOrWhiteSpace(request.Email) ||
@@ -78,18 +78,119 @@ namespace ModernIssues.Controllers
             _context.users.Update(newUser);
             await _context.SaveChangesAsync();
 
-            var emailRequest = new EmailRequest
+            // Generate OTP code for email confirmation
+            var otp = new Random().Next(100000, 999999).ToString();
+            var cacheKey = $"EMAIL_CONFIRM_OTP_{newUser.email}";
+            cache.Set(cacheKey, otp, TimeSpan.FromMinutes(10));
+
+            // Send OTP code to email
+            try
             {
-                ToEmail = newUser.email,
-                Subject = "Confirm your registration",
-                Body = $"Hello {newUser.username},\n\nThank you for registering!"
-            };
+                var emailBody = $"Xin chào {newUser.username},\n\n" +
+                               $"Cảm ơn bạn đã đăng ký tài khoản!\n\n" +
+                               $"Mã OTP để xác thực email của bạn là: {otp}\n\n" +
+                               $"Mã này sẽ hết hạn sau 10 phút.\n\n" +
+                               $"Nếu bạn không yêu cầu đăng ký, vui lòng bỏ qua email này.";
 
-            await _emailService.SendEmailAsync(emailRequest.ToEmail, emailRequest.Subject, emailRequest.Body);
-
-            return Ok(new { message = "Registration successful! Please check your email." });
+                await _emailService.SendEmailAsync(newUser.email, "Xác thực email đăng ký", emailBody);
+                return Ok(new { message = "Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP xác thực." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = $"Đăng ký thành công nhưng không thể gửi email OTP: {ex.Message}" });
+            }
         }
 
+        // POST: api/Auth/ConfirmEmail
+        [HttpPost("ConfirmEmail")]
+        public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequest request, [FromServices] IMemoryCache cache)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Otp))
+            {
+                return BadRequest(new { message = "Email và mã OTP không được để trống." });
+            }
+
+            // Tìm user theo email
+            var user = await _context.users.FirstOrDefaultAsync(u => u.email == request.Email);
+            if (user == null)
+            {
+                return BadRequest(new { message = "Không tìm thấy tài khoản với email này." });
+            }
+
+            // Kiểm tra email đã được xác thực chưa
+            if (user.email_confirmed == true)
+            {
+                return BadRequest(new { message = "Email này đã được xác thực rồi." });
+            }
+
+            // Kiểm tra OTP trong cache
+            var cacheKey = $"EMAIL_CONFIRM_OTP_{request.Email}";
+            if (!cache.TryGetValue(cacheKey, out string cachedOtp))
+            {
+                return BadRequest(new { message = "Mã OTP đã hết hạn hoặc không hợp lệ. Vui lòng yêu cầu gửi lại mã OTP." });
+            }
+
+            // Xác thực OTP
+            if (cachedOtp != request.Otp)
+            {
+                return BadRequest(new { message = "Mã OTP không đúng. Vui lòng kiểm tra lại." });
+            }
+
+            // OTP đúng - Xác thực email
+            user.email_confirmed = true;
+            user.updated_at = DateTime.UtcNow;
+            _context.users.Update(user);
+            await _context.SaveChangesAsync();
+
+            // Xóa OTP khỏi cache
+            cache.Remove(cacheKey);
+
+            return Ok(new { message = "Email đã được xác thực thành công!" });
+        }
+
+        // POST: api/Auth/ResendConfirmEmailOtp
+        [HttpPost("ResendConfirmEmailOtp")]
+        public async Task<IActionResult> ResendConfirmEmailOtp([FromBody] ForgotPasswordRequest request, [FromServices] IMemoryCache cache)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest(new { message = "Email không được để trống." });
+            }
+
+            // Tìm user theo email
+            var user = await _context.users.FirstOrDefaultAsync(u => u.email == request.Email);
+            if (user == null)
+            {
+                return BadRequest(new { message = "Không tìm thấy tài khoản với email này." });
+            }
+
+            // Kiểm tra email đã được xác thực chưa
+            if (user.email_confirmed == true)
+            {
+                return BadRequest(new { message = "Email này đã được xác thực rồi." });
+            }
+
+            // Generate OTP code mới
+            var otp = new Random().Next(100000, 999999).ToString();
+            var cacheKey = $"EMAIL_CONFIRM_OTP_{user.email}";
+            cache.Set(cacheKey, otp, TimeSpan.FromMinutes(10));
+
+            // Send OTP code to email
+            try
+            {
+                var emailBody = $"Xin chào {user.username},\n\n" +
+                               $"Mã OTP mới để xác thực email của bạn là: {otp}\n\n" +
+                               $"Mã này sẽ hết hạn sau 10 phút.\n\n" +
+                               $"Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.";
+
+                await _emailService.SendEmailAsync(user.email, "Mã OTP xác thực email", emailBody);
+                return Ok(new { message = "Mã OTP đã được gửi lại đến email của bạn." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = $"Không thể gửi email OTP: {ex.Message}" });
+            }
+        }
 
         // POST: api/Auth/Login
         [HttpPost("Login")]
