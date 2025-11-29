@@ -61,6 +61,10 @@ export const apiRequest = async (endpoint, options = {}) => {
     if (!response.ok) {
       if (import.meta.env.DEV) {
         console.error(`[API Error] ${response.status} ${url}`, data);
+        if (response.status === 404) {
+          console.error(`[API 404] Endpoint not found: ${url}`);
+          console.error(`[API 404] Check if endpoint exists on backend: ${defaultOptions.method || 'GET'} ${url}`);
+        }
       }
       
       // Handle 401 Unauthorized - clear token and trigger logout
