@@ -2,6 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getCategoryTreeFull, createCategory, updateCategory, deleteCategory } from '../services/categoryService';
 import { getProductCountByCategory, listProducts } from '../services/productService';
+import {
+  AdminPageHeader,
+  AdminFiltersBar,
+  AdminDataTable,
+  AdminPagination,
+  AdminLoadingOverlay,
+  AdminActionDropdown,
+  AdminModal,
+  AdminConfirmModal
+} from '../components/admin';
+import { AdminIcons, AdminActionLabels } from '../utils/adminConstants';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import './AdminCategories.css';
 
 const AdminCategories = () => {
@@ -15,13 +30,28 @@ const AdminCategories = () => {
   const [loadingProducts, setLoadingProducts] = useState(new Set()); // Track loading state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // Filter by isDisabled: 'all', 'active', 'inactive'
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    variant: 'default'
+  });
   const [formData, setFormData] = useState({
     name: '',
-    parentId: null
+    parentId: null,
+    description: ''
   });
 
   // Load categories from API
@@ -47,24 +77,6 @@ const AdminCategories = () => {
     };
   }, []);
 
-  // Close all dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Close all dropdown menus when clicking outside
-      const dropdowns = document.querySelectorAll('.dropdown-menu.show');
-      dropdowns.forEach(dropdown => {
-        const container = dropdown.closest('.dropdown-menu-container');
-        if (container && !container.contains(event.target)) {
-          dropdown.classList.remove('show');
-        }
-      });
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, []);
 
   const loadCategories = async () => {
     try {
@@ -252,7 +264,7 @@ const AdminCategories = () => {
     }
 
     try {
-      const allCategories = findAllCategories(categories);
+      setIsSubmitting(true);
       const newCategory = await createCategory({
         categoryName: formData.name.trim(),
         parentId: formData.parentId
@@ -263,11 +275,13 @@ const AdminCategories = () => {
       
       showNotification('Thêm danh mục thành công!', 'success');
       setIsAddDialogOpen(false);
-      setFormData({ name: '', parentId: null });
+      setFormData({ name: '', parentId: null, description: '' });
     } catch (error) {
       console.error('[AdminCategories] Failed to add category:', error);
       const errorMessage = error.data?.message || error.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
       showNotification(errorMessage, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -279,8 +293,10 @@ const AdminCategories = () => {
     }
     
     try {
+      setIsSubmitting(true);
       await updateCategory(selectedCategory.id, {
-        categoryName: formData.name.trim()
+        categoryName: formData.name.trim(),
+        description: formData.description || ''
       });
 
       // Reload categories
@@ -289,50 +305,70 @@ const AdminCategories = () => {
       showNotification('Cập nhật danh mục thành công!', 'success');
       setIsEditDialogOpen(false);
       setSelectedCategory(null);
-      setFormData({ name: '', parentId: null });
+      setFormData({ name: '', parentId: null, description: '' });
     } catch (error) {
       console.error('[AdminCategories] Failed to update category:', error);
       const errorMessage = error.data?.message || error.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
       showNotification(errorMessage, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
 
-  const handleToggleStatus = async (category) => {
+  const handleToggleStatus = (category) => {
     const newStatus = !category.isDisabled;
     const action = newStatus ? 'vô hiệu hóa' : 'kích hoạt';
     
-    if (window.confirm(`Bạn có chắc muốn ${action} danh mục "${category.name}"?`)) {
-      try {
-        const response = await updateCategory(category.id, {
-          isDisabled: newStatus
-        });
-        // Reload categories để cập nhật trạng thái
-        await loadCategories();
-        showNotification(`${action.charAt(0).toUpperCase() + action.slice(1)} danh mục thành công!`, 'success');
-      } catch (error) {
-        console.error('[AdminCategories] Failed to toggle category status:', error);
-        // Kiểm tra nếu lỗi là "Không tìm thấy" nhưng thực ra đã update thành công
-        const errorMessage = error.data?.message || error.message || '';
-        if (errorMessage.includes('Không tìm thấy') && newStatus) {
-          // Nếu vô hiệu hóa thành công nhưng API trả về "Không tìm thấy" (vì filter disabled)
-          // Vẫn reload và thông báo thành công
+    setConfirmModal({
+      open: true,
+      title: 'Xác nhận',
+      message: `Bạn có chắc muốn ${action} danh mục "${category.name}"?`,
+      variant: newStatus ? 'danger' : 'default',
+      onConfirm: async () => {
+        try {
+          const response = await updateCategory(category.id, {
+            isDisabled: newStatus
+          });
+          // Reload categories để cập nhật trạng thái
           await loadCategories();
-          showNotification('Vô hiệu hóa danh mục thành công!', 'success');
-        } else {
-          showNotification(errorMessage || 'Có lỗi xảy ra. Vui lòng thử lại.', 'error');
+          showNotification(`${action.charAt(0).toUpperCase() + action.slice(1)} danh mục thành công!`, 'success');
+        } catch (error) {
+          console.error('[AdminCategories] Failed to toggle category status:', error);
+          // Kiểm tra nếu lỗi là "Không tìm thấy" nhưng thực ra đã update thành công
+          const errorMessage = error.data?.message || error.message || '';
+          if (errorMessage.includes('Không tìm thấy') && newStatus) {
+            // Nếu vô hiệu hóa thành công nhưng API trả về "Không tìm thấy" (vì filter disabled)
+            // Vẫn reload và thông báo thành công
+            await loadCategories();
+            showNotification('Vô hiệu hóa danh mục thành công!', 'success');
+          } else {
+            showNotification(errorMessage || 'Có lỗi xảy ra. Vui lòng thử lại.', 'error');
+          }
         }
       }
-    }
+    });
   };
 
   const openEditDialog = (category) => {
     setSelectedCategory(category);
     setFormData({
-      name: category.name,
-      parentId: category.parentId,
+      name: category.name || '',
+      parentId: category.parentId || null,
+      description: category.description || ''
     });
     setIsEditDialogOpen(true);
+  };
+
+  const handleCloseAddDialog = () => {
+    setIsAddDialogOpen(false);
+    setFormData({ name: '', parentId: null, description: '' });
+  };
+
+  const handleCloseEditDialog = () => {
+    setIsEditDialogOpen(false);
+    setSelectedCategory(null);
+    setFormData({ name: '', parentId: null, description: '' });
   };
 
   const showNotification = (message, type = 'success') => {
@@ -348,7 +384,7 @@ const AdminCategories = () => {
     const isLevel1 = category.level === 1;
     const isLevel2 = category.level === 2;
     
-    // Level 2 categories automatically show products when expanded
+    // Level 2 categories show products when expanded
     const showProducts = isLevel2 && isExpanded && expandedProducts.has(category.id);
     const isLoadingProducts = loadingProducts.has(category.id);
     const products = categoryProducts[category.id] || [];
@@ -356,42 +392,6 @@ const AdminCategories = () => {
     let bgClass = '';
     if (isLevel1) bgClass = 'bg-blue-50 font-semibold';
     else if (isLevel2) bgClass = 'bg-slate-50';
-
-    // Filter categories based on search and status
-    const matchesSearch = !searchQuery || 
-      category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(category.id).includes(searchQuery);
-    
-    // Filter by status
-    let matchesStatus = true;
-    if (filterStatus === 'active') {
-      matchesStatus = !category.isDisabled;
-    } else if (filterStatus === 'inactive') {
-      matchesStatus = category.isDisabled === true;
-    }
-    
-    const categoryMatches = matchesSearch && matchesStatus;
-
-    if (!categoryMatches && !hasChildren) {
-      return null;
-    }
-
-    // Check if any child matches search and status
-    const hasMatchingChild = hasChildren && category.children.some(child => {
-      const childMatchesSearch = !searchQuery || 
-        child.name.toLowerCase().includes(searchQuery.toLowerCase());
-      let childMatchesStatus = true;
-      if (filterStatus === 'active') {
-        childMatchesStatus = !child.isDisabled;
-      } else if (filterStatus === 'inactive') {
-        childMatchesStatus = child.isDisabled === true;
-      }
-      return childMatchesSearch && childMatchesStatus;
-    });
-
-    if (!categoryMatches && !hasMatchingChild) {
-      return null;
-    }
 
     return (
       <div key={category.id}>
@@ -404,94 +404,74 @@ const AdminCategories = () => {
             }
           }}
           style={{ 
-            paddingLeft: `${level * 2 + 1}rem`, 
-            cursor: (hasChildren || (isLevel2 && category.productCount > 0)) ? 'pointer' : 'default' 
+            cursor: (hasChildren || (isLevel2 && category.productCount > 0)) ? 'pointer' : 'default',
+            paddingLeft: 0,
+            marginLeft: 0
           }}
         >
           <div className="category-row-content">
-            <div className="category-row-left">
-              {(hasChildren || (isLevel2 && category.productCount > 0)) ? (
-                <button
-                  className="expand-btn"
-                  onClick={(e) => {
-                    e.stopPropagation(); // Ngăn event bubble lên category-row
-                    toggleExpand(category.id, category);
-                  }}
-                  title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
-                  data-expanded={isExpanded}
-                />
-              ) : (
-                <div className="expand-placeholder" />
-              )}
-
-              <div className="category-icon">
-                {isLevel1 && '📁'}
-                {isLevel2 && '📂'}
-              </div>
-
-              <div className="category-info">
-                <div className="category-name-row">
-                  <span className={`category-name ${isLevel1 ? 'text-lg' : isLevel2 ? 'text-base' : 'text-sm'} ${category.isDisabled ? 'opacity-60' : ''}`}>
-                    {category.name}
-                  </span>
-                  {isLevel1 && <span className="level-badge level-1">Cấp 1</span>}
-                  {isLevel2 && <span className="level-badge level-2">Cấp 2</span>}
-                  {category.isDisabled ? (
-                    <span className="status-badge status-disabled" title="Đã vô hiệu hóa">🔴 Vô hiệu hóa</span>
-                  ) : (
-                    <span className="status-badge status-active" title="Đang hoạt động">🟢 Hoạt động</span>
-                  )}
+            {/* Tên danh mục */}
+            <div className="col-name">
+              <div className="category-row-left" style={{ paddingLeft: `${level * 1.5}rem` }}>
+                {(hasChildren || (isLevel2 && category.productCount > 0)) ? (
+                  <button
+                    className="expand-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleExpand(category.id, category);
+                    }}
+                    title={isExpanded ? 'Thu gọn' : 'Mở rộng'}
+                    data-expanded={isExpanded}
+                  />
+                ) : (
+                  <div className="expand-placeholder" />
+                )}
+                <div className="category-icon">
+                  {isLevel1 && '📁'}
+                  {isLevel2 && '📂'}
                 </div>
+                <span className={`category-name ${isLevel1 ? 'text-lg' : isLevel2 ? 'text-base' : 'text-sm'} ${category.isDisabled ? 'opacity-60' : ''}`}>
+                  {category.name}
+                </span>
               </div>
             </div>
 
-            <div className="category-row-right">
-              <div className="product-count">
-                <span className="count-number">{category.productCount}</span> sản phẩm
-              </div>
+            {/* Cấp */}
+            <div className="col-level">
+              {isLevel1 && <span className="level-badge level-1">Cấp 1</span>}
+              {isLevel2 && <span className="level-badge level-2">Cấp 2</span>}
+            </div>
 
-              <div className="category-actions" onClick={(e) => e.stopPropagation()}>
-                <div className="dropdown-menu-container">
-                  <button
-                    className="action-btn menu-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const menuId = `menu-${category.id}`;
-                      const menu = document.getElementById(menuId);
-                      if (menu) {
-                        menu.classList.toggle('show');
-                      }
-                    }}
-                    title="Menu"
-                  >
-                    ⋯
-                  </button>
-                  <div className="dropdown-menu" id={`menu-${category.id}`}>
-                    <button
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleStatus(category);
-                        const menu = document.getElementById(`menu-${category.id}`);
-                        if (menu) menu.classList.remove('show');
-                      }}
-                    >
-                      {category.isDisabled ? '✅ Kích hoạt' : '❌ Vô hiệu hóa'}
-                    </button>
-                    <button
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEditDialog(category);
-                        const menu = document.getElementById(`menu-${category.id}`);
-                        if (menu) menu.classList.remove('show');
-                      }}
-                    >
-                      ✏️ Sửa
-                    </button>
-                  </div>
-                </div>
-              </div>
+            {/* Trạng thái */}
+            <div className="col-status">
+              {category.isDisabled ? (
+                <span className="status-badge status-disabled" title="Đã vô hiệu hóa">Vô hiệu hóa</span>
+              ) : (
+                <span className="status-badge status-active" title="Đang hoạt động">Hoạt động</span>
+              )}
+            </div>
+
+            {/* Số lượng */}
+            <div className="col-count">
+              <span className="count-number">{category.productCount || 0}</span> sản phẩm
+            </div>
+
+            {/* Thao tác */}
+            <div className="col-actions" onClick={(e) => e.stopPropagation()}>
+              <AdminActionDropdown
+                actions={[
+                  {
+                    label: category.isDisabled ? AdminActionLabels.activate : AdminActionLabels.deactivate,
+                    icon: category.isDisabled ? AdminIcons.activate : AdminIcons.deactivate,
+                    onClick: () => handleToggleStatus(category)
+                  },
+                  {
+                    label: AdminActionLabels.edit,
+                    icon: AdminIcons.edit,
+                    onClick: () => openEditDialog(category)
+                  }
+                ]}
+              />
             </div>
           </div>
         </div>
@@ -561,23 +541,58 @@ const AdminCategories = () => {
     return categoryMatches;
   };
 
-  const filteredCategories = categories.filter(cat => matchesFilter(cat));
+  // Flatten categories to a flat array for pagination (keep tree structure but flatten for display)
+  // Helper function to recursively collect visible categories (only root + expanded children)
+  const getVisibleCategories = (cats, result = []) => {
+    cats.forEach(cat => {
+      const isLevel1 = cat.level === 1;
+      const isExpanded = expandedCategories.has(cat.id);
+      const hasChildren = cat.children && cat.children.length > 0;
+      
+      // Only add root categories (level 1) to the list for pagination
+      // Children will be shown when parent is expanded
+      if (isLevel1) {
+        result.push(cat);
+      }
+    });
+    return result;
+  };
 
-  const rootCategories = categories.filter(c => c.parentId === null);
+  // Get only root categories (level 1) for pagination
+  const rootCategories = categories.filter(c => c.level === 1);
+  
+  // Filter root categories
+  const filteredRootCategories = rootCategories.filter(cat => {
+    const matchesSearch = !searchQuery || 
+      cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(cat.id).includes(searchQuery);
+    
+    let matchesStatus = true;
+    if (filterStatus === 'active') {
+      matchesStatus = !cat.isDisabled;
+    } else if (filterStatus === 'inactive') {
+      matchesStatus = cat.isDisabled === true;
+    }
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  // Pagination - only for root categories (level 1)
+  const totalPages = Math.ceil(filteredRootCategories.length / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedCategories = filteredRootCategories.slice(startIndex, endIndex);
+
+  // Use existing findAllCategories function (already declared above)
   const allCategories = findAllCategories(categories);
   // Only show Level 1 and Level 2 in parent selector (Level 3 is products, not categories)
   const level1And2Categories = allCategories.filter(c => c.level <= 2);
 
-  if (loading) {
-    return (
-      <div className="admin-categories">
-        <div className="page-header">
-          <h2>Quản lý danh mục</h2>
-        </div>
-        <div style={{ textAlign: 'center', padding: '40px' }}>Đang tải danh mục...</div>
-      </div>
-    );
-  }
+  const statusFilterOptions = [
+    { value: 'all', label: 'Tất cả trạng thái' },
+    { value: 'active', label: '🟢 Hoạt động' },
+    { value: 'inactive', label: '🔴 Vô hiệu hóa' }
+  ];
 
   return (
     <div className="admin-categories">
@@ -587,155 +602,200 @@ const AdminCategories = () => {
         </div>
       )}
       
-      <div className="page-header">
-        <div>
-          <h2>Quản lý Danh mục</h2>
-          <p className="page-description">Quản lý danh mục sản phẩm 3 cấp phân cấp</p>
-        </div>
-        <button className="add-btn" onClick={() => setIsAddDialogOpen(true)}>
-          ➕ Thêm danh mục mới
-        </button>
-      </div>
-
-      {/* Search Bar and Filters */}
-      <div className="search-bar">
-        <input
-          type="text"
-          placeholder="🔍 Tìm kiếm danh mục..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="search-input"
+      <AdminLoadingOverlay 
+        loading={loading} 
+        hasData={categories.length > 0}
+        message="Đang tải danh mục..."
+      >
+        <AdminPageHeader
+          title="Quản lý Danh mục"
+          subtitle="Quản lý danh mục sản phẩm 3 cấp phân cấp"
+          onAdd={() => setIsAddDialogOpen(true)}
+          addButtonText="➕ Thêm danh mục mới"
         />
-        <select 
-          value={filterStatus} 
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="filter-select"
-        >
-          <option value="all">Tất cả trạng thái</option>
-          <option value="active">🟢 Hoạt động</option>
-          <option value="inactive">🔴 Vô hiệu hóa</option>
-        </select>
-      </div>
 
-      {/* Category Tree */}
-      <div className="category-tree-container">
-        <div className="tree-header">
-          <h3>Cây danh mục</h3>
-          <span className="tree-count">Tổng: {rootCategories.length} danh mục gốc</span>
+        <AdminFiltersBar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="🔍 Tìm kiếm danh mục..."
+          filters={[
+            {
+              key: 'status',
+              value: filterStatus,
+              onChange: setFilterStatus,
+              options: statusFilterOptions
+            }
+          ]}
+        />
+
+        {/* Category Tree with Table Header */}
+        <div className="category-tree-container">
+          {/* Table Header */}
+          <div className="categories-table-header">
+            <div className="col-name">TÊN DANH MỤC</div>
+            <div className="col-level">CẤP</div>
+            <div className="col-status">TRẠNG THÁI</div>
+            <div className="col-count">SỐ LƯỢNG</div>
+            <div className="col-actions">THAO TÁC</div>
+          </div>
+
+          {/* Category Tree */}
+          <div className="category-tree">
+            {paginatedCategories.length === 0 ? (
+              <div className="empty-state">
+                {searchQuery ? 'Không tìm thấy danh mục nào' : 'Chưa có danh mục nào'}
+              </div>
+            ) : (
+              paginatedCategories.map(category => renderCategory(category))
+            )}
+          </div>
         </div>
 
-        <div className="category-tree">
-          {filteredCategories.length === 0 ? (
-            <div className="empty-state">
-              {searchQuery ? 'Không tìm thấy danh mục nào' : 'Chưa có danh mục nào'}
-            </div>
-          ) : (
-            filteredCategories.map(category => renderCategory(category))
-              )}
-            </div>
-      </div>
+        {/* Pagination */}
+        {filteredRootCategories.length > 0 && (
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredRootCategories.length}
+            startIndex={startIndex + 1}
+            endIndex={Math.min(endIndex, filteredRootCategories.length)}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[10, 20, 50]}
+            itemName="danh mục"
+          />
+        )}
+      </AdminLoadingOverlay>
 
       {/* Add Category Dialog */}
-      {isAddDialogOpen && (
-        <div className="modal-overlay" onClick={() => setIsAddDialogOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Thêm danh mục mới</h3>
-              <button className="close-btn" onClick={() => setIsAddDialogOpen(false)}>✕</button>
+      <AdminModal
+        open={isAddDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) handleCloseAddDialog();
+        }}
+        title="Thêm danh mục mới"
+        description="Tạo danh mục sản phẩm mới"
+        onSubmit={handleAddCategory}
+        onCancel={handleCloseAddDialog}
+        submitLabel="Thêm"
+        cancelLabel="Hủy"
+        loading={isSubmitting}
+        size="4xl"
+      >
+        <div className="form-section">
+          <h3 className="form-section-title">Thông tin danh mục</h3>
+          <div className="form-grid">
+            <div className="form-item">
+              <Label htmlFor="category-name" className="form-label">Tên danh mục *</Label>
+              <Input
+                id="category-name"
+                type="text"
+                placeholder="Nhập tên danh mục"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="form-input"
+              />
             </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Tên danh mục *</label>
-                <input
+
+            <div className="form-item">
+              <Label htmlFor="category-parent" className="form-label">Danh mục cha</Label>
+              <Select
+                value={formData.parentId?.toString() || 'null'}
+                onValueChange={(value) => {
+                  setFormData({ 
+                    ...formData, 
+                    parentId: value === 'null' ? null : parseInt(value) 
+                  });
+                }}
+              >
+                <SelectTrigger className="form-select">
+                  <SelectValue placeholder="Chọn danh mục cha" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="null">Không có (Danh mục cấp 1)</SelectItem>
+                  {level1And2Categories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id.toString()}>
+                      {cat.level === 1 ? '📁 ' : '  📂 '}
+                      {cat.name} (Cấp {cat.level})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="form-description">
+                Chọn danh mục cấp 1 để tạo cấp 2, hoặc chọn cấp 2 để tạo cấp 3
+              </p>
+            </div>
+          </div>
+        </div>
+      </AdminModal>
+
+      {/* Edit Category Dialog */}
+      <AdminModal
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) handleCloseEditDialog();
+        }}
+        title="Chỉnh sửa danh mục"
+        description="Cập nhật thông tin danh mục"
+        onSubmit={handleEditCategory}
+        onCancel={handleCloseEditDialog}
+        submitLabel="Cập nhật"
+        cancelLabel="Hủy"
+        loading={isSubmitting}
+        size="4xl"
+      >
+        {selectedCategory && (
+          <div className="form-section">
+            <h3 className="form-section-title">Thông tin danh mục</h3>
+            <div className="form-grid">
+              <div className="form-item">
+                <Label htmlFor="edit-category-name" className="form-label">Tên danh mục *</Label>
+                <Input
+                  id="edit-category-name"
                   type="text"
                   placeholder="Nhập tên danh mục"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="form-input"
                 />
-            </div>
-
-              <div className="form-group">
-                <label>Danh mục cha</label>
-                <select
-                  value={formData.parentId?.toString() || 'null'}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setFormData({ 
-                      ...formData, 
-                      parentId: value === 'null' ? null : parseInt(value) 
-                    });
-                  }}
-                >
-                  <option value="null">Không có (Danh mục cấp 1)</option>
-                  {level1And2Categories.map(cat => (
-                    <option key={cat.id} value={cat.id.toString()}>
-                      {cat.level === 1 ? '📁 ' : '  📂 '}
-                      {cat.name} (Cấp {cat.level})
-                    </option>
-                  ))}
-                </select>
-                <p className="form-hint">
-                  Chọn danh mục cấp 1 để tạo cấp 2, hoặc chọn cấp 2 để tạo cấp 3
-                </p>
               </div>
-
-            </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setIsAddDialogOpen(false)}>
-                Hủy
-            </button>
-              <button className="btn-primary" onClick={handleAddCategory}>
-                Thêm
-            </button>
-          </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Category Dialog */}
-      {isEditDialogOpen && selectedCategory && (
-        <div className="modal-overlay" onClick={() => setIsEditDialogOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Chỉnh sửa danh mục</h3>
-              <button className="close-btn" onClick={() => setIsEditDialogOpen(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Tên danh mục *</label>
-                      <input
-                        type="text"
-                  placeholder="Nhập tên danh mục"
-                        value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      />
-                    </div>
-                    
-              <div className="form-group">
-                <label>Mô tả</label>
-                      <textarea
+              
+              <div className="form-item full-width">
+                <Label htmlFor="edit-category-description" className="form-label">Mô tả</Label>
+                <Textarea
+                  id="edit-category-description"
                   placeholder="Nhập mô tả"
-                        value={formData.description}
+                  value={formData.description || ''}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        rows="3"
-                      />
-                </div>
+                  rows={3}
+                  className="form-textarea"
+                />
+              </div>
 
-              <div className="info-box">
-                <strong>Cấp hiện tại:</strong> Cấp {selectedCategory.level}
+              <div className="form-item full-width">
+                <div className="p-3 bg-blue-50 rounded-md">
+                  <strong>Cấp hiện tại:</strong> Cấp {selectedCategory.level}
+                </div>
               </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setIsEditDialogOpen(false)}>
-                  Hủy
-                </button>
-              <button className="btn-primary" onClick={handleEditCategory}>
-                Cập nhật
-                </button>
-              </div>
           </div>
-        </div>
-      )}
+        )}
+      </AdminModal>
+
+      {/* Confirm Modal */}
+      <AdminConfirmModal
+        open={confirmModal.open}
+        onOpenChange={(open) => setConfirmModal({ ...confirmModal, open })}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.variant === 'danger' ? 'Vô hiệu hóa' : 'Xác nhận'}
+        onConfirm={confirmModal.onConfirm}
+      />
     </div>
   );
 };

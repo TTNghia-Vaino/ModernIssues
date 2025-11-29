@@ -21,6 +21,7 @@
 
 .admin-sidebar.closed {
   width: 70px;
+  overflow: hidden;
 }
 
 .admin-sidebar-header {
@@ -32,10 +33,22 @@
   background: rgba(0, 0, 0, 0.1);
 }
 
+.admin-sidebar.closed .admin-sidebar-header {
+  padding: 16px 12px;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .logo-section {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.admin-sidebar.closed .logo-section {
+  justify-content: center;
+  width: 100%;
 }
 
 .admin-logo {
@@ -44,6 +57,10 @@
   gap: 10px;
   font-weight: 700;
   font-size: 18px;
+}
+
+.admin-sidebar.closed .admin-logo {
+  justify-content: center;
 }
 
 .logo-icon {
@@ -73,6 +90,13 @@
   justify-content: center;
   width: 36px;
   height: 36px;
+  flex-shrink: 0;
+}
+
+.admin-sidebar.closed .sidebar-toggle {
+  width: 32px;
+  height: 32px;
+  padding: 6px;
 }
 
 .sidebar-toggle:hover {
@@ -108,6 +132,11 @@
   width: 100%;
   position: relative;
   overflow: hidden;
+}
+
+.admin-sidebar.closed .admin-nav-item {
+  padding: 16px 0;
+  justify-content: center;
 }
 
 .admin-nav-item::before {
@@ -149,6 +178,10 @@
   position: relative;
 }
 
+.admin-sidebar.closed .nav-icon {
+  margin-right: 0;
+}
+
 .nav-content {
   display: flex;
   flex-direction: column;
@@ -175,6 +208,14 @@
   background: rgba(0, 0, 0, 0.1);
 }
 
+.admin-sidebar.closed .admin-sidebar-footer {
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
 .admin-user-info {
   display: flex;
   align-items: center;
@@ -183,6 +224,13 @@
   background: rgba(255, 255, 255, 0.05);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-sidebar.closed .admin-user-info {
+  margin-bottom: 0;
+  padding: 8px;
+  justify-content: center;
+  width: 100%;
 }
 
 .user-avatar {
@@ -197,6 +245,14 @@
   font-size: 18px;
   margin-right: 12px;
   box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+  flex-shrink: 0;
+}
+
+.admin-sidebar.closed .user-avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+  margin-right: 0;
 }
 
 .avatar-text {
@@ -263,6 +319,14 @@
   justify-content: center;
   gap: 8px;
   box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+.admin-sidebar.closed .logout-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  min-width: 40px;
 }
 
 .logout-btn:hover {

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import * as userService from '../services/userService';
-import * as warrantyService from '../services/warrantyService';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -12,38 +12,34 @@ import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Switch } from '../components/ui/switch';
-import { User, ShoppingCart, ShieldCheck, Lock, Mail, Phone, Shield, Search, Upload } from 'lucide-react';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  BarController,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
+import { User, Lock, Mail, Phone, Shield, Upload } from 'lucide-react';
 import { getBaseURL } from '../config/api';
 import './ProfilePage.css';
 
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  BarController,
-  Title,
-  Tooltip,
-  Legend
-);
-
 const ProfilePage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { success, error: showError } = useNotification();
   
-  const [activeTab, setActiveTab] = useState('info');
+  // Get tab from URL query params
+  const getTabFromUrl = () => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab && ['info', 'password', 'email', 'phone', '2fa'].includes(tab)) {
+      return tab;
+    }
+    return 'info';
+  };
+  
+  const [activeTab, setActiveTab] = useState(getTabFromUrl());
+  
+  // Update activeTab when URL changes
+  useEffect(() => {
+    const tab = getTabFromUrl();
+    setActiveTab(tab);
+  }, [location.search]);
   const [loading, setLoading] = useState(false);
-  const [searchProduct, setSearchProduct] = useState('');
   
   // User profile data
   const [profileData, setProfileData] = useState(null);
@@ -57,12 +53,6 @@ const ProfilePage = () => {
     confirmPassword: '', // Mật khẩu xác nhận khi chỉnh sửa
   });
   
-  // Consumption data
-  const [consumptionData, setConsumptionData] = useState(null);
-  const [purchasedProducts, setPurchasedProducts] = useState([]);
-  
-  // Warranty data
-  const [warrantyProducts, setWarrantyProducts] = useState([]);
   
   // Password change
   const [passwordData, setPasswordData] = useState({
@@ -93,9 +83,6 @@ const ProfilePage = () => {
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
   
-  // Chart refs
-  const chartRef = useRef(null);
-  const chartInstanceRef = useRef(null);
 
   // Load user profile
   useEffect(() => {
@@ -125,56 +112,6 @@ const ProfilePage = () => {
     loadProfile();
   }, [isAuthenticated, showError]);
 
-  // Load consumption data
-  useEffect(() => {
-    if (!isAuthenticated || activeTab !== 'spending') return;
-    
-    const loadConsumption = async () => {
-      try {
-        const data = await userService.getConsumption();
-        setConsumptionData(data);
-      } catch (err) {
-        console.error('Error loading consumption:', err);
-        showError(err.message || 'Không thể tải dữ liệu chi tiêu');
-      }
-    };
-    
-    loadConsumption();
-  }, [isAuthenticated, activeTab, showError]);
-
-  // Load purchases
-  useEffect(() => {
-    if (!isAuthenticated || activeTab !== 'spending') return;
-    
-    const loadPurchases = async () => {
-      try {
-        const purchases = await userService.getPurchases();
-        setPurchasedProducts(purchases || []);
-      } catch (err) {
-        console.error('Error loading purchases:', err);
-        showError(err.message || 'Không thể tải danh sách sản phẩm đã mua');
-      }
-    };
-    
-    loadPurchases();
-  }, [isAuthenticated, activeTab, showError]);
-
-  // Load warranties
-  useEffect(() => {
-    if (!isAuthenticated || activeTab !== 'warranty') return;
-    
-    const loadWarranties = async () => {
-      try {
-        const warranties = await warrantyService.getMyWarranties();
-        setWarrantyProducts(warranties || []);
-      } catch (err) {
-        console.error('Error loading warranties:', err);
-        showError(err.message || 'Không thể tải danh sách bảo hành');
-      }
-    };
-    
-    loadWarranties();
-  }, [isAuthenticated, activeTab, showError]);
 
   // Load 2FA status
   useEffect(() => {
@@ -381,85 +318,6 @@ const ProfilePage = () => {
     return null;
   };
 
-  // Build image URL
-  const getImageUrl = (imageUrl) => {
-    if (!imageUrl) return '/placeholder.svg';
-    if (imageUrl.startsWith('http')) return imageUrl;
-    const baseUrl = getBaseURL() || 'http://35.232.61.38:5000';
-    const cleanBaseUrl = baseUrl.replace(/\/v1$/, '');
-    return `${cleanBaseUrl}/Uploads/Images/${imageUrl}`;
-  };
-
-  // Create chart when consumption data changes
-  useEffect(() => {
-    if (!consumptionData || !chartRef.current) {
-      return;
-    }
-
-    // Destroy existing chart
-    if (chartInstanceRef.current) {
-      chartInstanceRef.current.destroy();
-      chartInstanceRef.current = null;
-    }
-
-    const chartData = {
-      labels: consumptionData.monthlyData?.map(d => d.month) || [],
-      datasets: [
-        {
-          label: 'Chi tiêu (VNĐ)',
-          data: consumptionData.monthlyData?.map(d => d.amount) || [],
-          backgroundColor: 'rgba(16, 185, 129, 0.8)',
-          borderColor: 'rgba(16, 185, 129, 1)',
-          borderWidth: 1,
-        },
-      ],
-    };
-
-    // Create new chart
-    chartInstanceRef.current = new ChartJS(chartRef.current, {
-      type: 'bar',
-      data: chartData,
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false,
-          },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                return `${context.parsed.y.toLocaleString('vi-VN')}đ`;
-              },
-            },
-          },
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return `${(value / 1000000).toFixed(1)}tr`;
-              },
-            },
-          },
-        },
-      },
-    });
-
-    // Cleanup on unmount
-    return () => {
-      if (chartInstanceRef.current) {
-        chartInstanceRef.current.destroy();
-        chartInstanceRef.current = null;
-      }
-    };
-  }, [consumptionData]);
-
-  const filteredProducts = purchasedProducts.filter((product) =>
-    product.productName?.toLowerCase().includes(searchProduct.toLowerCase()) ||
-    product.name?.toLowerCase().includes(searchProduct.toLowerCase())
-  );
 
   if (!isAuthenticated) {
     return (
@@ -490,27 +348,13 @@ const ProfilePage = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7 bg-white shadow-md p-1 h-auto">
+          <TabsList className="grid w-full grid-cols-8 bg-white shadow-md p-1 h-auto">
             <TabsTrigger
               value="info"
               className="flex items-center gap-2 data-[state=active]:bg-emerald-500 data-[state=active]:text-white py-3"
             >
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Thông tin</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="spending"
-              className="flex items-center gap-2 data-[state=active]:bg-emerald-500 data-[state=active]:text-white py-3"
-            >
-              <ShoppingCart className="h-4 w-4" />
-              <span className="hidden sm:inline">Tiêu dùng</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="warranty"
-              className="flex items-center gap-2 data-[state=active]:bg-emerald-500 data-[state=active]:text-white py-3"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              <span className="hidden sm:inline">Bảo hành</span>
             </TabsTrigger>
             <TabsTrigger
               value="password"
@@ -712,191 +556,6 @@ const ProfilePage = () => {
                       </Button>
                     </>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab: Tiêu dùng */}
-          <TabsContent value="spending" className="space-y-6">
-            <Card className="shadow-lg border-0">
-              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
-                <CardTitle>Biểu đồ chi tiêu 12 tháng gần nhất</CardTitle>
-                <CardDescription className="text-white/80">Tổng quan chi tiêu của bạn</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                {consumptionData && (
-                  <>
-                    <div className="grid gap-4 md:grid-cols-3 mb-6">
-                      <Card className="bg-emerald-50 border-emerald-200">
-                        <CardContent className="pt-6">
-                          <div className="text-sm text-gray-600">Tổng chi tiêu</div>
-                          <div className="text-2xl font-bold text-emerald-700">
-                            {consumptionData.totalConsumption?.toLocaleString('vi-VN')}đ
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card className="bg-teal-50 border-teal-200">
-                        <CardContent className="pt-6">
-                          <div className="text-sm text-gray-600">Trung bình/tháng</div>
-                          <div className="text-2xl font-bold text-teal-700">
-                            {Math.round(consumptionData.averageMonthly || 0).toLocaleString('vi-VN')}đ
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card className="bg-blue-50 border-blue-200">
-                        <CardContent className="pt-6">
-                          <div className="text-sm text-gray-600">Sản phẩm đã mua</div>
-                          <div className="text-2xl font-bold text-blue-700">
-                            {consumptionData.totalProducts || 0} sản phẩm
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                    <div className="h-80 w-full">
-                      <canvas ref={chartRef}></canvas>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-lg border-0">
-              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
-                <CardTitle>Danh sách sản phẩm đã mua</CardTitle>
-                <CardDescription className="text-white/80">Lịch sử mua hàng của bạn</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="mb-4 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Tìm kiếm sản phẩm..."
-                    value={searchProduct}
-                    onChange={(e) => setSearchProduct(e.target.value)}
-                    className="pl-10 border-gray-300"
-                  />
-                </div>
-                <div className="rounded-lg border border-gray-200 overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-gray-50">
-                      <TableRow>
-                        <TableHead className="w-[100px]">Hình ảnh</TableHead>
-                        <TableHead>Tên sản phẩm</TableHead>
-                        <TableHead>Ngày mua</TableHead>
-                        <TableHead className="text-right">Giá mua</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredProducts.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center py-8 text-gray-500">
-                            {searchProduct ? 'Không tìm thấy sản phẩm' : 'Chưa có sản phẩm nào'}
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredProducts.map((product) => (
-                          <TableRow key={product.orderId || product.id} className="hover:bg-gray-50">
-                            <TableCell>
-                              <img
-                                src={getImageUrl(product.imageUrl || product.image)}
-                                alt={product.productName || product.name}
-                                className="w-16 h-16 object-cover rounded"
-                                onError={(e) => {
-                                  e.target.src = '/placeholder.svg';
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {product.productName || product.name}
-                            </TableCell>
-                            <TableCell>
-                              {product.purchaseDate
-                                ? new Date(product.purchaseDate).toLocaleDateString('vi-VN')
-                                : '-'}
-                            </TableCell>
-                            <TableCell className="text-right font-semibold text-emerald-700">
-                              {product.priceAtPurchase?.toLocaleString('vi-VN')}đ
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab: Bảo hành */}
-          <TabsContent value="warranty" className="space-y-6">
-            <Card className="shadow-lg border-0">
-              <CardHeader className="text-white" style={{ background: 'linear-gradient(to right, #0a804a, #086b3d)' }}>
-                <CardTitle>Quản lý bảo hành</CardTitle>
-                <CardDescription className="text-white/80">Theo dõi trạng thái bảo hành sản phẩm</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="rounded-lg border border-gray-200 overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-gray-50">
-                      <TableRow>
-                        <TableHead className="w-[100px]">Hình ảnh</TableHead>
-                        <TableHead>Sản phẩm</TableHead>
-                        <TableHead>Số Serial</TableHead>
-                        <TableHead>Ngày mua</TableHead>
-                        <TableHead>Hết hạn BH</TableHead>
-                        <TableHead>Trạng thái</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {warrantyProducts.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                            Chưa có sản phẩm bảo hành
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        warrantyProducts.map((product) => (
-                          <TableRow key={product.warrantyId || product.id} className="hover:bg-gray-50">
-                            <TableCell>
-                              <img
-                                src={getImageUrl(product.productImageUrl || product.imageUrl)}
-                                alt={product.productName}
-                                className="w-16 h-16 object-cover rounded"
-                                onError={(e) => {
-                                  e.target.src = '/placeholder.svg';
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell className="font-medium">{product.productName}</TableCell>
-                            <TableCell className="font-mono text-sm text-gray-600">
-                              {product.serialNumber}
-                            </TableCell>
-                            <TableCell>
-                              {product.startDate
-                                ? new Date(product.startDate).toLocaleDateString('vi-VN')
-                                : '-'}
-                            </TableCell>
-                            <TableCell>
-                              {product.endDate
-                                ? new Date(product.endDate).toLocaleDateString('vi-VN')
-                                : '-'}
-                            </TableCell>
-                            <TableCell>
-                              {product.status === 'active' || product.statusDisplay === 'Còn hạn' ? (
-                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                                  {product.statusDisplay || 'Còn hạn'}
-                                </Badge>
-                              ) : (
-                                <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
-                                  {product.statusDisplay || 'Đang bảo hành'}
-                                </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
                 </div>
               </CardContent>
             </Card>

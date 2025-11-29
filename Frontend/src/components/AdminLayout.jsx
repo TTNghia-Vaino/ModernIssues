@@ -142,7 +142,6 @@ const AdminLayout = ({ children }) => {
               onClick={() => navigate('/')}
               title="Về trang chủ"
             >
-              <span className="btn-icon">🏠</span>
               <span className="btn-text">Về trang chủ</span>
             </button>
           </div>

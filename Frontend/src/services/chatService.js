@@ -28,15 +28,25 @@ let endpointUnavailableLogged = false;
 /**
  * Get the chat API URL
  * Chat endpoint is at root level: /chat
- * Python API runs on port 8000 locally, or proxied through port 5000 on server
- * When using proxy, Vite will forward /chat to localhost:8000 (with fallback to remote)
+ * Python FastAPI runs on port 8000: http://35.232.61.38:8000/chat
+ * In development: Vite proxy forwards /chat to port 8000
+ * In production: Use direct URL to port 8000
  */
 const getChatApiUrl = () => {
   const baseURL = getBaseURL();
   
-  // Always use proxy for chat API to handle local/remote fallback
-  // Vite proxy will try localhost:8000 first, then fallback to remote server
-  return '/chat';
+  // Chat API runs on port 8000 (Python FastAPI), separate from main backend (port 5000)
+  const CHAT_API_URL = 'http://35.232.61.38:8000';
+  
+  // In development mode, use proxy (Vite proxy handles /chat -> port 8000)
+  // In production mode, use direct URL to port 8000
+  if (import.meta.env.DEV || !baseURL) {
+    // Development: use proxy (Vite will forward to port 8000)
+    return '/chat';
+  } else {
+    // Production: use direct URL to Python API on port 8000
+    return `${CHAT_API_URL}/chat`;
+  }
 };
 
 /**
@@ -82,6 +92,15 @@ export const sendChatMessage = async (text, sessionId) => {
           endpointUnavailableLogged = true;
         }
         // Suppress error logging for 404 - it's expected if endpoint doesn't exist
+        return 'Tính năng chatbot hiện không khả dụng. Vui lòng thử lại sau.';
+      }
+      
+      // Handle 405 Method Not Allowed
+      if (response.status === 405) {
+        if (import.meta.env.DEV && !endpointUnavailableLogged) {
+          console.warn('[ChatService] Chat endpoint method not allowed (405). Check server configuration.');
+          endpointUnavailableLogged = true;
+        }
         return 'Tính năng chatbot hiện không khả dụng. Vui lòng thử lại sau.';
       }
       

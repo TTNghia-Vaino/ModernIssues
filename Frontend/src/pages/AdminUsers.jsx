@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import * as userService from '../services/userService';
 import { useAuth } from '../context/AuthContext';
+import {
+  AdminPageHeader,
+  AdminFiltersBar,
+  AdminDataTable,
+  AdminPagination,
+  AdminActionDropdown,
+  AdminLoadingOverlay,
+  AdminModal,
+  AdminConfirmModal
+} from '../components/admin';
+import { AdminIcons, AdminActionLabels } from '../utils/adminConstants';
 import './AdminUsers.css';
 
 const AdminUsers = () => {
@@ -29,12 +40,20 @@ const AdminUsers = () => {
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [loadingUsers, setLoadingUsers] = useState({});
-  const [dropdownOpen, setDropdownOpen] = useState(null);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10); // mặc định 10 người / trang
   // Checkbox selection state
   const [selectedUsers, setSelectedUsers] = useState(new Set());
+  
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    variant: 'default'
+  });
 
   // Load users from API on mount, but delay if in grace period
   useEffect(() => {
@@ -61,30 +80,6 @@ const AdminUsers = () => {
     };
   }, []); // Only run on mount
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Check if click is outside dropdown menu
-      const dropdownMenus = document.querySelectorAll('.dropdown-menu');
-      const isClickInsideDropdown = Array.from(dropdownMenus).some(menu => menu.contains(event.target));
-      const isClickOnButton = event.target.closest('.btn-menu');
-      
-      if (!isClickInsideDropdown && !isClickOnButton) {
-        setDropdownOpen(null);
-      }
-    };
-
-    if (dropdownOpen !== null) {
-      // Use timeout to avoid immediate close when opening
-      setTimeout(() => {
-        document.addEventListener('click', handleClickOutside);
-      }, 0);
-    }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [dropdownOpen]);
 
   const loadUsers = async (page = currentPage, size = pageSize) => {
     try {
@@ -159,51 +154,65 @@ const AdminUsers = () => {
     }, 3000);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn vô hiệu hóa người dùng này? (Soft delete)')) {
-      try {
-        setLoadingUsers(prev => ({ ...prev, [id]: true }));
-        console.log('[AdminUsers] Deleting user:', id);
-        const response = await userService.deleteUser(id);
-        console.log('[AdminUsers] Delete response:', response);
-        
-        // Reload list from server to ensure sync
-        await loadUsers();
-        showNotification('Vô hiệu hóa người dùng thành công!');
-      } catch (error) {
-        console.error('[AdminUsers] Error deleting user:', error);
-        
-        // If user not found (404), reload list to remove from UI
-        if (error.message && error.message.includes('Không tìm thấy người dùng')) {
-          showNotification('Người dùng không tồn tại hoặc đã bị xóa. Đang làm mới danh sách...', 'error');
+  const handleDelete = (id) => {
+    const user = users.find(u => u.id === id);
+    setConfirmModal({
+      open: true,
+      title: 'Xác nhận vô hiệu hóa',
+      message: `Bạn có chắc chắn muốn vô hiệu hóa người dùng "${user?.name || user?.email || id}"? (Soft delete)`,
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          setLoadingUsers(prev => ({ ...prev, [id]: true }));
+          console.log('[AdminUsers] Deleting user:', id);
+          const response = await userService.deleteUser(id);
+          console.log('[AdminUsers] Delete response:', response);
+          
+          // Reload list from server to ensure sync
           await loadUsers();
-        } else {
-          showNotification('Lỗi khi vô hiệu hóa người dùng: ' + error.message, 'error');
+          showNotification('Vô hiệu hóa người dùng thành công!');
+        } catch (error) {
+          console.error('[AdminUsers] Error deleting user:', error);
+          
+          // If user not found (404), reload list to remove from UI
+          if (error.message && error.message.includes('Không tìm thấy người dùng')) {
+            showNotification('Người dùng không tồn tại hoặc đã bị xóa. Đang làm mới danh sách...', 'error');
+            await loadUsers();
+          } else {
+            showNotification('Lỗi khi vô hiệu hóa người dùng: ' + error.message, 'error');
+          }
+        } finally {
+          setLoadingUsers(prev => ({ ...prev, [id]: false }));
         }
-      } finally {
-        setLoadingUsers(prev => ({ ...prev, [id]: false }));
       }
-    }
+    });
   };
 
-  const handleActivate = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn kích hoạt lại người dùng này?')) {
-      try {
-        setLoadingUsers(prev => ({ ...prev, [id]: true }));
-        console.log('[AdminUsers] Activating user:', id);
-        const response = await userService.activateUser(id);
-        console.log('[AdminUsers] Activate response:', response);
-        
-        // Reload list from server to ensure sync
-        await loadUsers();
-        showNotification('Kích hoạt người dùng thành công!');
-      } catch (error) {
-        console.error('[AdminUsers] Error activating user:', error);
-        showNotification('Lỗi khi kích hoạt người dùng: ' + error.message, 'error');
-      } finally {
-        setLoadingUsers(prev => ({ ...prev, [id]: false }));
+  const handleActivate = (id) => {
+    const user = users.find(u => u.id === id);
+    setConfirmModal({
+      open: true,
+      title: 'Xác nhận kích hoạt',
+      message: `Bạn có chắc chắn muốn kích hoạt lại người dùng "${user?.name || user?.email || id}"?`,
+      variant: 'default',
+      onConfirm: async () => {
+        try {
+          setLoadingUsers(prev => ({ ...prev, [id]: true }));
+          console.log('[AdminUsers] Activating user:', id);
+          const response = await userService.activateUser(id);
+          console.log('[AdminUsers] Activate response:', response);
+          
+          // Reload list from server to ensure sync
+          await loadUsers();
+          showNotification('Kích hoạt người dùng thành công!');
+        } catch (error) {
+          console.error('[AdminUsers] Error activating user:', error);
+          showNotification('Lỗi khi kích hoạt người dùng: ' + error.message, 'error');
+        } finally {
+          setLoadingUsers(prev => ({ ...prev, [id]: false }));
+        }
       }
-    }
+    });
   };
 
   const validateForm = () => {
@@ -461,6 +470,90 @@ const AdminUsers = () => {
     }
   }, [totalPages, currentPage]);
 
+  // Table columns config
+  const tableColumns = [
+    { key: 'id', label: 'ID', className: 'col-id' },
+    { key: 'user', label: 'NGƯỜI DÙNG', className: 'col-user' },
+    { key: 'role', label: 'VAI TRÒ', className: 'col-role' },
+    { key: 'status', label: 'TRẠNG THÁI', className: 'col-status' },
+    { key: 'date', label: 'NGÀY TẠO', className: 'col-date' },
+    { key: 'actions', label: 'THAO TÁC', className: 'col-actions' }
+  ];
+
+  // Render custom user row
+  const renderUserRow = (user) => (
+    <div key={user.userId || user.id} className="table-row">
+      <div className="col-id">
+        <span className="id-badge">{user.userId || user.id}</span>
+      </div>
+      <div 
+        className="col-user"
+        data-full-name={user.username || user.name}
+        data-full-email={user.email}
+        title={`${user.username || user.name} - ${user.email}`}
+      >
+        <div className="user-cell">
+          <div className="avatar-badge">
+            {(user.username || user.name || 'U').charAt(0).toUpperCase()}
+          </div>
+          <div className="user-details">
+            <p className="user-name">{user.username || user.name}</p>
+            <p className="user-email">{user.email}</p>
+          </div>
+        </div>
+      </div>
+      <div className="col-role">
+        <span className={`role-badge ${user.role === 'admin' ? 'role-admin' : 'role-customer'}`}>
+          {getRoleText(user.role)}
+        </span>
+      </div>
+      <div className="col-status">
+        <div className={`status-indicator ${user.isDisabled ? 'status-inactive' : 'status-active'}`}>
+          <span className={`status-dot ${user.isDisabled ? 'status-inactive' : 'status-active'}`}></span>
+          <span className="status-text">{getStatusText(user.isDisabled ? 'inactive' : 'active')}</span>
+        </div>
+      </div>
+      <div className="col-date">
+        {new Date().toLocaleDateString('vi-VN')}
+      </div>
+      <div className="col-actions">
+        <AdminActionDropdown
+          actions={[
+            {
+              label: AdminActionLabels.edit,
+              icon: AdminIcons.edit,
+              onClick: () => handleEdit(user)
+            },
+            {
+              label: !user.isDisabled ? AdminActionLabels.deactivate : AdminActionLabels.activate,
+              icon: !user.isDisabled ? AdminIcons.deactivate : AdminIcons.activate,
+              onClick: () => {
+                if (!user.isDisabled) {
+                  handleDelete(user.userId || user.id);
+                } else {
+                  handleActivate(user.userId || user.id);
+                }
+              }
+            }
+          ]}
+        />
+      </div>
+    </div>
+  );
+
+  // Filter options
+  const roleFilterOptions = [
+    { value: 'all', label: 'Tất cả vai trò' },
+    { value: 'customer', label: 'Khách hàng' },
+    { value: 'admin', label: 'Quản trị viên' }
+  ];
+
+  const statusFilterOptions = [
+    { value: 'all', label: 'Tất cả trạng thái' },
+    { value: 'active', label: 'Hoạt động' },
+    { value: 'inactive', label: 'Không hoạt động' }
+  ];
+
   return (
     <div className="admin-users">
       {notification.show && (
@@ -469,240 +562,100 @@ const AdminUsers = () => {
         </div>
       )}
       
-      {loading && (
-        <div className="loading-overlay">
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-            <p>Đang tải danh sách người dùng...</p>
-          </div>
-        </div>
-      )}
-      
-      <div className="page-header">
-        <div className="page-titles">
-          <h2>Quản lý người dùng</h2>
-          <p className="page-sub">Quản lý tài khoản người dùng</p>
-        </div>
-        <button className="add-btn" onClick={handleAddNew} disabled={loading}>
-          <span className="add-icon">➕</span> Thêm người dùng mới
-        </button>
-      </div>
+      <AdminLoadingOverlay 
+        loading={loading} 
+        hasData={users.length > 0}
+        message="Đang tải danh sách người dùng..."
+      >
+        <AdminPageHeader
+          title="Quản lý người dùng"
+          subtitle="Quản lý tài khoản người dùng"
+          onAdd={handleAddNew}
+          addButtonText="➕ Thêm người dùng mới"
+        />
 
-      {/* Thanh bộ lọc dạng bar */}
-      <div className="filters-bar">
-        <div className="filter-item search">
-          <input
-            type="text"
-            placeholder="🔍 Tìm kiếm theo tên hoặc email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="filter-item">
-          <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
-            <option value="all">Tất cả vai trò</option>
-            <option value="customer">Khách hàng</option>
-            <option value="admin">Quản trị viên</option>
-          </select>
-        </div>
-        <div className="filter-item">
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Hoạt động</option>
-            <option value="inactive">Không hoạt động</option>
-          </select>
-        </div>
-      </div>
+        <AdminFiltersBar
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="🔍 Tìm kiếm theo tên hoặc email..."
+          filters={[
+            {
+              key: 'role',
+              value: filterRole,
+              onChange: setFilterRole,
+              options: roleFilterOptions
+            },
+            {
+              key: 'status',
+              value: filterStatus,
+              onChange: setFilterStatus,
+              options: statusFilterOptions
+            }
+          ]}
+        />
 
-      <div className="data-table-container">
-        {loading && users.length > 0 ? (
-          <div className="loading-overlay-inline">
-            <div className="spinner"></div>
-            <p>Đang tải trang {currentPage}...</p>
-          </div>
-        ) : filteredUsers.length > 0 ? (
-          <div className="data-table">
-            <div className="users-table">
-              <div className="table-header">
-                <div className="col-id">ID</div>
-                <div className="col-user">Người dùng</div>
-                <div className="col-role">Vai trò</div>
-                <div className="col-status">Trạng thái</div>
-                <div className="col-date">Ngày tạo</div>
-                <div className="col-actions">Thao tác</div>
-              </div>
-              {paginatedUsers.map((user) => (
-                <div key={user.userId || user.id} className="table-row">
-                  <div className="col-id">
-                    <span className="id-badge">{user.userId || user.id}</span>
-                  </div>
-                  <div 
-                    className="col-user"
-                    data-full-name={user.username || user.name}
-                    data-full-email={user.email}
-                    title={`${user.username || user.name} - ${user.email}`}
-                  >
-                    <div className="user-cell">
-                      <div className="avatar-badge">
-                        {(user.username || user.name || 'U').charAt(0).toUpperCase()}
-                      </div>
-                      <div className="user-details">
-                        <p className="user-name">{user.username || user.name}</p>
-                        <p className="user-email">{user.email}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-role">
-                    <span className={`role-badge ${user.role === 'admin' ? 'role-admin' : 'role-customer'}`}>
-                      {getRoleText(user.role)}
-                    </span>
-                  </div>
-                  <div className="col-status">
-                    <div className={`status-indicator ${user.isDisabled ? 'status-inactive' : 'status-active'}`}>
-                      <span className={`status-dot ${user.isDisabled ? 'status-inactive' : 'status-active'}`}></span>
-                      <span className="status-text">{getStatusText(user.isDisabled ? 'inactive' : 'active')}</span>
-                    </div>
-                  </div>
-                  <div className="col-date">
-                    {new Date().toLocaleDateString('vi-VN')}
-                  </div>
-                  <div className="col-actions">
-                    <div className="actions-dropdown">
-                      <button
-                        className="btn-menu"
-                        title="Tùy chọn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const userId = user.userId || user.id;
-                          console.log('[AdminUsers] Toggle dropdown for user:', userId, 'Current:', dropdownOpen);
-                          console.log('[AdminUsers] Types:', typeof userId, typeof dropdownOpen);
-                          console.log('[AdminUsers] user object:', user);
-                          setDropdownOpen(dropdownOpen === userId ? null : userId);
-                        }}
-                      >
-                        ⋮
-                      </button>
-                      {(() => {
-                        const userId = user.userId || user.id;
-                        const shouldShow = dropdownOpen === userId;
-                        console.log('[AdminUsers] Render check - userId:', userId, 'dropdownOpen:', dropdownOpen, 'shouldShow:', shouldShow);
-                        return shouldShow ? (
-                          <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              className="dropdown-item edit"
-                              onClick={() => {
-                                handleEdit(user);
-                                setDropdownOpen(null);
-                              }}
-                            >
-                              ✏️ Chỉnh sửa
-                            </button>
-                            <button
-                              className="dropdown-item delete"
-                              onClick={() => {
-                                if (!user.isDisabled) {
-                                  handleDelete(user.userId || user.id);
-                                } else {
-                                  handleActivate(user.userId || user.id);
-                                }
-                                setDropdownOpen(null);
-                              }}
-                            >
-                              {!user.isDisabled ? '🗑️ Vô hiệu hóa' : '✅ Kích hoạt'}
-                            </button>
-                          </div>
-                        ) : null;
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="no-results">
-            <p>Không tìm thấy người dùng nào phù hợp với bộ lọc.</p>
-          </div>
-        )}
-      </div>
+        <AdminDataTable
+          columns={tableColumns}
+          data={paginatedUsers}
+          renderRow={renderUserRow}
+          loading={loading}
+          totalItems={users.length}
+          emptyMessage="Chưa có người dùng nào"
+          noResultsMessage="Không tìm thấy người dùng nào phù hợp với bộ lọc."
+          tableClassName="users-table"
+        />
 
-      {/* Pagination Controls */}
-      {filteredUsers.length > 0 && (
-        <div className="pagination-bar">
-          <div className="pagination-info">
-            Hiển thị {startIndex + 1}-{Math.min(endIndex, filteredUsers.length)} / {filteredUsers.length} người dùng
-          </div>
-          
-          <div className="pagination-controls">
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-            >
-              «
-            </button>
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-            >
-              ‹
-            </button>
-            
-            <span className="page-indicator">
-              Trang {currentPage} / {totalPages}
-            </span>
-            
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-            >
-              ›
-            </button>
-            <button 
-              className="pg-btn"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              »
-            </button>
-          </div>
-          
-          <div className="page-size-selector">
-            <label>Hiển thị: </label>
-            <select value={pageSize} onChange={(e) => {
-              setPageSize(Number(e.target.value));
+        {filteredUsers.length > 0 && (
+          <AdminPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filteredUsers.length}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
               setCurrentPage(1);
-            }}>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
-        </div>
-      )}
+            }}
+            pageSizeOptions={[10, 20, 50]}
+            itemName="người dùng"
+          />
+        )}
+      </AdminLoadingOverlay>
 
       {/* Modal */}
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content user-form-modal">
-            <div className="modal-header user-form-header">
-              <div>
-                <h3 className="user-form-title">{editingUser ? 'Chỉnh sửa người dùng' : 'Thêm người dùng mới'}</h3>
-                <p className="user-form-description">
-                  {editingUser ? 'Cập nhật thông tin người dùng' : 'Điền thông tin người dùng mới'}
-                </p>
-              </div>
-              <button 
-                className="close-btn"
-                onClick={() => setShowModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="modal-form user-form-content">
+      <AdminModal
+        open={showModal}
+        onOpenChange={(open) => {
+          setShowModal(open);
+          if (!open) setErrors({});
+        }}
+        title={editingUser ? 'Chỉnh sửa người dùng' : 'Thêm người dùng mới'}
+        description={editingUser ? 'Cập nhật thông tin người dùng' : 'Điền thông tin người dùng mới'}
+        onSubmit={handleSubmit}
+        submitLabel={editingUser ? 'Cập nhật' : 'Thêm mới'}
+        size="4xl"
+        className="user-form-modal"
+        footer={
+          <div className="modal-actions">
+            <button 
+              type="button" 
+              className="cancel-btn"
+              onClick={() => {
+                setShowModal(false);
+                setErrors({});
+              }}
+            >
+              Hủy
+            </button>
+            <button type="submit" className="save-btn" form="user-form">
+              {editingUser ? 'Cập nhật' : 'Thêm mới'}
+            </button>
+          </div>
+        }
+      >
+            <form id="user-form" onSubmit={handleSubmit} className="modal-form user-form-content">
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {/* Thông tin cơ bản */}
                 <div className="form-section">
@@ -846,26 +799,19 @@ const AdminUsers = () => {
                   </div>
                 </div>
               </div>
-              
-              <div className="modal-actions">
-                <button 
-                  type="button" 
-                  className="cancel-btn"
-                  onClick={() => {
-                    setShowModal(false);
-                    setErrors({});
-                  }}
-                >
-                  Hủy
-                </button>
-                <button type="submit" className="save-btn">
-                  {editingUser ? 'Cập nhật' : 'Thêm mới'}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AdminModal>
+
+      {/* Confirm Modal */}
+      <AdminConfirmModal
+        open={confirmModal.open}
+        onOpenChange={(open) => setConfirmModal({ ...confirmModal, open })}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.variant === 'danger' ? 'Vô hiệu hóa' : 'Xác nhận'}
+        onConfirm={confirmModal.onConfirm}
+      />
     </div>
   );
 };

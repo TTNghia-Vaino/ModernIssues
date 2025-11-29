@@ -311,6 +311,43 @@ const Navbar = () => {
                         <i className="fas fa-user-circle" aria-hidden="true"></i>
                         <span>Thông tin tài khoản</span>
                       </a>
+                      <a 
+                        href="/spending" 
+                        className="user-menu-item" 
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <i className="fas fa-chart-line" aria-hidden="true"></i>
+                        <span>Tiêu dùng</span>
+                      </a>
+                      <a 
+                        href="/warranty-tracking" 
+                        className="user-menu-item" 
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <i className="fas fa-shield-alt" aria-hidden="true"></i>
+                        <span>Bảo hành</span>
+                      </a>
+                      <a 
+                        href="/orders" 
+                        className="user-menu-item" 
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <i className="fas fa-shopping-bag" aria-hidden="true"></i>
+                        <span>Đơn hàng của tôi</span>
+                      </a>
+                      {user?.role?.toLowerCase() === 'admin' && (
+                        <>
+                          <div className="user-dropdown-divider"></div>
+                          <a 
+                            href="/admin/dashboard" 
+                            className="user-menu-item" 
+                            onClick={() => setShowUserMenu(false)}
+                          >
+                            <i className="fas fa-tachometer-alt" aria-hidden="true"></i>
+                            <span>Bảng điều khiển</span>
+                          </a>
+                        </>
+                      )}
                       <div className="user-dropdown-divider"></div>
                       <button className="user-menu-item logout-btn" onClick={handleLogout}>
                         <span>Đăng xuất</span>

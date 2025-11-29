@@ -1,10 +1,182 @@
 .admin-categories {
-  max-width: 100%;
+  max-width: 1600px; /* Quy định chung: 1600px */
   margin: 0 auto;
   position: relative;
   width: 100%;
   box-sizing: border-box;
-  padding: 40px 20px;
+  padding: 40px 20px; /* Quy định chung: 40px 20px */
+}
+
+/* Categories Table Header */
+.categories-table-header {
+  display: grid !important;
+  /* Tên danh mục: 3fr | Cấp: 1fr | Trạng thái: 1.2fr | Số lượng: 1.2fr | Thao tác: 100px */
+  grid-template-columns: 3fr 1fr 1.2fr 1.2fr 100px !important;
+  width: 100% !important;
+  gap: 20px !important; /* Quy định chung */
+  padding: 16px 20px !important; /* Quy định chung */
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  box-sizing: border-box !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-items: center;
+  border-radius: 12px 12px 0 0;
+}
+
+.categories-table-header > * {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 0 8px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Explicitly set grid-column for each header column to prevent misalignment */
+.categories-table-header .col-name {
+  grid-column: 1 !important;
+}
+
+.categories-table-header .col-level {
+  grid-column: 2 !important;
+}
+
+.categories-table-header .col-status {
+  grid-column: 3 !important;
+}
+
+.categories-table-header .col-count {
+  grid-column: 4 !important;
+}
+
+.categories-table-header .col-actions {
+  grid-column: 5 !important;
+}
+
+.categories-table-header .col-name {
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
+.categories-table-header .col-level,
+.categories-table-header .col-status,
+.categories-table-header .col-count,
+.categories-table-header .col-actions {
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+/* Category Row - align with header columns */
+.category-row-content {
+  display: grid !important;
+  /* Tên danh mục: 3fr | Cấp: 1fr | Trạng thái: 1.2fr | Số lượng: 1.2fr | Thao tác: 100px */
+  grid-template-columns: 3fr 1fr 1.2fr 1.2fr 100px !important;
+  width: 100% !important;
+  gap: 20px !important;
+  padding: 16px 20px !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.category-row-content > * {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 0 8px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+/* Explicitly set grid-column for each column to prevent misalignment */
+.category-row-content .col-name {
+  grid-column: 1 !important;
+}
+
+.category-row-content .col-level {
+  grid-column: 2 !important;
+}
+
+.category-row-content .col-status {
+  grid-column: 3 !important;
+}
+
+.category-row-content .col-count {
+  grid-column: 4 !important;
+}
+
+.category-row-content .col-actions {
+  grid-column: 5 !important;
+}
+
+.category-row-content .col-actions {
+  overflow: visible !important;
+}
+
+.category-row-content .col-name {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  overflow: visible !important;
+}
+
+.category-row-content .col-level,
+.category-row-content .col-status,
+.category-row-content .col-count {
+  justify-content: center !important;
+  text-align: center !important;
+  overflow: hidden !important;
+}
+
+.category-row-content .col-actions {
+  justify-content: center !important;
+  text-align: center !important;
+  overflow: visible !important;
+}
+
+.category-row-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+.category-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.category-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.level-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.level-badge.level-1 {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.level-badge.level-2 {
+  background: #f3e5f5;
+  color: #7b1fa2;
 }
 
 .notification {
@@ -162,9 +334,11 @@
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  overflow-x: auto;
+  overflow-x: visible;
   overflow-y: visible;
-  margin: 0 -12px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
 }
 
 .table-header {
@@ -399,6 +573,22 @@
   pointer-events: none;
 }
 
+/* Override old .col-count styles for categories table */
+.category-row-content .col-count,
+.categories-table-header .col-count {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  font-weight: 600;
+  color: #3498db;
+  white-space: nowrap;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Keep old styles for other tables */
 .col-count {
   display: flex;
   align-items: center;
@@ -415,6 +605,18 @@
   color: #ffffff !important;
 }
 
+/* Override old .col-status styles for categories table */
+.category-row-content .col-status,
+.categories-table-header .col-status {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+/* Keep old styles for other tables */
 .col-status {
   display: flex;
   align-items: center;
@@ -423,26 +625,23 @@
   max-width: 100%;
 }
 
-.status-badge {
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-  text-align: center;
-  display: inline-block;
-  white-space: nowrap;
+/* Status badge styles đã được import từ AdminStatusBadge.css */
+
+/* Override old .col-actions styles for categories table */
+.category-row-content .col-actions,
+.categories-table-header .col-actions {
+  display: flex !important;
+  gap: 8px;
+  justify-content: center !important;
+  text-align: center !important;
+  align-items: center !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  flex-shrink: 0;
+  overflow: visible !important;
 }
 
-.status-active {
-  background: #d4edda;
-  color: #155724;
-}
-
-.status-inactive {
-  background: #f8d7da;
-  color: #721c24;
-}
-
+/* Keep old styles for other tables */
 .col-actions {
   display: flex;
   gap: 8px;
@@ -637,297 +836,8 @@
   border-color: #3498db;
 }
 
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  padding: 60px;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-  position: relative;
-}
-
-/* Category Form Modal Styles - Áp dụng từ Warranty Modal */
-.category-form-modal {
-  max-width: 896px; /* max-w-4xl */
-  width: 100%;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-}
-
-.category-form-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 24px 28px;
-  border-radius: 16px 16px 0 0;
-  margin: -24px -24px 0 -24px;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-shrink: 0;
-}
-
-.category-form-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: white;
-  margin: 0 0 8px 0;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.category-form-description {
-  color: rgba(255, 255, 255, 0.95);
-  font-size: 14px;
-  margin: 0;
-  font-weight: 400;
-}
-
-.category-form-content {
-  padding: 24px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e0 #f7fafc;
-}
-
-.category-form-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.category-form-content::-webkit-scrollbar-track {
-  background: #f7fafc;
-  border-radius: 4px;
-}
-
-.category-form-content::-webkit-scrollbar-thumb {
-  background: #cbd5e0;
-  border-radius: 4px;
-}
-
-.category-form-content::-webkit-scrollbar-thumb:hover {
-  background: #a0aec0;
-}
-
-/* Form Section Styles - Áp dụng từ Warranty Modal */
-.category-form-content .form-section {
-  background: #f8f9fa;
-  border-radius: 12px;
-  padding: 20px;
-  transition: all 0.3s ease;
-}
-
-.category-form-content .form-section:hover {
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-  transform: translateY(-2px);
-}
-
-.category-form-content .form-section-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1f2937;
-  margin: 0 0 16px 0;
-  padding-left: 20px;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.category-form-content .form-section-title::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: #667eea;
-  border-radius: 2px;
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px;
-  border-bottom: 1px solid #e9ecef;
-  flex-shrink: 0;
-  background: white;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #2c3e50;
-  font-weight: 600;
-}
-
-.close-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  color: #000000;
-  flex-shrink: 0;
-}
-
-.category-form-header .close-btn {
-  background: rgba(255, 255, 255, 0.2);
-  color: #000000;
-}
-
-.category-form-header .close-btn:hover {
-  background: rgba(0, 0, 0, 0.1);
-  transform: rotate(90deg);
-}
-
-.close-btn:hover {
-  background: #f8f9fa;
-}
-
-.modal-form {
-  padding: 20px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-  scrollbar-width: thin;
-  scrollbar-color: #888 #f1f1f1;
-}
-
-.modal-form::-webkit-scrollbar {
-  width: 8px;
-}
-
-.modal-form::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.modal-form::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
-}
-
-.modal-form::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  color: #2c3e50;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.form-group input,
-.form-group textarea,
-.form-group select {
-  width: 100%;
-  padding: 12px;
-  border: 2px solid #e9ecef;
-  border-radius: 8px;
-  font-size: 14px;
-  transition: border-color 0.3s ease;
-  box-sizing: border-box;
-}
-
-.form-group input:focus,
-.form-group textarea:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: #3498db;
-}
-
-.form-group textarea {
-  resize: vertical;
-  min-height: 80px;
-}
-
-.form-group input.error,
-.form-group textarea.error,
-.form-group select.error {
-  border-color: #e74c3c;
-}
-
-.error-message {
-  display: block;
-  color: #e74c3c;
-  font-size: 12px;
-  margin-top: 4px;
-  font-weight: 500;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  padding: 20px;
-  border-top: 1px solid #e9ecef;
-  flex-shrink: 0;
-  background: white;
-}
-
-.cancel-btn,
-.save-btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.cancel-btn {
-  background: #ecf0f1;
-  color: #7f8c8d;
-  border: 1px solid #bdc3c7;
-}
-
-.cancel-btn:hover {
-  background: #d5dbdb;
-}
-
-.save-btn {
-  background: #3498db;
-  color: white;
-}
-
-.save-btn:hover {
-  background: #2980b9;
-  transform: translateY(-2px);
-}
+/* Modal styles đã được định nghĩa trong AdminModal.css */
+/* Sử dụng các class chung: .admin-modal-header, .admin-modal-title, .form-section, .form-grid, .form-item, v.v. */
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -1040,19 +950,7 @@
     left: 0;
   }
   
-  .modal-content {
-    width: 95%;
-    margin: 20px;
-  }
-  
-  .modal-actions {
-    flex-direction: column;
-  }
-  
-  .cancel-btn,
-  .save-btn {
-    width: 100%;
-  }
+  /* Modal responsive styles đã được xử lý bởi AdminModal component */
   
   .pagination-controls {
     flex-direction: column;
@@ -1132,7 +1030,9 @@
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  overflow: visible;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .tree-header {
@@ -1162,27 +1062,19 @@
 .category-row {
   border-bottom: 1px solid #e9ecef;
   transition: background 0.2s ease;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+  overflow: visible;
 }
 
 .category-row:hover {
   background: #f8f9fa;
 }
 
-.category-row-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  gap: 16px;
-}
-
-.category-row-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  min-width: 0;
-}
+/* Removed old .category-row-content flex layout - using grid layout instead */
+/* Removed old .category-row-left - using grid columns instead */
 
 .expand-btn {
   background: none;
@@ -1255,27 +1147,7 @@
   color: #166534;
 }
 
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-  margin-left: 8px;
-}
-
-.status-badge.status-active {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.status-badge.status-disabled {
-  background: #ffebee;
-  color: #c62828;
-}
+/* Status badge styles đã được import từ AdminStatusBadge.css */
 
 .category-description {
   color: #6c757d;
@@ -1284,12 +1156,7 @@
   word-break: break-word;
 }
 
-.category-row-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-shrink: 0;
-}
+/* Removed old .category-row-right - using grid columns instead */
 
 .product-count {
   display: flex;
@@ -1409,11 +1276,7 @@
   font-size: 16px;
 }
 
-/* Modal Styles for Tree */
-.modal-body {
-  padding: 20px;
-}
-
+/* Form hint và info box styles */
 .form-hint {
   font-size: 12px;
   color: #6c757d;
@@ -1430,13 +1293,7 @@
   margin-top: 8px;
 }
 
-.modal-footer {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  padding: 20px;
-  border-top: 1px solid #e9ecef;
-}
+/* Modal footer đã được xử lý bởi AdminModal component */
 
 .btn-cancel {
   padding: 10px 20px;
