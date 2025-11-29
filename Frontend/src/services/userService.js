@@ -717,88 +717,80 @@ export const changePhone = async (phoneData) => {
 };
 
 /**
- * Resend email verification
- * Endpoint: POST /v1/User/ResendVerificationEmail or POST /v1/Auth/ResendVerificationEmail
- * Response format: { success: boolean, message: string, data: object, errors: string[] }
+ * Resend email verification OTP
+ * Endpoint: POST /v1/Auth/ResendConfirmEmailOtp
+ * Response format: { message: string }
+ * @param {string} email - Email address to resend OTP to
  * @returns {Promise}
  */
-export const resendVerificationEmail = async () => {
-  // Try User endpoint first, fallback to Auth endpoint
-  try {
-    const response = await apiPost('User/ResendVerificationEmail', {});
-    
-    // Handle Swagger response format
-    if (response && typeof response === 'object') {
-      if (response.success === false) {
-        throw new Error(response.message || 'Failed to resend verification email');
-      }
-      return response;
+export const resendVerificationEmail = async (email) => {
+  if (!email) {
+    throw new Error('Email is required');
+  }
+  
+  const response = await apiPost('Auth/ResendConfirmEmailOtp', { email });
+  
+  // Handle response format
+  if (response && typeof response === 'object') {
+    if (response.success === false) {
+      throw new Error(response.message || 'Failed to resend verification email');
     }
     return response;
-  } catch (err) {
-    // Fallback to Auth endpoint
-    try {
-      const response = await apiPost('Auth/ResendVerificationEmail', {});
-      if (response && typeof response === 'object') {
-        if (response.success === false) {
-          throw new Error(response.message || 'Failed to resend verification email');
-        }
-        return response;
-      }
-      return response;
-    } catch (fallbackErr) {
-      throw new Error(err.message || fallbackErr.message || 'Failed to resend verification email');
-    }
   }
+  
+  return response;
 };
 
 /**
  * Verify email with OTP
- * Endpoint: POST /v1/User/VerifyEmail or POST /v1/Auth/VerifyEmail
- * Response format: { success: boolean, message: string, data: object, errors: string[] }
- * @param {object} verifyData - { otpCode } or { email, otpCode }
- * @returns {Promise} - Updated user data
+ * Endpoint: POST /v1/Auth/ConfirmEmail
+ * Response format: { message: string }
+ * @param {object} verifyData - { email: string, otp: string }
+ * @returns {Promise}
  */
 export const verifyEmail = async (verifyData) => {
-  // Try User endpoint first, fallback to Auth endpoint
+  if (!verifyData.email || !verifyData.otp) {
+    throw new Error('Email and OTP are required');
+  }
+  
   try {
-    const response = await apiPost('User/VerifyEmail', verifyData);
+    const response = await apiPost('Auth/ConfirmEmail', {
+      email: verifyData.email,
+      otp: verifyData.otp
+    });
     
-    // Handle Swagger response format
+    // Handle response format
     if (response && typeof response === 'object') {
       if (response.success === false) {
         throw new Error(response.message || 'Email verification failed');
       }
-      
-      // Return data if available
-      if (response.data) {
-        return typeof response.data === 'string' ? (() => {
-          try { return JSON.parse(response.data); } catch { return response.data; }
-        })() : response.data;
-      }
       return response;
     }
+    
     return response;
-  } catch (err) {
-    // Fallback to Auth endpoint
-    try {
-      const response = await apiPost('Auth/VerifyEmail', verifyData);
-      if (response && typeof response === 'object') {
-        if (response.success === false) {
-          throw new Error(response.message || 'Email verification failed');
-        }
-        
-        if (response.data) {
-          return typeof response.data === 'string' ? (() => {
-            try { return JSON.parse(response.data); } catch { return response.data; }
-          })() : response.data;
-        }
-        return response;
-      }
-      return response;
-    } catch (fallbackErr) {
-      throw new Error(err.message || fallbackErr.message || 'Email verification failed');
+  } catch (error) {
+    // Check if error message or data indicates email is already verified
+    const errorMessage = error.message || '';
+    const errorData = error.data || {};
+    const errorDataMessage = errorData.message || errorData.errors?.[0] || '';
+    
+    const allMessages = `${errorMessage} ${errorDataMessage}`.toLowerCase();
+    
+    // If email is already confirmed (400 error but email is verified in DB), treat as success
+    if (allMessages.includes('đã được xác thực') || 
+        allMessages.includes('already verified') || 
+        allMessages.includes('already confirmed') ||
+        allMessages.includes('đã xác nhận') ||
+        allMessages.includes('email đã được xác thực')) {
+      return { 
+        success: true, 
+        message: 'Email đã được xác thực thành công!',
+        alreadyVerified: true 
+      };
     }
+    
+    // Re-throw other errors
+    throw error;
   }
 };
 

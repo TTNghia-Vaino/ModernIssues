@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as authService from '../services/authService';
 import { useNotification } from '../context/NotificationContext';
+import OTPInput from './OTPInput';
 import './ForgotPasswordForm.css';
 
 const ForgotPasswordForm = () => {
@@ -135,7 +136,7 @@ const ForgotPasswordForm = () => {
     }
   };
 
-  // Handle code input
+  // Handle code input - keep for backward compatibility but use OTPInput component
   const handleCodeChange = (index, value) => {
     if (!/^\d*$/.test(value)) return; // Only numbers
     
@@ -243,26 +244,14 @@ const ForgotPasswordForm = () => {
       {error && <div className="error-message">{error}</div>}
 
       <form className="forgot-password-form" onSubmit={handleVerifyCode}>
-        <div className="form-group">
-          <label>Mã xác thực *</label>
-          <div className="code-inputs">
-            {code.map((digit, index) => (
-              <input
-                key={index}
-                ref={(el) => (codeInputRefs.current[index] = el)}
-                type="text"
-                inputMode="numeric"
-                maxLength="1"
-                value={digit}
-                onChange={(e) => handleCodeChange(index, e.target.value)}
-                onKeyDown={(e) => handleCodeKeyDown(index, e)}
-                className="code-input"
-                disabled={isLoading}
-                autoComplete="off"
-              />
-            ))}
-          </div>
-        </div>
+        <OTPInput
+          length={6}
+          onComplete={(codeString) => {
+            setCode(codeString.split(''));
+          }}
+          disabled={isLoading}
+          error={error}
+        />
 
         <button 
           type="submit" 
