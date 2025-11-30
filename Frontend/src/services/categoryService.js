@@ -8,26 +8,42 @@ import { apiGet, apiPost, apiPut, apiDelete } from './api';
  * @returns {Promise} - Parsed data
  */
 const handleResponse = (response) => {
+  console.log('[CategoryService.handleResponse] Input:', response);
+  console.log('[CategoryService.handleResponse] Type:', typeof response);
+  console.log('[CategoryService.handleResponse] Is array:', Array.isArray(response));
+  console.log('[CategoryService.handleResponse] Keys:', response && typeof response === 'object' ? Object.keys(response) : 'N/A');
+  
   // If response is null/undefined or not an object, return as is
   if (!response || typeof response !== 'object') {
+    console.log('[CategoryService.handleResponse] Response is not an object, returning as is');
+    return response;
+  }
+  
+  // If response is already an array, return it directly (API might return array directly)
+  if (Array.isArray(response)) {
+    console.log('[CategoryService.handleResponse] Response is array, returning directly');
     return response;
   }
   
   // Check if it's an error object (has error properties)
   if (response.error || (response.name && response.message)) {
     // This is likely an error object, re-throw it
+    console.log('[CategoryService.handleResponse] Response is error object, throwing');
     throw response;
   }
   
   // Handle Swagger response format
   if (response.success === false) {
+    console.log('[CategoryService.handleResponse] Response indicates failure');
     throw new Error(response.message || 'Request failed');
   }
   
   // If data is string, try to parse
   if (response.data && typeof response.data === 'string') {
     try {
-      return JSON.parse(response.data);
+      const parsed = JSON.parse(response.data);
+      console.log('[CategoryService.handleResponse] Parsed string data:', parsed);
+      return parsed;
     } catch (e) {
       console.warn('[CategoryService] Failed to parse response.data as JSON:', e);
       return response.data;
@@ -36,10 +52,12 @@ const handleResponse = (response) => {
   
   // Return data if available
   if (response.data !== undefined) {
+    console.log('[CategoryService.handleResponse] Returning response.data:', response.data);
     return response.data;
   }
   
   // Fallback: return response as is
+  console.log('[CategoryService.handleResponse] Returning response as is (fallback)');
   return response;
 };
 

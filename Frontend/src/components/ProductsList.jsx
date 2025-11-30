@@ -41,33 +41,45 @@ const ProductsList = () => {
 
   // Cập nhật category và query khi URL thay đổi
   useEffect(() => {
+    console.log('[ProductsList] URL changed, search:', search);
     const currentParams = new URLSearchParams(search);
     const newCategory = currentParams.get('category') || '';
     const newSubcategory = currentParams.get('subcategory') || '';
     const newQ = currentParams.get('q') || '';
     
-    // Map subcategory to category name if exists
-    const effectiveNewCategory = newSubcategory && subcategoryMap[newSubcategory]
-      ? subcategoryMap[newSubcategory]
-      : newCategory;
+    console.log('[ProductsList] URL params:', { newCategory, newSubcategory, newQ, currentCategory: category });
+    
+    // If subcategory exists, use its mapped category name, otherwise use category from URL
+    // But if category is a number (categoryId), keep it as is for API filtering
+    let effectiveNewCategory = newCategory;
+    if (newSubcategory && subcategoryMap[newSubcategory]) {
+      effectiveNewCategory = subcategoryMap[newSubcategory];
+    }
     
     let shouldReload = false;
     
     // Cập nhật category nếu thay đổi
     if (effectiveNewCategory !== category) {
+      console.log('[ProductsList] Category changed:', category, '->', effectiveNewCategory);
       setCategory(effectiveNewCategory);
       shouldReload = true;
     }
     
     // Cập nhật query nếu thay đổi
     if (newQ !== q) {
+      console.log('[ProductsList] Query changed:', q, '->', newQ);
       setQ(newQ);
       shouldReload = true;
     }
     
     // Reload products khi category hoặc query từ URL thay đổi
+    // Pass the raw categoryId from URL if it's a number, otherwise pass the category name
     if (shouldReload) {
-      loadProducts(effectiveNewCategory || null, newQ);
+      const categoryIdToPass = newSubcategory ? null : (newCategory && !isNaN(parseInt(newCategory, 10)) ? newCategory : null);
+      console.log('[ProductsList] Reloading products with:', { categoryIdToPass, effectiveNewCategory, newQ, shouldReload });
+      loadProducts(categoryIdToPass || effectiveNewCategory || null, newQ);
+    } else {
+      console.log('[ProductsList] No reload needed');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
@@ -120,14 +132,31 @@ const ProductsList = () => {
         // If we have subcategory, don't filter by parent category in API
         // Load all products (or with search if provided) and filter client-side by subcategory category name
         // This is because subcategory products may have different category name than parent
-        const apiCategoryId = hasSubcategory ? null : activeCategory;
+        // Convert categoryId to number if it's a string (from URL query)
+        // Only use categoryId if it's a valid number (API only supports categoryId, not category name)
+        let apiCategoryId = null;
+        if (!hasSubcategory && activeCategory) {
+          if (typeof activeCategory === 'number') {
+            apiCategoryId = activeCategory;
+          } else if (typeof activeCategory === 'string') {
+            const parsedId = parseInt(activeCategory, 10);
+            if (!isNaN(parsedId)) {
+              apiCategoryId = parsedId;
+            }
+            // If activeCategory is a string but not a number, it's likely a category name
+            // API doesn't support filtering by category name, so we'll filter client-side later
+          }
+        }
+        
         console.log('[ProductsList] Fetching products from API...', { 
           categoryId: apiCategoryId, 
+          categoryIdType: typeof apiCategoryId,
+          activeCategory: activeCategory,
+          activeCategoryType: typeof activeCategory,
           search: activeSearchQuery,
           hasSubcategory,
           subcategory: currentSubcategory,
-          effectiveCategory: activeCategory,
-          willFilterBy: hasSubcategory ? subcategoryMap[currentSubcategory] : activeCategory
+          willFilterBy: hasSubcategory ? subcategoryMap[currentSubcategory] : (apiCategoryId ? `categoryId=${apiCategoryId}` : activeCategory)
         });
         const productsData = await productService.listProducts({
           page: 1,
@@ -181,6 +210,16 @@ const ProductsList = () => {
             product => product.category === categoryNameToFilter
           );
           console.log('[ProductsList] Products after subcategory filter:', activeProducts.length, 'out of', beforeFilterCount);
+        }
+        
+        // If activeCategory is a category name (not a number) and we didn't use apiCategoryId, filter client-side
+        if (!hasSubcategory && activeCategory && typeof activeCategory === 'string' && isNaN(parseInt(activeCategory, 10))) {
+          console.log('[ProductsList] Filtering by category name (client-side):', activeCategory);
+          const beforeFilterCount = activeProducts.length;
+          activeProducts = activeProducts.filter(
+            product => product.category === activeCategory
+          );
+          console.log('[ProductsList] Products after category name filter:', activeProducts.length, 'out of', beforeFilterCount);
         }
         
         setProducts(activeProducts);
@@ -260,10 +299,12 @@ const ProductsList = () => {
   // Nếu có query từ URL, không cần filter client-side nữa (API đã filter rồi)
   const urlParams = useMemo(() => new URLSearchParams(search), [search]);
   const hasUrlQuery = urlParams.get('q');
+  const hasUrlCategoryId = urlParams.get('category') && !isNaN(parseInt(urlParams.get('category'), 10));
   const filtered = useMemo(() => {
     console.log('[ProductsList] Filtering products:', {
       productsCount: products.length,
       hasUrlQuery: !!hasUrlQuery,
+      hasUrlCategoryId: !!hasUrlCategoryId,
       q,
       brand,
       category,
@@ -282,11 +323,23 @@ const ProductsList = () => {
       return filteredByFilters;
     }
     
-    // Không có query từ URL -> filter client-side theo tất cả criteria
+    // Nếu có categoryId từ URL, API đã filter theo categoryId rồi
+    // Không nên filter client-side theo category nữa (vì category state là categoryId, không phải category name)
+    if (hasUrlCategoryId) {
+      // API đã filter theo categoryId rồi, chỉ filter theo brand/maxPrice nếu có
+      const filteredByFilters = products.filter(p => (
+        (!brand || p.brand === brand) &&
+        (maxPrice === undefined || maxPrice === '' || p.price <= Number(maxPrice))
+      ));
+      console.log('[ProductsList] Filtered by filters (hasUrlCategoryId):', filteredByFilters.length);
+      return filteredByFilters;
+    }
+    
+    // Không có query từ URL và không có categoryId -> filter client-side theo tất cả criteria
     const filtered = searchProducts({ q, brand, category, maxPrice, hasUrlQuery: false });
     console.log('[ProductsList] Filtered client-side (noUrlQuery):', filtered.length);
     return filtered;
-  }, [products, q, brand, category, maxPrice, search, hasUrlQuery]);
+  }, [products, q, brand, category, maxPrice, search, hasUrlQuery, hasUrlCategoryId]);
 
   const handleProductClick = (productId) => {
     // Scroll to top immediately before navigation
