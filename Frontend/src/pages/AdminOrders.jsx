@@ -235,20 +235,22 @@ const AdminOrders = () => {
   };
 
   const getStatusClass = (status) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'delivered': return 'status-delivered';
       case 'processing': return 'status-processing';
       case 'pending': return 'status-pending';
+      case 'paid': return 'status-paid';
       case 'cancelled': return 'status-cancelled';
       default: return 'status-default';
     }
   };
 
   const getStatusText = (status) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'delivered': return 'Đã giao';
       case 'processing': return 'Đang xử lý';
       case 'pending': return 'Chờ xác nhận';
+      case 'paid': return 'Đã thanh toán';
       case 'cancelled': return 'Đã hủy';
       default: return 'Không xác định';
     }
@@ -361,6 +363,7 @@ const AdminOrders = () => {
             onChange={(e) => handleStatusChange(orderId, e.target.value)}
           >
             <option value="pending">Chờ xác nhận</option>
+            <option value="paid">Đã thanh toán</option>
             <option value="processing">Đang xử lý</option>
             <option value="delivered">Đã giao</option>
             <option value="cancelled">Đã hủy</option>
@@ -374,6 +377,7 @@ const AdminOrders = () => {
   const statusFilterOptions = [
     { value: 'all', label: 'Tất cả trạng thái' },
     { value: 'pending', label: 'Chờ xác nhận' },
+    { value: 'paid', label: 'Đã thanh toán' },
     { value: 'processing', label: 'Đang xử lý' },
     { value: 'delivered', label: 'Đã giao' },
     { value: 'cancelled', label: 'Đã hủy' }

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as productService from '../services/productService';
+import * as promotionService from '../services/promotionService';
 import { transformProducts } from '../utils/productUtils';
 import ProductCard from './ProductCard';
 import './ProductsList.css';
@@ -15,6 +16,7 @@ const ProductsList = () => {
   const initialQ = params.get('q') || '';
   const urlCategory = params.get('category') || ''; // Đọc category từ URL
   const urlSubcategory = params.get('subcategory') || ''; // Đọc subcategory từ URL
+  const urlPromotion = params.get('promotion') || ''; // Đọc promotion từ URL
 
   // Map subcategory ID to category name
   const subcategoryMap = {
@@ -39,15 +41,16 @@ const ProductsList = () => {
   const [maxPrice, setMaxPrice] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Cập nhật category và query khi URL thay đổi
+  // Cập nhật category, query và promotion khi URL thay đổi
   useEffect(() => {
     console.log('[ProductsList] URL changed, search:', search);
     const currentParams = new URLSearchParams(search);
     const newCategory = currentParams.get('category') || '';
     const newSubcategory = currentParams.get('subcategory') || '';
     const newQ = currentParams.get('q') || '';
+    const newPromotion = currentParams.get('promotion') || '';
     
-    console.log('[ProductsList] URL params:', { newCategory, newSubcategory, newQ, currentCategory: category });
+    console.log('[ProductsList] URL params:', { newCategory, newSubcategory, newQ, newPromotion, currentCategory: category });
     
     // If subcategory exists, use its mapped category name, otherwise use category from URL
     // But if category is a number (categoryId), keep it as is for API filtering
@@ -72,9 +75,13 @@ const ProductsList = () => {
       shouldReload = true;
     }
     
-    // Reload products khi category hoặc query từ URL thay đổi
-    // Pass the raw categoryId from URL if it's a number, otherwise pass the category name
-    if (shouldReload) {
+    // Nếu có promotion trong URL, load products theo promotion
+    if (newPromotion) {
+      console.log('[ProductsList] Loading products by promotion:', newPromotion);
+      loadProductsByPromotion(newPromotion);
+    } else if (shouldReload) {
+      // Reload products khi category hoặc query từ URL thay đổi
+      // Pass the raw categoryId from URL if it's a number, otherwise pass the category name
       const categoryIdToPass = newSubcategory ? null : (newCategory && !isNaN(parseInt(newCategory, 10)) ? newCategory : null);
       console.log('[ProductsList] Reloading products with:', { categoryIdToPass, effectiveNewCategory, newQ, shouldReload });
       loadProducts(categoryIdToPass || effectiveNewCategory || null, newQ);
@@ -102,7 +109,12 @@ const ProductsList = () => {
       }
       
       if (!cancelled) {
-        loadProducts(effectiveCategory || null, initialQ);
+        // Nếu có promotion trong URL, load theo promotion
+        if (urlPromotion) {
+          loadProductsByPromotion(urlPromotion);
+        } else {
+          loadProducts(effectiveCategory || null, initialQ);
+        }
       }
     };
     
@@ -113,6 +125,59 @@ const ProductsList = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
+
+  const loadProductsByPromotion = async (promotionId) => {
+    try {
+      setLoading(true);
+      console.log('[ProductsList] Loading products by promotion ID:', promotionId);
+      
+      const promotionIdNum = parseInt(promotionId, 10);
+      if (isNaN(promotionIdNum)) {
+        console.error('[ProductsList] Invalid promotion ID:', promotionId);
+        setProducts([]);
+        setLoading(false);
+        return;
+      }
+      
+      const productsData = await promotionService.getProductsByPromotion(promotionIdNum, {
+        page: 1,
+        limit: 200
+      });
+      
+      console.log('[ProductsList] Products by promotion response:', productsData);
+      
+      // Handle response format: { totalCount, currentPage, limit, data: [...] }
+      let productsArray = [];
+      if (productsData && typeof productsData === 'object') {
+        if (Array.isArray(productsData.data)) {
+          productsArray = productsData.data;
+        } else if (Array.isArray(productsData)) {
+          productsArray = productsData;
+        }
+      } else if (Array.isArray(productsData)) {
+        productsArray = productsData;
+      }
+      
+      console.log('[ProductsList] Products array length:', productsArray.length);
+      
+      // Transform API format to component format
+      const transformedProducts = transformProducts(productsArray);
+      console.log('[ProductsList] Transformed products:', transformedProducts.length);
+      
+      // Filter out disabled products
+      const activeProducts = transformedProducts.filter(
+        product => product.isDisabled !== true && product.isDisabled !== 'true'
+      );
+      console.log('[ProductsList] Active products:', activeProducts.length);
+      
+      setProducts(activeProducts);
+    } catch (error) {
+      console.error('[ProductsList] Error loading products by promotion:', error);
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadProducts = async (categoryId = null, searchQuery = null) => {
     try {
