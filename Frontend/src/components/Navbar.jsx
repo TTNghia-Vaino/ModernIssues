@@ -380,7 +380,9 @@ const Navbar = () => {
             <a href="/cart" className="action-btn cart-btn" aria-label="Giỏ hàng">
               <i className="fas fa-shopping-cart" aria-hidden="true"></i>
               <span className="cart-text">Giỏ hàng</span>
-              <span className="cart-count">{totalCount}</span>
+              {totalCount > 0 && (
+                <span className="cart-count">{totalCount}</span>
+              )}
             </a>
           </div>
         </div>

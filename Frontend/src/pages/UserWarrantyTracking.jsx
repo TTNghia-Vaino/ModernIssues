@@ -394,15 +394,17 @@ const UserWarrantyTracking = () => {
   return (
     <div className="user-warranty-tracking-page">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="mb-6">
-          <Button
-            variant="ghost"
+        <div className="mb-6 flex items-center gap-4">
+          <button
             onClick={() => navigate(-1)}
-            className="mb-4"
+            className="text-gray-600 hover:text-gray-900"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Quay lại
-          </Button>
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Bảo hành</h1>
+            <p className="text-gray-600 mt-1">Theo dõi trạng thái bảo hành và yêu cầu bảo hành của bạn</p>
+          </div>
         </div>
 
         {/* Tabs */}
