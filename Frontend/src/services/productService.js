@@ -4,6 +4,47 @@ import { apiGet, apiPost, apiPut, apiDelete } from './api';
 import { getApiUrl } from '../config/api';
 
 /**
+ * Handle Swagger response format: { success, message, data, errors }
+ * @param {object} response - API response
+ * @returns {any} - Parsed data
+ */
+const handleResponse = (response) => {
+  // If response is null/undefined or not an object, return as is
+  if (!response || typeof response !== 'object') {
+    return response;
+  }
+  
+  // Check if it's an error object (has error properties)
+  if (response.error || (response.name && response.message)) {
+    // This is likely an error object, re-throw it
+    throw response;
+  }
+  
+  // Handle Swagger response format
+  if (response.success === false) {
+    throw new Error(response.message || 'Request failed');
+  }
+  
+  // If data is string, try to parse
+  if (response.data && typeof response.data === 'string') {
+    try {
+      return JSON.parse(response.data);
+    } catch (e) {
+      console.warn('[ProductService] Failed to parse response.data as JSON:', e);
+      return response.data;
+    }
+  }
+  
+  // Return data if available
+  if (response.data !== undefined) {
+    return response.data;
+  }
+  
+  // Fallback: return response as is
+  return response;
+};
+
+/**
  * Get all products list (Admin - includes disabled products)
  * Endpoint: GET /v1/Product/GetAllListProducts
  * Response format: { success: boolean, message: string, data: array|string, errors: string[] }

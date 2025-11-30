@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import './ProductShowcase.css';
 import banner2Img from '../assets/banner_2.webp';
 import banner3Img from '../assets/banner_3.webp';
@@ -7,6 +8,7 @@ import banner11Img from '../assets/banner_11.webp';
 import banner22Img from '../assets/banner_22.webp';
 
 function ProductShowcase() {
+  const navigate = useNavigate();
   // Category icons section
   const categoryIcons = [
     {
@@ -155,7 +157,13 @@ function ProductShowcase() {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    if (banner.link) {
+                      navigate(banner.link);
+                    } else if (banner.promotionId) {
+                      navigate(`/products?promotion=${banner.promotionId}`);
+                    }
                   }}
+                  style={{ cursor: (banner.link || banner.promotionId) ? 'pointer' : 'default' }}
                 >
                   <div className="promo-banner-content">
                     <img 
@@ -190,7 +198,13 @@ function ProductShowcase() {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    if (banner.link) {
+                      navigate(banner.link);
+                    } else if (banner.promotionId) {
+                      navigate(`/products?promotion=${banner.promotionId}`);
+                    }
                   }}
+                  style={{ cursor: (banner.link || banner.promotionId) ? 'pointer' : 'default' }}
                 >
                   <div className="promo-banner-content">
                     <img 
