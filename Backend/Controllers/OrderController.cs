@@ -1299,12 +1299,21 @@ namespace ModernIssues.Controllers
                     return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy đơn hàng với ID: {orderId}."));
                 }
 
+                // Lưu trạng thái cũ để kiểm tra
+                var oldStatus = order.status?.ToLower() ?? "";
+
                 // Cập nhật trạng thái
                 order.status = statusLower;
                 order.updated_at = DateTime.UtcNow;
                 order.updated_by = adminId.Value;
 
                 await _context.SaveChangesAsync();
+
+                // Nếu chuyển sang "paid" và loại thanh toán là COD, trừ stock và bán serial
+                if (statusLower == "paid" && oldStatus != "paid" && order.types == "COD")
+                {
+                    await ProcessStockAndSerialsForOrderAsync(orderId, adminId.Value, order.user_id);
+                }
 
                 // Lấy lại thông tin đơn hàng với đầy đủ thông tin
                 var updatedOrder = await (from o in _context.orders
@@ -1372,6 +1381,115 @@ namespace ModernIssues.Controllers
                 return StatusCode(500, ApiResponse<object>.ErrorResponse(
                     "Lỗi hệ thống khi cập nhật trạng thái đơn hàng.",
                     new List<string> { ex.Message }));
+            }
+        }
+
+        /// <summary>
+        /// Xử lý trừ stock và bán serial cho đơn hàng khi thanh toán thành công (COD)
+        /// </summary>
+        private async Task ProcessStockAndSerialsForOrderAsync(int orderId, int updatedBy, int? userId)
+        {
+            try
+            {
+                // Lấy order_details của đơn hàng
+                var orderDetails = await _context.order_details
+                    .Include(od => od.product)
+                    .Where(od => od.order_id == orderId)
+                    .ToListAsync();
+
+                if (!orderDetails.Any())
+                {
+                    Console.WriteLine($"[ProcessStockAndSerials] No order details found for order {orderId}");
+                    return;
+                }
+
+                // Trừ stock và tạo warranty cho từng sản phẩm
+                foreach (var orderDetail in orderDetails)
+                {
+                    var product = orderDetail.product;
+                    if (product == null)
+                    {
+                        Console.WriteLine($"[ProcessStockAndSerials] Product not found for order detail: order_id={orderId}, product_id={orderDetail.product_id}");
+                        continue;
+                    }
+
+                    // Kiểm tra lại stock trước khi trừ
+                    if (product.stock < orderDetail.quantity)
+                    {
+                        throw new InvalidOperationException(
+                            $"Không đủ số lượng trong kho cho sản phẩm {product.product_name}. " +
+                            $"Cần {orderDetail.quantity} nhưng chỉ còn {product.stock}.");
+                    }
+
+                    // Trừ stock
+                    product.stock -= orderDetail.quantity;
+                    product.updated_at = DateTime.UtcNow;
+
+                    // Tạo warranty và đánh dấu serial đã bán (nếu có warranty_period)
+                    if (product.warranty_period.HasValue && product.warranty_period > 0)
+                    {
+                        var warrantyPeriod = product.warranty_period ?? 0;
+                        var startDate = DateTime.UtcNow;
+                        var endDate = startDate.AddMonths(warrantyPeriod);
+
+                        // Lấy serial numbers có sẵn trong kho
+                        var availableSerials = await _context.product_serials
+                            .Where(ps => ps.product_id == orderDetail.product_id
+                                      && (ps.is_sold == null || ps.is_sold == false)
+                                      && (ps.is_disabled == null || ps.is_disabled == false))
+                            .Take(orderDetail.quantity)
+                            .ToListAsync();
+
+                        // Kiểm tra đủ serial không
+                        if (availableSerials.Count < orderDetail.quantity)
+                        {
+                            throw new InvalidOperationException(
+                                $"Không đủ serial numbers trong kho cho sản phẩm {product.product_name}. " +
+                                $"Cần {orderDetail.quantity} nhưng chỉ có {availableSerials.Count} sản phẩm có serial.");
+                        }
+
+                        // Tạo warranty cho mỗi serial number
+                        var warranties = new List<warranty>();
+                        foreach (var productSerial in availableSerials)
+                        {
+                            var newWarranty = new warranty
+                            {
+                                product_id = orderDetail.product_id,
+                                user_id = userId,
+                                order_id = orderId,
+                                start_date = startDate,
+                                end_date = endDate,
+                                status = "active",
+                                serial_number = productSerial.serial_number,
+                                created_at = DateTime.UtcNow,
+                                updated_at = DateTime.UtcNow,
+                                created_by = updatedBy,
+                                updated_by = updatedBy,
+                                is_disabled = false
+                            };
+
+                            warranties.Add(newWarranty);
+
+                            // Đánh dấu serial đã bán
+                            productSerial.is_sold = true;
+                            productSerial.updated_at = DateTime.UtcNow;
+                            productSerial.updated_by = updatedBy;
+                        }
+
+                        if (warranties.Any())
+                        {
+                            _context.warranties.AddRange(warranties);
+                        }
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                Console.WriteLine($"[ProcessStockAndSerials] Successfully processed stock and serials for order {orderId}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ProcessStockAndSerials] Error processing stock and serials for order {orderId}: {ex.Message}");
+                throw; // Re-throw để caller có thể xử lý
             }
         }
     }
