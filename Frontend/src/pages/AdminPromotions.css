@@ -1,0 +1,1232 @@
+/* Import Admin Status Badge styles */
+@import '../components/admin/AdminStatusBadge.css';
+
+.admin-promotions {
+  max-width: 1600px; /* Quy định chung: 1600px */
+  margin: 0 auto;
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 40px 20px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.page-header h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 5px 0;
+  color: #1f2937;
+  position: relative;
+}
+
+/* Hide any badge that might appear next to the title */
+.page-header h2::before,
+.page-header h2::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Hide any badge element in page-header */
+.page-header .badge,
+.page-header [class*="badge"]:not(.add-btn),
+.page-header [class*="50"]:not(.add-btn),
+.page-header > span:not(:has(button)),
+.page-header h2 + span,
+.page-header h2 + div:not(:has(button)) {
+  display: none !important;
+}
+
+/* Hide any element that appears between h2 and buttons container */
+.page-header h2 ~ *:not(div:has(button)):not(div:has(.add-btn)) {
+  display: none !important;
+}
+
+/* Ensure buttons container is visible */
+.page-header > div:has(button),
+.page-header > div:has(.add-btn) {
+  display: flex !important;
+}
+
+.add-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.add-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+/* Filters Bar */
+.filters-bar {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.filter-item {
+  flex: 1;
+}
+
+.filter-item.search {
+  flex: 2;
+}
+
+.filter-item input,
+.filter-item select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.filter-item input:focus,
+.filter-item select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Data Table */
+.data-table-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.promotions-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.promotions-table .table-header,
+.admin-promotions .table-header {
+  display: grid !important;
+  /* 8 cột: ID | Tên | Giảm giá | Sản phẩm | Thời gian | Vị trí | Trạng thái | Thao tác */
+  grid-template-columns: 0.7fr 3fr 1.2fr 1.3fr 1.5fr 0.8fr 0.9fr 0.6fr !important;
+  width: 100% !important;
+  gap: 20px !important; /* Quy định chung */
+  padding: 16px 20px !important; /* Quy định chung */
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-items: center;
+  box-sizing: border-box !important;
+}
+
+/* Removed old .table-header rule - using .promotions-table .table-header instead */
+
+.promotions-table .table-header > *,
+.admin-promotions .table-header > * {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 2px !important;
+  box-sizing: border-box;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  grid-column: unset !important; /* Remove any grid-column to let grid-template-columns control layout */
+}
+
+/* Exception: col-name should be left-aligned */
+.promotions-table .table-header > .col-name,
+.admin-promotions .table-header > .col-name {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  align-items: flex-start !important;
+}
+
+/* Removed old .table-header > * rule - using .promotions-table .table-header > * instead */
+
+.promotions-table .table-row,
+.admin-promotions .table-row {
+  display: grid !important;
+  /* 8 cột: ID | Tên | Giảm giá | Sản phẩm | Thời gian | Vị trí | Trạng thái | Thao tác */
+  grid-template-columns: 0.7fr 3fr 1.2fr 1.3fr 1.5fr 0.8fr 0.9fr 0.6fr !important;
+  width: 100% !important;
+  gap: 20px !important; /* Quy định chung */
+  padding: 16px 20px !important; /* Quy định chung */
+  border-bottom: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+  align-items: center;
+  min-height: 60px;
+  box-sizing: border-box !important;
+}
+
+/* Removed old .table-row rule - using .promotions-table .table-row instead */
+
+.promotions-table .table-row > *,
+.admin-promotions .table-row > * {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 0 2px !important;
+  box-sizing: border-box;
+  grid-column: unset !important; /* Remove any grid-column to let grid-template-columns control layout */
+}
+
+/* Ensure col-discount has proper flex display and centering */
+.promotions-table .table-row .col-discount,
+.admin-promotions .table-row .col-discount {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+/* Override overflow for specific columns that need visible content */
+.promotions-table .table-row .col-discount,
+.admin-promotions .table-row .col-discount {
+  overflow: visible !important;
+}
+
+.promotions-table .table-row .col-status,
+.admin-promotions .table-row .col-status {
+  overflow: visible !important;
+}
+
+.promotions-table .table-row .col-actions,
+.admin-promotions .table-row .col-actions {
+  overflow: visible !important;
+}
+
+/* Removed old .table-row > * rule - using .promotions-table .table-row > * instead */
+
+.col-name {
+  overflow: hidden;
+}
+
+.promotion-name,
+.promotion-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.table-row:hover {
+  background: #f9fafb;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.col-id {
+  font-weight: 600;
+  color: #667eea;
+}
+
+/* ID column - center aligned, move very close to left edge of table */
+.promotions-table .table-header .col-id,
+.admin-promotions .table-header .col-id,
+.promotions-table .table-row .col-id,
+.admin-promotions .table-row .col-id {
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 0 2px 0 0 !important;
+  margin-left: -16px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important; /* Prevent content from overflowing */
+  grid-column: 1 !important; /* Explicitly set to column 1 */
+  position: relative !important; /* Ensure proper positioning */
+  z-index: 1 !important; /* Ensure it stays in its column */
+  width: 100% !important; /* Ensure full width of grid cell */
+  box-sizing: border-box !important;
+}
+
+/* Ensure col-id only shows ID content, not discount badge */
+.promotions-table .table-row .col-id .discount-badge,
+.admin-promotions .table-row .col-id .discount-badge,
+.promotions-table .table-row .col-id span.discount-badge,
+.admin-promotions .table-row .col-id span.discount-badge {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
+
+.col-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+}
+
+/* Name column - left aligned for both header and rows */
+.promotions-table .table-header .col-name,
+.admin-promotions .table-header .col-name,
+.promotions-table .table-row .col-name,
+.admin-promotions .table-row .col-name {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  align-items: flex-start !important;
+  padding: 12px 12px 12px 16px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  grid-column: 2 !important; /* Explicitly set to column 2 */
+}
+
+/* ULTIMATE OVERRIDE - Highest specificity for header col-name to ensure left alignment */
+.promotions-table .table-header .col-name,
+.admin-promotions .table-header .col-name,
+.data-table.promotions-table .table-header .col-name,
+.admin-promotions .data-table .table-header .col-name,
+.promotions-table .table-header > .col-name,
+.admin-promotions .table-header > .col-name {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  align-items: flex-start !important;
+  display: flex !important;
+}
+
+/* Ensure text content inside header col-name is left-aligned */
+.promotions-table .table-header .col-name,
+.admin-promotions .table-header .col-name {
+  text-align: left !important;
+  width: 100% !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+}
+
+/* Force left alignment for all children and text nodes */
+.promotions-table .table-header .col-name *,
+.admin-promotions .table-header .col-name * {
+  text-align: left !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+  align-self: flex-start !important;
+}
+
+/* Direct text node alignment */
+.promotions-table .table-header .col-name {
+  text-align: left !important;
+}
+
+.promotion-name {
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  text-align: left !important;
+  width: 100%;
+  padding-left: 0 !important;
+}
+
+.promotion-description {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  text-align: left !important;
+  width: 100%;
+}
+
+.col-discount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+}
+
+/* Discount column - center aligned, explicitly set to column 3 */
+.promotions-table .table-header .col-discount,
+.admin-promotions .table-header .col-discount,
+.promotions-table .table-row .col-discount,
+.admin-promotions .table-row .col-discount {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 0 8px !important; /* Increase padding for better spacing */
+  min-width: 100px !important; /* Ensure minimum width for badge */
+  max-width: 100% !important;
+  overflow: visible !important;
+  grid-column: 3 !important; /* Explicitly set to column 3 (ID=1, Name=2, Discount=3) */
+  position: relative !important; /* Ensure proper positioning */
+  z-index: 1 !important; /* Ensure it stays in its column */
+  text-align: center !important; /* Center text alignment */
+  width: 100% !important; /* Ensure full width of grid cell */
+  box-sizing: border-box !important;
+}
+
+/* Ensure discount badge is centered within col-discount */
+.promotions-table .table-row .col-discount .discount-badge,
+.admin-promotions .table-row .col-discount .discount-badge {
+  margin: 0 !important; /* Remove any margin */
+  display: block !important;
+  width: fit-content !important;
+}
+
+.discount-badge {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  display: block; /* Change to block for better centering */
+  flex-shrink: 0;
+  margin: 0; /* Remove margin: 0 auto, let parent flex handle centering */
+  text-align: center; /* Center text inside badge */
+  line-height: 1.2; /* Ensure proper vertical alignment */
+  width: fit-content; /* Fit content width */
+  position: static !important; /* Ensure no absolute positioning */
+}
+
+.col-products {
+  font-size: 14px;
+  color: #374151;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Products column - left aligned */
+.promotions-table .table-header .col-products,
+.admin-promotions .table-header .col-products,
+.promotions-table .table-row .col-products,
+.admin-promotions .table-row .col-products {
+  justify-content: flex-start !important;
+  text-align: left !important;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  grid-column: 4 !important; /* Explicitly set to column 4 */
+}
+
+.col-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Ensure dates column has consistent font size and left alignment */
+.promotions-table .table-header .col-dates,
+.admin-promotions .table-header .col-dates,
+.promotions-table .table-row .col-dates,
+.admin-promotions .table-row .col-dates {
+  font-size: 14px !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  grid-column: 5 !important; /* Explicitly set to column 5 */
+}
+
+.date-to {
+  color: #6b7280;
+}
+
+.col-local {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Local column - center aligned */
+.promotions-table .table-header .col-local,
+.admin-promotions .table-header .col-local,
+.promotions-table .table-row .col-local,
+.admin-promotions .table-row .col-local {
+  justify-content: center !important;
+  padding: 0 2px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  grid-column: 6 !important; /* Explicitly set to column 6 */
+}
+
+.local-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.local-badge.local-hero {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.local-badge.local-left {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.local-badge.local-right {
+  background: #fce7f3;
+  color: #9f1239;
+}
+
+.col-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px !important;
+  overflow: visible;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  grid-column: 7 !important; /* Explicitly set to column 7 */
+}
+
+/* Status column - explicitly set grid-column */
+.promotions-table .table-header .col-status,
+.admin-promotions .table-header .col-status,
+.promotions-table .table-row .col-status,
+.admin-promotions .table-row .col-status {
+  grid-column: 7 !important; /* Explicitly set to column 7 */
+}
+
+/* Status badge with margin for better spacing */
+.promotions-table .table-row .col-status .status-badge,
+.admin-promotions .table-row .col-status .status-badge,
+.promotions-table .table-row .col-status [class*="status-"],
+.admin-promotions .table-row .col-status [class*="status-"] {
+  margin: 0 auto;
+  white-space: nowrap;
+}
+
+.col-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 2px !important;
+  overflow: visible !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+/* Actions column - center aligned */
+.promotions-table .table-header .col-actions,
+.admin-promotions .table-header .col-actions,
+.promotions-table .table-row .col-actions,
+.admin-promotions .table-row .col-actions {
+  justify-content: center !important;
+  padding: 0 2px !important;
+  overflow: visible !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  grid-column: 8 !important; /* Explicitly set to column 8 */
+}
+
+.action-btn {
+  color: #1f2937;
+}
+
+.no-results {
+  padding: 60px 20px;
+  text-align: center;
+  color: #999;
+  font-size: 16px;
+}
+
+/* Loading Overlay */
+/* Loading overlay styles moved to AdminLoadingOverlay.css */
+
+/* Pagination */
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.pagination-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pg-btn {
+  min-width: 36px;
+  height: 36px;
+  border: 1px solid #dee2e6;
+  background: #ffffff;
+  color: #495057;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pg-btn:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+  color: #212529;
+}
+
+.pg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #f8f9fa;
+}
+
+.page-indicator {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 12px;
+  color: #495057;
+}
+
+/* Promotion Form Modal Styles */
+.promotion-form-modal {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.promotion-form-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 24px 28px;
+  border-radius: 16px 16px 0 0;
+  margin: -24px -24px 0 -24px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.promotion-form-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 8px 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.promotion-form-description {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 14px;
+  margin: 0;
+  font-weight: 400;
+}
+
+.promotion-form-content {
+  padding: 0 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f7fafc;
+}
+
+.promotion-form-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.promotion-form-content::-webkit-scrollbar-track {
+  background: #f7fafc;
+  border-radius: 4px;
+}
+
+.promotion-form-content::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 4px;
+}
+
+.promotion-form-content::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+.form-section {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s ease;
+}
+
+.form-section:hover {
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  transform: translateY(-2px);
+}
+
+.form-section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 16px 0;
+  padding-left: 20px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.form-section-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #667eea;
+  border-radius: 2px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+}
+
+.form-input,
+.form-select {
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-description {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 4px 0 8px 0;
+  font-style: italic;
+}
+
+/* Products Selection */
+.products-selection {
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: white;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.product-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.product-checkbox-item:hover {
+  background: #f3f4f6;
+}
+
+.product-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.product-label {
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Banner Upload */
+.banner-upload-area {
+  border: 2px dashed #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  background: #f9fafb;
+  transition: all 0.3s ease;
+}
+
+.banner-upload-area:hover {
+  border-color: #667eea;
+  background: #f3f4f6;
+}
+
+.banner-upload-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  padding: 20px;
+}
+
+.banner-upload-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.banner-upload-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.banner-upload-hint {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.banner-preview-container {
+  position: relative;
+  width: 100%;
+}
+
+.banner-preview {
+  width: 100%;
+  max-height: 300px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.banner-remove-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.promotion-form-footer {
+  padding: 20px 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancel-form-btn {
+  background: white;
+  border: 2px solid #e5e7eb;
+  color: #374151;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancel-form-btn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.submit-form-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.submit-form-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+/* Promotion Detail Modal Styles */
+.promotion-detail-modal {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.promotion-modal-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 24px 28px;
+  border-radius: 16px 16px 0 0;
+  margin: -24px -24px 0 -24px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.promotion-modal-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 8px 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.promotion-modal-description {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  margin: 0 0 8px 0;
+}
+
+.promotion-detail-content {
+  padding: 0 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f7fafc;
+}
+
+.promotion-detail-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.promotion-detail-content::-webkit-scrollbar-track {
+  background: #f7fafc;
+  border-radius: 4px;
+}
+
+.promotion-detail-content::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 4px;
+}
+
+.promotion-detail-content::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+.detail-section {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s ease;
+}
+
+.detail-section:hover {
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  transform: translateY(-2px);
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 16px 0;
+  padding-left: 20px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.section-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #667eea;
+  border-radius: 2px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.detail-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+}
+
+.detail-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+  margin: 0;
+  padding: 10px 14px;
+  background: white;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  cursor: default;
+  user-select: none;
+}
+
+.discount-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ef4444;
+}
+
+.banner-display {
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.banner-image {
+  width: 100%;
+  max-height: 400px;
+  object-fit: cover;
+}
+
+.products-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.product-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.product-item:hover {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.product-number {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.product-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+  flex: 1;
+}
+
+.product-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.product-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.product-price {
+  font-size: 14px;
+  font-weight: 600;
+  color: #667eea;
+  margin-left: auto;
+}
+
+.promotion-modal-footer {
+  padding: 20px 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.close-modal-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.close-modal-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .table-header,
+  .table-row {
+    grid-template-columns: 60px 2fr 100px 100px 180px 120px 80px;
+  }
+}
+
+@media (max-width: 968px) {
+  .table-header,
+  .table-row {
+    grid-template-columns: 50px 1.5fr 80px 80px 150px 80px 100px 60px;
+    font-size: 12px;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  
+  .promotion-name {
+    font-size: 14px;
+  }
+  
+  .promotion-description {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-promotions {
+    padding: 20px 10px;
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .filters-bar {
+    flex-direction: column;
+  }
+  
+  .table-header,
+  .table-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .table-header > div,
+  .table-row > div {
+    padding: 4px 0;
+  }
+  
+  .col-id::before {
+    content: 'ID: ';
+    font-weight: 600;
+  }
+  
+  .col-name::before {
+    content: 'Tên: ';
+    font-weight: 600;
+  }
+  
+  .col-discount::before {
+    content: 'Giảm giá: ';
+    font-weight: 600;
+  }
+  
+  .col-products::before {
+    content: 'Sản phẩm: ';
+    font-weight: 600;
+  }
+  
+  .col-dates::before {
+    content: 'Thời gian: ';
+    font-weight: 600;
+  }
+  
+  .col-status::before {
+    content: 'Trạng thái: ';
+    font-weight: 600;
+  }
+  
+  .pagination-controls {
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+

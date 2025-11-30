@@ -1,0 +1,240 @@
+.user-warranty-tracking-page {
+  min-height: 100vh;
+  background: linear-gradient(to bottom right, #f0fdf4, #ecfdf5, #d1fae5);
+  padding: 2rem 0;
+}
+
+/* Error styles for warranty form */
+.error-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e74c3c;
+  font-size: 13px;
+  margin-top: 5px;
+  margin-bottom: 0;
+  font-weight: 400;
+}
+
+.error-text i {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+textarea.error,
+input.error {
+  border-color: #e74c3c !important;
+  border-width: 2px !important;
+}
+
+.user-warranty-tracking-page .container {
+  max-width: 1200px;
+}
+
+/* Timeline styles */
+.warranty-timeline {
+  position: relative;
+  padding-left: 20px;
+  border-left: 2px solid #e5e7eb; /* gray-200 */
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.timeline-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.timeline-marker {
+  position: absolute;
+  left: -30px;
+  top: 0;
+  width: 20px;
+  height: 20px;
+  background-color: #fff;
+  border: 2px solid #3b82f6; /* blue-500 */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  z-index: 1;
+}
+
+.timeline-content {
+  padding-left: 10px;
+}
+
+.timeline-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.timeline-date {
+  font-size: 0.875rem; /* text-sm */
+  color: #6b7280; /* gray-500 */
+}
+
+.timeline-handler {
+  font-size: 0.875rem;
+  color: #4b5563; /* gray-600 */
+  margin-bottom: 5px;
+}
+
+.timeline-notes, .timeline-solution, .timeline-cost {
+  font-size: 0.875rem;
+  color: #374151; /* gray-700 */
+  margin-bottom: 3px;
+}
+
+.timeline-cost {
+  font-weight: 600;
+  color: #10b981; /* green-500 */
+}
+
+/* Card improvements */
+.user-warranty-tracking-page .card {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Table improvements */
+.user-warranty-tracking-page .table {
+  width: 100%;
+}
+
+.user-warranty-tracking-page .table-row:hover {
+  background-color: #f9fafb;
+}
+
+/* Dialog improvements */
+.user-warranty-tracking-page .dialog-content {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Pagination Controls */
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e9ecef;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.pagination-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pg-btn {
+  min-width: 36px;
+  height: 36px;
+  border: 1px solid #dee2e6;
+  background: #ffffff;
+  color: #495057;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pg-btn:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+  color: #212529;
+}
+
+.pg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #f8f9fa;
+}
+
+.page-indicator {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 12px;
+  color: #495057;
+}
+
+.page-size-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #495057;
+}
+
+.page-size-selector label {
+  font-weight: 500;
+  margin: 0;
+}
+
+.page-size-selector select {
+  padding: 6px 10px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.page-size-selector select:hover {
+  border-color: #adb5bd;
+}
+
+.page-size-selector select:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+@media (max-width: 768px) {
+  .pagination-controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pagination-buttons {
+    order: 2;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pagination-info {
+    order: 1;
+    width: 100%;
+    text-align: center;
+  }
+
+  .page-size-selector {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
