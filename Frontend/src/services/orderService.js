@@ -138,15 +138,15 @@ export const createOrder = async (orderData) => {
 
 /**
  * Update order status
- * Endpoint: PUT /v1/Order/{orderId}/status
+ * Endpoint: PUT /v1/Order/Status/{orderId}
  * Response format: { success: boolean, message: string, data: object|string, errors: string[] }
  * @param {string|number} orderId - Order ID
- * @param {string} status - New status (pending, processing, delivered, cancelled)
+ * @param {string} status - New status (pending, paid, cancelled)
  * @returns {Promise} - Updated order data
  */
 export const updateOrderStatus = async (orderId, status) => {
   try {
-    const response = await apiPut(`Order/${orderId}/status`, { status });
+    const response = await apiPut(`Order/Status/${orderId}`, { status });
     return handleResponse(response);
   } catch (error) {
     console.error('[OrderService] Error updating order status:', error);

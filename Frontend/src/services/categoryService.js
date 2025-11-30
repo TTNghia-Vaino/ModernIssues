@@ -120,11 +120,27 @@ export const createCategory = async (categoryData) => {
 
 /**
  * Update category
+ * Endpoint: PUT /v1/Category/{id}
  * Admin only
  * Response format: { success: boolean, message: string, data: object|string, errors: string[] }
  * @param {string|number} id - Category ID
  * @param {object} categoryData - Updated category data
+ *   - categoryName (optional): Tên danh mục mới
+ *   - parentId (optional): ID danh mục cha, có thể null để xóa danh mục cha
  * @returns {Promise} - Updated category
+ * 
+ * @example
+ * // Chỉ cập nhật tên
+ * updateCategory(1, { categoryName: "Tên mới" })
+ * 
+ * // Chỉ cập nhật parent
+ * updateCategory(1, { parentId: 3 })
+ * 
+ * // Xóa danh mục cha (đưa về gốc)
+ * updateCategory(1, { parentId: null })
+ * 
+ * // Cập nhật cả hai
+ * updateCategory(1, { categoryName: "Tên mới", parentId: null })
  */
 export const updateCategory = async (id, categoryData) => {
   const response = await apiPut(`Category/${id}`, categoryData);

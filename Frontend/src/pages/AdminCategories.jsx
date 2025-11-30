@@ -294,10 +294,17 @@ const AdminCategories = () => {
     
     try {
       setIsSubmitting(true);
-      await updateCategory(selectedCategory.id, {
-        categoryName: formData.name.trim(),
-        description: formData.description || ''
-      });
+      
+      // Build update data - only include fields that are provided
+      const updateData = {};
+      if (formData.name.trim() !== selectedCategory.name) {
+        updateData.categoryName = formData.name.trim();
+      }
+      if (formData.parentId !== (selectedCategory.parentId || null)) {
+        updateData.parentId = formData.parentId;
+      }
+      
+      await updateCategory(selectedCategory.id, updateData);
 
       // Reload categories
       await loadCategories();
@@ -587,6 +594,32 @@ const AdminCategories = () => {
   const allCategories = findAllCategories(categories);
   // Only show Level 1 and Level 2 in parent selector (Level 3 is products, not categories)
   const level1And2Categories = allCategories.filter(c => c.level <= 2);
+  
+  // Get all descendant category IDs (to prevent selecting self or children as parent)
+  const getDescendantIds = (categoryId, cats) => {
+    const result = [categoryId];
+    const findChildren = (parentId, categories) => {
+      categories.forEach(cat => {
+        if (cat.parentId === parentId) {
+          result.push(cat.id);
+          if (cat.children && cat.children.length > 0) {
+            findChildren(cat.id, cat.children);
+          }
+        } else if (cat.children && cat.children.length > 0) {
+          findChildren(parentId, cat.children);
+        }
+      });
+    };
+    findChildren(categoryId, cats);
+    return result;
+  };
+  
+  // Get available parent options for edit (exclude self and descendants)
+  const getAvailableParentOptions = () => {
+    if (!selectedCategory) return level1And2Categories;
+    const excludedIds = getDescendantIds(selectedCategory.id, categories);
+    return level1And2Categories.filter(cat => !excludedIds.includes(cat.id));
+  };
 
   const statusFilterOptions = [
     { value: 'all', label: 'Tất cả trạng thái' },
@@ -764,21 +797,43 @@ const AdminCategories = () => {
                 />
               </div>
               
-              <div className="form-item full-width">
-                <Label htmlFor="edit-category-description" className="form-label">Mô tả</Label>
-                <Textarea
-                  id="edit-category-description"
-                  placeholder="Nhập mô tả"
-                  value={formData.description || ''}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
-                  className="form-textarea"
-                />
+              <div className="form-item">
+                <Label htmlFor="edit-category-parent" className="form-label">Danh mục cha</Label>
+                <Select
+                  value={formData.parentId?.toString() || 'null'}
+                  onValueChange={(value) => {
+                    setFormData({ 
+                      ...formData, 
+                      parentId: value === 'null' ? null : parseInt(value) 
+                    });
+                  }}
+                >
+                  <SelectTrigger className="form-select">
+                    <SelectValue placeholder="Chọn danh mục cha" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="null">Không có (Danh mục cấp 1)</SelectItem>
+                    {getAvailableParentOptions().map(cat => (
+                      <SelectItem key={cat.id} value={cat.id.toString()}>
+                        {cat.level === 1 ? '📁 ' : '  📂 '}
+                        {cat.name} (Cấp {cat.level})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="form-description">
+                  Chọn danh mục cha để thay đổi cấp. Không thể chọn chính danh mục này hoặc các danh mục con của nó.
+                </p>
               </div>
 
               <div className="form-item full-width">
                 <div className="p-3 bg-blue-50 rounded-md">
                   <strong>Cấp hiện tại:</strong> Cấp {selectedCategory.level}
+                  {selectedCategory.parentId && (
+                    <span className="ml-2">
+                      (Danh mục cha: {allCategories.find(c => c.id === selectedCategory.parentId)?.name || 'N/A'})
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
