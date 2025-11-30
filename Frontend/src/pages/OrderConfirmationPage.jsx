@@ -1,51 +1,143 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useNotification } from '../context/NotificationContext';
+import * as orderService from '../services/orderService';
 import './OrderConfirmationPage.css';
 
 const formatPrice = (price) => price.toLocaleString('vi-VN') + '₫';
 
 const OrderConfirmationPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { clearCart } = useCart();
+  const { error: showError } = useNotification();
 
   const [orderData, setOrderData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get order data from localStorage
-    const savedOrder = localStorage.getItem('lastOrder');
-    if (savedOrder) {
+    const loadOrderData = async () => {
       try {
-        const order = JSON.parse(savedOrder);
+        // Check if orderId is in URL params (when viewing from order list)
+        const orderId = searchParams.get('orderId');
         
-        // Normalize order data structure to handle different API response formats
-        const normalizedOrder = {
-          orderId: order.orderId || order.id || order.order_id || 'N/A',
-          email: order.email || order.customerEmail || '',
-          fullName: order.fullName || order.customerName || order.name || '',
-          phone: order.phone || order.customerPhone || '',
-          province: order.province || '',
-          district: order.district || '',
-          ward: order.ward || '',
-          address: order.address || order.shippingAddress || '',
-          note: order.note || '',
-          paymentMethod: order.paymentMethod || order.payment_method || 'cod',
-          items: order.items || order.orderItems || [],
-          totalPrice: order.totalPrice || order.total || order.amount || 0
-        };
-        
-        setOrderData(normalizedOrder);
-        // Clear cart after successful order
-        clearCart();
+        if (orderId) {
+          // Load order from API
+          console.log('[OrderConfirmationPage] Loading order from API:', orderId);
+          setLoading(true);
+          
+          try {
+            const orderDetails = await orderService.getOrderDetails(orderId);
+            console.log('[OrderConfirmationPage] Order details response:', orderDetails);
+            
+            // Extract order and order_details from response
+            // API format: { order: {...}, order_details: [...] }
+            const orderInfo = orderDetails.order || {};
+            const orderDetailsArray = orderDetails.order_details || [];
+            
+            // Map order details items
+            const mappedItems = orderDetailsArray.map(item => ({
+              id: item.product_id,
+              productId: item.product_id,
+              name: item.product_name,
+              productName: item.product_name,
+              price: item.price_at_purchase || 0,
+              priceAtPurchase: item.price_at_purchase || 0,
+              quantity: item.quantity || 1,
+              image: item.image_url || '/placeholder.png',
+              imageUrl: item.image_url || '/placeholder.png'
+            }));
+            
+            // Normalize order data structure
+            const normalizedOrder = {
+              orderId: orderInfo.order_id || orderId,
+              id: orderInfo.order_id || orderId,
+              email: orderInfo.email || '',
+              customerEmail: orderInfo.email || '',
+              fullName: orderInfo.customer_name || '',
+              customerName: orderInfo.customer_name || '',
+              phone: orderInfo.phone || '',
+              customerPhone: orderInfo.phone || '',
+              province: '',
+              district: '',
+              ward: '',
+              address: orderInfo.address || '',
+              shippingAddress: orderInfo.address || '',
+              note: '',
+              paymentMethod: orderInfo.types || 'cod',
+              paymentMethodDisplay: orderInfo.types_display || 
+                (orderInfo.types === 'COD' ? 'Thanh toán khi nhận hàng' :
+                 orderInfo.types === 'Transfer' ? 'Chuyển khoản' :
+                 orderInfo.types === 'ATM' ? 'Thẻ ATM' : orderInfo.types || 'COD'),
+              items: mappedItems,
+              orderItems: mappedItems,
+              totalPrice: orderInfo.total_amount || 0,
+              total: orderInfo.total_amount || 0,
+              amount: orderInfo.total_amount || 0,
+              status: orderInfo.status || 'pending',
+              orderDate: orderInfo.order_date || ''
+            };
+            
+            setOrderData(normalizedOrder);
+            setLoading(false);
+          } catch (apiError) {
+            console.error('[OrderConfirmationPage] Error loading order from API:', apiError);
+            showError('Không thể tải thông tin đơn hàng: ' + (apiError.message || 'Lỗi không xác định'));
+            setLoading(false);
+            // Redirect to orders page instead of homepage
+            navigate('/orders');
+            return;
+          }
+        } else {
+          // Get order data from localStorage (for newly created orders)
+          const savedOrder = localStorage.getItem('lastOrder');
+          if (savedOrder) {
+            try {
+              const order = JSON.parse(savedOrder);
+              
+              // Normalize order data structure to handle different API response formats
+              const normalizedOrder = {
+                orderId: order.orderId || order.id || order.order_id || 'N/A',
+                email: order.email || order.customerEmail || '',
+                fullName: order.fullName || order.customerName || order.name || '',
+                phone: order.phone || order.customerPhone || '',
+                province: order.province || '',
+                district: order.district || '',
+                ward: order.ward || '',
+                address: order.address || order.shippingAddress || '',
+                note: order.note || '',
+                paymentMethod: order.paymentMethod || order.payment_method || 'cod',
+                items: order.items || order.orderItems || [],
+                totalPrice: order.totalPrice || order.total || order.amount || 0
+              };
+              
+              setOrderData(normalizedOrder);
+              // Clear cart after successful order
+              clearCart();
+              setLoading(false);
+            } catch (error) {
+              console.error('[OrderConfirmationPage] Error parsing order data:', error);
+              showError('Lỗi khi đọc thông tin đơn hàng');
+              setLoading(false);
+              navigate('/orders');
+            }
+          } else {
+            // If no order data, redirect to orders page
+            setLoading(false);
+            navigate('/orders');
+          }
+        }
       } catch (error) {
-        console.error('[OrderConfirmationPage] Error parsing order data:', error);
-        navigate('/');
+        console.error('[OrderConfirmationPage] Unexpected error:', error);
+        showError('Có lỗi xảy ra khi tải thông tin đơn hàng');
+        setLoading(false);
+        navigate('/orders');
       }
-    } else {
-      // If no order data, redirect to home
-      navigate('/');
-    }
-  }, [clearCart, navigate]);
+    };
+
+    loadOrderData();
+  }, [searchParams, clearCart, navigate, showError]);
 
 
   const handlePrint = () => {
@@ -57,7 +149,7 @@ const OrderConfirmationPage = () => {
   // RENDER HELPERS
   // ========================================
 
-  if (!orderData) {
+  if (loading || !orderData) {
     return (
       <div className="order-confirmation-container">
         <div className="loading">Đang tải...</div>
