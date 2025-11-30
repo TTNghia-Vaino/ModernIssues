@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import * as checkoutService from '../services/checkoutService';
+import * as orderService from '../services/orderService';
 import * as emailService from '../services/emailService';
 import * as paymentCacheService from '../services/paymentCacheService';
 import './CheckoutPage.css';
@@ -40,6 +41,63 @@ const CheckoutPage = () => {
   });
   const [paymentMethod, setPaymentMethod] = useState('vietqr');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasPendingOrder, setHasPendingOrder] = useState(false);
+  const [isCheckingPending, setIsCheckingPending] = useState(true);
+
+  // ========================================
+  // CHECK PENDING ORDERS
+  // ========================================
+
+  useEffect(() => {
+    const checkPendingOrders = async () => {
+      if (!isAuthenticated) {
+        setIsCheckingPending(false);
+        return;
+      }
+
+      try {
+        setIsCheckingPending(true);
+        const ordersData = await orderService.getOrders();
+        
+        // Handle different response formats
+        let ordersList = [];
+        if (Array.isArray(ordersData)) {
+          ordersList = ordersData;
+        } else if (ordersData && typeof ordersData === 'object') {
+          if (Array.isArray(ordersData.data)) {
+            ordersList = ordersData.data;
+          } else if (Array.isArray(ordersData.orders)) {
+            ordersList = ordersData.orders;
+          }
+        }
+        
+        // Check if there's any pending order
+        const pendingOrder = ordersList.find(order => {
+          const status = (order.status || '').toLowerCase();
+          return status === 'pending';
+        });
+        
+        if (pendingOrder) {
+          setHasPendingOrder(true);
+          const orderId = pendingOrder.order_id || pendingOrder.orderId || pendingOrder.id;
+          showWarning(`Bạn đang có đơn hàng #${String(orderId).padStart(6, '0')} đang chờ xử lý. Vui lòng hoàn tất đơn hàng này trước khi đặt đơn mới.`);
+          setTimeout(() => {
+            navigate('/orders');
+          }, 2000);
+        } else {
+          setHasPendingOrder(false);
+        }
+      } catch (error) {
+        console.error('[CheckoutPage] Error checking pending orders:', error);
+        // Don't block checkout if check fails
+        setHasPendingOrder(false);
+      } finally {
+        setIsCheckingPending(false);
+      }
+    };
+
+    checkPendingOrders();
+  }, [isAuthenticated, navigate, showWarning]);
 
   // ========================================
   // EVENT HANDLERS
@@ -71,6 +129,43 @@ const CheckoutPage = () => {
       showWarning('Vui lòng đăng nhập để đặt hàng.');
       navigate('/login');
       return;
+    }
+
+    // Check if there's a pending order
+    if (hasPendingOrder) {
+      showWarning('Bạn đang có đơn hàng đang chờ xử lý. Vui lòng hoàn tất đơn hàng đó trước khi đặt đơn mới.');
+      navigate('/orders');
+      return;
+    }
+
+    // Double check pending orders before submitting
+    try {
+      const ordersData = await orderService.getOrders();
+      let ordersList = [];
+      if (Array.isArray(ordersData)) {
+        ordersList = ordersData;
+      } else if (ordersData && typeof ordersData === 'object') {
+        if (Array.isArray(ordersData.data)) {
+          ordersList = ordersData.data;
+        } else if (Array.isArray(ordersData.orders)) {
+          ordersList = ordersData.orders;
+        }
+      }
+      
+      const pendingOrder = ordersList.find(order => {
+        const status = (order.status || '').toLowerCase();
+        return status === 'pending';
+      });
+      
+      if (pendingOrder) {
+        const orderId = pendingOrder.order_id || pendingOrder.orderId || pendingOrder.id;
+        showWarning(`Bạn đang có đơn hàng #${String(orderId).padStart(6, '0')} đang chờ xử lý. Vui lòng hoàn tất đơn hàng này trước khi đặt đơn mới.`);
+        navigate('/orders');
+        return;
+      }
+    } catch (error) {
+      console.error('[CheckoutPage] Error checking pending orders before submit:', error);
+      // Continue with checkout if check fails
     }
 
     try {
@@ -200,6 +295,38 @@ const CheckoutPage = () => {
   // ========================================
   // RENDER HELPERS
   // ========================================
+
+  if (isCheckingPending) {
+    return (
+      <div className="checkout-container">
+        <div className="breadcrumbs">
+          <div className="container">
+            <span>Trang chủ / Giỏ hàng / Thanh toán</span>
+          </div>
+        </div>
+        <div className="checkout-empty">
+          <p>Đang kiểm tra...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasPendingOrder) {
+    return (
+      <div className="checkout-container">
+        <div className="breadcrumbs">
+          <div className="container">
+            <span>Trang chủ / Giỏ hàng / Thanh toán</span>
+          </div>
+        </div>
+        <div className="checkout-empty">
+          <p>Bạn đang có đơn hàng đang chờ xử lý.</p>
+          <p>Vui lòng hoàn tất đơn hàng đó trước khi đặt đơn mới.</p>
+          <Link to="/orders">Xem đơn hàng của tôi</Link>
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (

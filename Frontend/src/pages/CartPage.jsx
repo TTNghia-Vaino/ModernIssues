@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import * as productService from '../services/productService';
+import * as orderService from '../services/orderService';
 import { transformProduct } from '../utils/productUtils';
 import { handleProductImageError, getPlaceholderImage } from '../utils/imageUtils';
 import ConfirmationDialog from '../components/ConfirmationDialog';
@@ -15,7 +17,8 @@ const CartPage = () => {
   const { items, updateQuantity, removeItem, clearCart, totalCount, totalPrice } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
-  const { success, error } = useNotification();
+  const { success, error, warning: showWarning } = useNotification();
+  const { isAuthenticated } = useAuth();
   const [productImages, setProductImages] = useState({}); // Cache for product images
   const [showClearDialog, setShowClearDialog] = useState(false);
 
@@ -189,7 +192,51 @@ const CartPage = () => {
                 <span>Tạm tính:</span>
                 <strong className="summary-total">{formatPrice(totalPrice)}</strong>
               </div>
-              <button className="pay-btn" onClick={() => navigate('/checkout')}>Thanh toán ngay</button>
+              <button 
+                className="pay-btn" 
+                onClick={async () => {
+                  // Check if user is authenticated
+                  if (!isAuthenticated) {
+                    showWarning('Vui lòng đăng nhập để thanh toán.');
+                    navigate('/login');
+                    return;
+                  }
+
+                  // Check for pending orders
+                  try {
+                    const ordersData = await orderService.getOrders();
+                    let ordersList = [];
+                    if (Array.isArray(ordersData)) {
+                      ordersList = ordersData;
+                    } else if (ordersData && typeof ordersData === 'object') {
+                      if (Array.isArray(ordersData.data)) {
+                        ordersList = ordersData.data;
+                      } else if (Array.isArray(ordersData.orders)) {
+                        ordersList = ordersData.orders;
+                      }
+                    }
+                    
+                    const pendingOrder = ordersList.find(order => {
+                      const status = (order.status || '').toLowerCase();
+                      return status === 'pending';
+                    });
+                    
+                    if (pendingOrder) {
+                      const orderId = pendingOrder.order_id || pendingOrder.orderId || pendingOrder.id;
+                      showWarning(`Bạn đang có đơn hàng #${String(orderId).padStart(6, '0')} đang chờ xử lý. Vui lòng hoàn tất đơn hàng này trước khi đặt đơn mới.`);
+                      navigate('/orders');
+                      return;
+                    }
+                  } catch (err) {
+                    console.error('[CartPage] Error checking pending orders:', err);
+                    // Continue to checkout if check fails
+                  }
+
+                  navigate('/checkout');
+                }}
+              >
+                Thanh toán ngay
+              </button>
               <button 
                 onClick={() => setShowClearDialog(true)} 
                 className="clear-btn"
