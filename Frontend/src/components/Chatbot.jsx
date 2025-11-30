@@ -1,36 +1,108 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import './Chatbot.css';
 import { chat } from '../services/chatService';
 
+const CHAT_SESSION_ID_KEY = 'chatbot_session_id';
+
 const Chatbot = () => {
+  const { user, isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      text: 'Xin chào! Tôi có thể giúp gì cho bạn hôm nay?',
-      sender: 'bot',
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const messagesEndRef = useRef(null);
   const chatWindowRef = useRef(null);
 
-  // Generate or retrieve session ID
+  // Load session ID from localStorage (conversation will be restored from server on first message)
   useEffect(() => {
-    // Get existing session ID from localStorage or generate new one
-    const storedSessionId = localStorage.getItem('chatbot_session_id');
-    if (storedSessionId) {
-      setSessionId(storedSessionId);
-    } else {
-      // Generate a unique session ID
-      const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem('chatbot_session_id', newSessionId);
-      setSessionId(newSessionId);
+    try {
+      // Get existing session ID from localStorage
+      const storedSessionId = localStorage.getItem(CHAT_SESSION_ID_KEY);
+      
+      if (storedSessionId) {
+        setSessionId(storedSessionId);
+        console.log('[Chatbot] Loaded session ID from localStorage:', storedSessionId);
+      }
+      
+      // Always show welcome message on mount
+      // Conversation history will be restored from server when user sends first message
+      setMessages([
+        {
+          id: 1,
+          text: 'Xin chào! Tôi có thể giúp gì cho bạn hôm nay?',
+          sender: 'bot',
+          timestamp: new Date()
+        }
+      ]);
+    } catch (error) {
+      console.error('[Chatbot] Error loading session:', error);
+      // Initialize with welcome message on error
+      setMessages([
+        {
+          id: 1,
+          text: 'Xin chào! Tôi có thể giúp gì cho bạn hôm nay?',
+          sender: 'bot',
+          timestamp: new Date()
+        }
+      ]);
     }
   }, []);
+
+  // Track previous auth state to detect logout
+  const prevAuthRef = useRef(isAuthenticated);
+  
+  // Clear chat history when user logs out or session expires
+  useEffect(() => {
+    const handleLogout = () => {
+      console.log('[Chatbot] User logged out or session expired, clearing chat history');
+      setMessages([
+        {
+          id: Date.now(),
+          text: 'Xin chào! Tôi có thể giúp gì cho bạn hôm nay?',
+          sender: 'bot',
+          timestamp: new Date()
+        }
+      ]);
+      // Clear session ID - server will create new session on next message
+      localStorage.removeItem(CHAT_SESSION_ID_KEY);
+      setSessionId(null);
+    };
+
+    // Listen for auth storage changes (logout from another tab)
+    const handleStorageChange = (e) => {
+      if (e.key === 'modernissues_auth_v1' && !e.newValue && e.oldValue) {
+        // User logged out (value removed)
+        handleLogout();
+      }
+    };
+
+    // Listen for token expired event
+    const handleTokenExpired = () => {
+      handleLogout();
+    };
+
+    // Detect logout in same tab (was authenticated, now not)
+    const wasAuthenticated = prevAuthRef.current;
+    const isNowAuthenticated = isAuthenticated;
+    
+    if (wasAuthenticated && !isNowAuthenticated) {
+      // User just logged out
+      handleLogout();
+    }
+    
+    // Update previous auth state
+    prevAuthRef.current = isNowAuthenticated;
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('authTokenExpired', handleTokenExpired);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('authTokenExpired', handleTokenExpired);
+    };
+  }, [isAuthenticated, user]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -74,19 +146,69 @@ const Chatbot = () => {
     setMessages(prev => [...prev, loadingMessage]);
 
     try {
-      // Call API to get bot response
-      const botResponseText = await chat(userMessageText, sessionId || 'default_session');
+      // Call API to get bot response - returns full response object
+      const response = await chat(userMessageText, sessionId || null);
 
-      // Remove loading message and add bot response
-      setMessages(prev => {
-        const filtered = prev.filter(msg => msg.id !== loadingMessageId);
-        return [...filtered, {
-          id: Date.now(),
-          text: botResponseText || 'Xin lỗi, tôi không hiểu câu hỏi của bạn.',
+      // Update session_id from server response
+      if (response.session_id) {
+        localStorage.setItem(CHAT_SESSION_ID_KEY, response.session_id);
+        setSessionId(response.session_id);
+      }
+
+      // Check if we need to restore conversation history (first message after page load)
+      // conversation_history includes all previous messages + current message
+      const shouldRestoreHistory = messages.length <= 2 && // Only welcome message or welcome + user message
+                                   response.conversation_history && 
+                                   response.conversation_history.length > 1; // More than just current message
+      
+      if (shouldRestoreHistory) {
+        // Restore full conversation from server
+        const restoredMessages = [];
+        
+        // Add welcome message
+        restoredMessages.push({
+          id: 1,
+          text: 'Xin chào! Tôi có thể giúp gì cho bạn hôm nay?',
           sender: 'bot',
           timestamp: new Date()
-        }];
-      });
+        });
+        
+        // Convert conversation_history tuples to messages
+        // conversation_history format: [(user_text, bot_text), ...]
+        response.conversation_history.forEach(([userText, botText], index) => {
+          restoredMessages.push({
+            id: Date.now() + index * 2,
+            text: userText,
+            sender: 'user',
+            timestamp: new Date()
+          });
+          restoredMessages.push({
+            id: Date.now() + index * 2 + 1,
+            text: botText,
+            sender: 'bot',
+            timestamp: new Date()
+          });
+        });
+        
+        // Remove loading message and set all messages
+        setMessages(prev => {
+          const filtered = prev.filter(msg => msg.id !== loadingMessageId);
+          return restoredMessages;
+        });
+        
+        console.log('[Chatbot] Restored conversation from server:', restoredMessages.length, 'messages');
+      } else {
+        // Normal flow: just add bot response
+        setMessages(prev => {
+          const filtered = prev.filter(msg => msg.id !== loadingMessageId);
+          return [...filtered, {
+            id: Date.now(),
+            text: response.answer || 'Xin lỗi, tôi không hiểu câu hỏi của bạn.',
+            sender: 'bot',
+            timestamp: new Date()
+          }];
+        });
+      }
 
     } catch (error) {
       // Silently handle errors - no console logs to reduce noise

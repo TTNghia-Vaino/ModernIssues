@@ -57,7 +57,7 @@ const getChatApiUrl = () => {
  * 
  * @param {string} text - User message text
  * @param {string} sessionId - Session ID for maintaining conversation context
- * @returns {Promise<string>} - Chatbot response text
+ * @returns {Promise<object>} - Full response object: { session_id, answer, conversation_history, decision }
  */
 export const sendChatMessage = async (text, sessionId) => {
   const url = getChatApiUrl();
@@ -92,7 +92,12 @@ export const sendChatMessage = async (text, sessionId) => {
           endpointUnavailableLogged = true;
         }
         // Suppress error logging for 404 - it's expected if endpoint doesn't exist
-        return 'Tính năng chatbot hiện không khả dụng. Vui lòng thử lại sau.';
+        return {
+          session_id: sessionId || null,
+          answer: 'Tính năng chatbot hiện không khả dụng. Vui lòng thử lại sau.',
+          conversation_history: [],
+          decision: {}
+        };
       }
       
       // Handle 405 Method Not Allowed
@@ -101,7 +106,12 @@ export const sendChatMessage = async (text, sessionId) => {
           console.warn('[ChatService] Chat endpoint method not allowed (405). Check server configuration.');
           endpointUnavailableLogged = true;
         }
-        return 'Tính năng chatbot hiện không khả dụng. Vui lòng thử lại sau.';
+        return {
+          session_id: sessionId || null,
+          answer: 'Tính năng chatbot hiện không khả dụng. Vui lòng thử lại sau.',
+          conversation_history: [],
+          decision: {}
+        };
       }
       
       const errorText = await response.text();
@@ -131,27 +141,38 @@ export const sendChatMessage = async (text, sessionId) => {
     // Python API returns JSON with format: { session_id, answer, conversation_history, decision }
     const responseData = await response.json();
     
-    // Extract answer from response
-    if (responseData && responseData.answer) {
-      return responseData.answer;
-    }
-    
-    // Fallback: check other possible fields
-    if (responseData && typeof responseData === 'string') {
+    // Return full response object for server-side session management
+    if (responseData && typeof responseData === 'object') {
       return responseData;
     }
     
-    if (responseData && (responseData.text || responseData.message || responseData.response)) {
-      return responseData.text || responseData.message || responseData.response;
+    // Fallback: if response is string or unexpected format
+    if (typeof responseData === 'string') {
+      return {
+        session_id: sessionId || null,
+        answer: responseData,
+        conversation_history: [],
+        decision: {}
+      };
     }
     
-    // If response is empty or unexpected format, return default message
-    return 'Xin lỗi, tôi không hiểu câu hỏi của bạn. Vui lòng thử lại.';
+    // If response is empty or unexpected format, return default
+    return {
+      session_id: sessionId || null,
+      answer: 'Xin lỗi, tôi không hiểu câu hỏi của bạn. Vui lòng thử lại.',
+      conversation_history: [],
+      decision: {}
+    };
 
   } catch (error) {
     // Suppress abort errors and 404s from console
     if (error.name === 'AbortError') {
-      return 'Kết nối timeout. Vui lòng thử lại.';
+      return {
+        session_id: sessionId || null,
+        answer: 'Kết nối timeout. Vui lòng thử lại.',
+        conversation_history: [],
+        decision: {}
+      };
     }
     
     // Only log errors in development mode (404 already handled above)
@@ -182,6 +203,9 @@ export const sendChatMessage = async (text, sessionId) => {
 /**
  * Main function to send chat message
  * Alias for sendChatMessage for convenience
+ * @param {string} text - User message text
+ * @param {string} sessionId - Session ID for maintaining conversation context
+ * @returns {Promise<object>} - Full response object: { session_id, answer, conversation_history, decision }
  */
 export const chat = async (text, sessionId) => {
   return sendChatMessage(text, sessionId);
