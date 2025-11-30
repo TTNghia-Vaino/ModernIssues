@@ -125,7 +125,7 @@ namespace ModernIssues.Controllers
 
             // Kiểm tra OTP trong cache
             var cacheKey = $"EMAIL_CONFIRM_OTP_{request.Email}";
-            if (!cache.TryGetValue(cacheKey, out string cachedOtp))
+            if (!cache.TryGetValue(cacheKey, out string? cachedOtp))
             {
                 return BadRequest(new { message = "Mã OTP đã hết hạn hoặc không hợp lệ. Vui lòng yêu cầu gửi lại mã OTP." });
             }
@@ -327,7 +327,7 @@ namespace ModernIssues.Controllers
         public IActionResult VerifyOtp([FromBody] VerifyOtpRequest request, [FromServices] IMemoryCache cache)
         {
             var cacheKey = $"OTP_{request.Email}";
-            cache.TryGetValue(cacheKey, out string cachedOtp); // nếu hết hạn -> null
+            cache.TryGetValue(cacheKey, out string? cachedOtp); // nếu hết hạn -> null
 
             if (cachedOtp == request.Otp)
             {

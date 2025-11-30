@@ -1535,7 +1535,7 @@ namespace ModernIssues.Controllers
 
                 // Xác thực OTP (OTP được gửi đến email cũ)
                 var cacheKey = $"CHANGE_EMAIL_OTP_{userId.Value}";
-                if (!cache.TryGetValue(cacheKey, out EmailOtpCacheData cachedData))
+                if (!cache.TryGetValue(cacheKey, out EmailOtpCacheData? cachedData))
                 {
                     return BadRequest(ApiResponse<object>.ErrorResponse("Mã OTP đã hết hạn hoặc chưa được gửi. Vui lòng yêu cầu gửi lại mã OTP."));
                 }

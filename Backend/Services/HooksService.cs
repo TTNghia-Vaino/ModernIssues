@@ -339,7 +339,7 @@ namespace ModernIssues.Services
                             var newWarranty = new warranty
                             {
                                 product_id = orderDetail.product_id,
-                                user_id = userId,
+                                user_id = userId ?? 0, // Default to 0 if null
                                 order_id = orderId,
                                 start_date = startDate,
                                 end_date = endDate,
