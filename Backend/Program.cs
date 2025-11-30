@@ -69,11 +69,9 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                   "http://localhost:5173",      // Local frontend dev
                   "http://127.0.0.1:5173",
-                  "http://35.232.61.38",        // Production frontend (port 80)
-                  "http://35.232.61.38:80",     // Explicit port 80
-                  "http://35.232.61.38:5000",   // Backend server
-                  "https://35.232.61.38",       // HTTPS version
-                  "https://35.232.61.38:443")   // HTTPS explicit port
+                  "http://35.232.61.38", 
+                  "http://35.232.61.38:5000",
+                  "http://35.232.61.38:8000")// ")   // HTTPS explicit port
               .AllowAnyMethod()   // Allow POST/PUT/GET etc.
               .AllowAnyHeader()   // Allow Authorization header
               .AllowCredentials() // Allow cookies/session for authentication
