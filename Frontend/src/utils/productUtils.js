@@ -121,6 +121,39 @@ export const resolveImageUrl = (product) => {
   return collectionCandidates.length > 0 ? collectionCandidates[0] : undefined;
 };
 
+export const resolveAllImageUrls = (product) => {
+  if (!product) return [];
+  
+  const images = [];
+  
+  // Add imageUrl (image 1)
+  const image1 = normalizeImageUrl(product.image || product.imageUrl);
+  if (image1) images.push(image1);
+  
+  // Add imageUrl2 (image 2)
+  const image2 = normalizeImageUrl(product.imageUrl2 || product.image2);
+  if (image2) images.push(image2);
+  
+  // Add imageUrl3 (image 3)
+  const image3 = normalizeImageUrl(product.imageUrl3 || product.image3);
+  if (image3) images.push(image3);
+  
+  // Add images from collection
+  const collectionImages = [
+    ...normalizeImageCollection(product.images),
+    ...normalizeImageCollection(product.media)
+  ];
+  
+  // Add unique images from collection
+  collectionImages.forEach(img => {
+    if (img && !images.includes(img)) {
+      images.push(img);
+    }
+  });
+  
+  return images;
+};
+
 export const transformProduct = (apiProduct) => {
   if (!apiProduct || typeof apiProduct !== 'object') {
     return apiProduct;
@@ -205,7 +238,8 @@ export const transformProduct = (apiProduct) => {
     stock: apiProduct.stock,
     warrantyPeriod: apiProduct.warrantyPeriod,
     brand: apiProduct.brand,
-    specs: apiProduct.specs,
+    specifications: apiProduct.specifications || apiProduct.specs || '',
+    specs: apiProduct.specs, // Keep for backward compatibility
     badge: apiProduct.badge,
     featured: apiProduct.featured,
     status: status,

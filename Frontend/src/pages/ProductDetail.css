@@ -79,6 +79,122 @@
   object-fit: contain;
 }
 
+.image-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e0e0e0;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  color: #333;
+  z-index: 10;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.image-nav-btn:hover {
+  background: white;
+  border-color: #667eea;
+  color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.image-nav-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.image-nav-prev {
+  left: 10px;
+}
+
+.image-nav-next {
+  right: 10px;
+}
+
+/* Product Description Below Image */
+.product-description-below-image {
+  margin-top: 30px;
+  padding-top: 30px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.description-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.description-content {
+  color: #666;
+  line-height: 1.8;
+  font-size: 15px;
+}
+
+.description-content p {
+  margin: 0;
+}
+
+/* Product Details Section - Between product detail and related products */
+.product-details-section {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 30px;
+}
+
+.specifications-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 3px solid #667eea;
+}
+
+.specifications-content {
+  color: #666;
+  line-height: 1.8;
+  font-size: 15px;
+}
+
+.spec-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.spec-item:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.spec-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.spec-text {
+  flex: 1;
+  color: #333;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
 .discount-badge {
   position: absolute;
   top: 20px;

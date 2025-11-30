@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import './Navbar.css';
 import ProductMenu from './ProductMenu';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { listProducts } from '../services/productService';
@@ -16,6 +16,7 @@ const Navbar = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const inputRef = useRef(null);
   const containerRef = useRef(null);
   const userMenuRef = useRef(null);
@@ -377,7 +378,23 @@ const Navbar = () => {
                 </div>
               </a>
             )}
-            <a href="/cart" className="action-btn cart-btn" aria-label="Giỏ hàng">
+            <a 
+              href="/cart" 
+              className="action-btn cart-btn" 
+              aria-label="Giỏ hàng"
+              onClick={(e) => {
+                if (!isAuthenticated) {
+                  e.preventDefault();
+                  navigate('/login', { 
+                    state: { 
+                      from: location.pathname || '/',
+                      redirectTo: '/cart',
+                      message: 'Vui lòng đăng nhập để xem giỏ hàng' 
+                    }
+                  });
+                }
+              }}
+            >
               <i className="fas fa-shopping-cart" aria-hidden="true"></i>
               <span className="cart-text">Giỏ hàng</span>
               {totalCount > 0 && (

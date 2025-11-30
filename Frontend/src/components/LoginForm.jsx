@@ -30,9 +30,12 @@ const LoginForm = () => {
         navigate('/admin/dashboard', { replace: true });
         return;
       }
-      const redirectTo = (location.state && location.state.from) || '/';
+      // Ưu tiên redirectTo (nếu có) > from (trang hiện tại) > trang chủ
+      const redirectTo = (location.state && location.state.redirectTo) || 
+                        (location.state && location.state.from) || 
+                        '/';
       console.log('[LoginForm] Regular user, redirecting to:', redirectTo);
-      navigate(redirectTo);
+      navigate(redirectTo, { replace: true });
     }
   }, [user, navigate, location, isLoggingIn, isLoading]);
 
@@ -132,10 +135,13 @@ const LoginForm = () => {
           console.log('[LoginForm] Admin user detected, redirecting to /admin/dashboard');
           navigate('/admin/dashboard', { replace: true });
         } else {
-          // User thường, redirect như bình thường
-          const redirectTo = (location.state && location.state.from) || '/';
+          // User thường, redirect về trang trước đó hoặc trang được chỉ định
+          // Ưu tiên redirectTo (nếu có) > from (trang hiện tại) > trang chủ
+          const redirectTo = (location.state && location.state.redirectTo) || 
+                            (location.state && location.state.from) || 
+                            '/';
           console.log('[LoginForm] Regular user, redirecting to:', redirectTo);
-          navigate(redirectTo);
+          navigate(redirectTo, { replace: true });
         }
       } else {
         setIsLoggingIn(false);

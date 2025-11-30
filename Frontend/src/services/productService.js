@@ -232,13 +232,15 @@ export const getCurrentUserProducts = async () => {
  * Create new product
  * Endpoint: POST /v1/Product/CreateProduct
  * Content-Type: multipart/form-data
- * Fields: productName, description, price, categoryId, stock, warrantyPeriod, imageFile (optional), currentImageUrl (optional)
+ * Fields: productName, description, price, categoryId, stock, warrantyPeriod, imageFile (optional), imageFile2 (optional), imageFile3 (optional), currentImageUrl (optional)
  * Response format: { success: boolean, message: string, data: {...}, errors: string[] }
  * @param {object} productData - Product data { productName, description, price, categoryId, stock, warrantyPeriod, currentImageUrl? }
  * @param {File} imageFile - Product image file (optional)
+ * @param {File} imageFile2 - Product image file 2 (optional)
+ * @param {File} imageFile3 - Product image file 3 (optional)
  * @returns {Promise} - Created product data
  */
-export const createProduct = async (productData, imageFile = null) => {
+export const createProduct = async (productData, imageFile = null, imageFile2 = null, imageFile3 = null) => {
   const formData = new FormData();
   
   // Append required fields according to Swagger spec
@@ -252,6 +254,8 @@ export const createProduct = async (productData, imageFile = null) => {
   // Optional fields
   if (productData.currentImageUrl) formData.append('currentImageUrl', productData.currentImageUrl);
   if (imageFile) formData.append('imageFile', imageFile);
+  if (imageFile2) formData.append('imageFile2', imageFile2);
+  if (imageFile3) formData.append('imageFile3', imageFile3);
   
   // Use custom fetch for FormData
   const { getApiUrl, getDefaultHeaders } = await import('../config/api');
@@ -372,14 +376,16 @@ export const createProduct = async (productData, imageFile = null) => {
  * Update product
  * Endpoint: PUT /v1/Product/{id}
  * Content-Type: multipart/form-data
- * Fields: productName, description, price, categoryId, stock, warrantyPeriod, imageFile (optional), currentImageUrl (optional)
+ * Fields: productName, description, price, categoryId, stock, warrantyPeriod, imageFile (optional), imageFile2 (optional), imageFile3 (optional), currentImageUrl (optional)
  * Response format: { success: boolean, message: string, data: {...}, errors: string[] }
  * @param {string|number} id - Product ID
  * @param {object} productData - Updated product data { productName, description, price, categoryId, stock, warrantyPeriod, currentImageUrl? }
  * @param {File} imageFile - New product image file (optional)
+ * @param {File} imageFile2 - New product image file 2 (optional)
+ * @param {File} imageFile3 - New product image file 3 (optional)
  * @returns {Promise} - Updated product data
  */
-export const updateProduct = async (id, productData, imageFile = null) => {
+export const updateProduct = async (id, productData, imageFile = null, imageFile2 = null, imageFile3 = null) => {
   const formData = new FormData();
   
   // Append fields according to Swagger spec
@@ -396,7 +402,11 @@ export const updateProduct = async (id, productData, imageFile = null) => {
     formData.append('isDisabled', String(productData.isDisabled));
   }
   if (productData.currentImageUrl) formData.append('currentImageUrl', productData.currentImageUrl);
+  if (productData.currentImageUrl2) formData.append('currentImageUrl2', productData.currentImageUrl2);
+  if (productData.currentImageUrl3) formData.append('currentImageUrl3', productData.currentImageUrl3);
   if (imageFile) formData.append('imageFile', imageFile);
+  if (imageFile2) formData.append('imageFile2', imageFile2);
+  if (imageFile3) formData.append('imageFile3', imageFile3);
   
   // Debug logging for isDisabled
   if (import.meta.env.DEV && productData.isDisabled !== undefined) {

@@ -23,6 +23,7 @@ import SideBanners from './components/SideBanners';
 import Chatbot from './components/Chatbot';
 import AdminLayout from './components/AdminLayout';
 import AdminRoute from './components/AdminRoute';
+import ProtectedRoute from './components/ProtectedRoute';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminCategories from './pages/AdminCategories';
 import AdminProducts from './pages/AdminProducts';
@@ -123,8 +124,8 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/products" element={<div className="main-content"><ProductsList /></div>} />
                 <Route path="/products/:id" element={<div className="main-content"><ProductDetail /></div>} />
-                <Route path="/cart" element={<div className="main-content"><CartPage /></div>} />
-                <Route path="/checkout" element={<div className="main-content"><CheckoutPage /></div>} />
+                <Route path="/cart" element={<ProtectedRoute><div className="main-content"><CartPage /></div></ProtectedRoute>} />
+                <Route path="/checkout" element={<ProtectedRoute><div className="main-content"><CheckoutPage /></div></ProtectedRoute>} />
                 <Route path="/qr-payment" element={<div className="main-content"><QRPaymentPage /></div>} />
                 <Route path="/order-confirmation" element={<div className="main-content"><OrderConfirmationPage /></div>} />
                 <Route path="/login" element={<div className="main-content"><LoginForm /></div>} />

@@ -32,22 +32,16 @@ const AdminProducts = () => {
     discount: 0,
     image: '',
     description: '',
-    specs: {
-      cpu: '',
-      ram: '',
-      storage: '',
-      display: '',
-      gpu: '',
-      os: ''
-    },
-    stock: 0,
-    status: 'active',
-    badge: '',
-    featured: false
+    specifications: '', // Thông số kỹ thuật dạng text: "RAM : 36 GB ; CPU : chipset 6 nhân 8 luồng"
+    stock: 0
   });
   const [errors, setErrors] = useState({});
   const [imageFile, setImageFile] = useState(null);
+  const [imageFile2, setImageFile2] = useState(null);
+  const [imageFile3, setImageFile3] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [imagePreview2, setImagePreview2] = useState(null);
+  const [imagePreview3, setImagePreview3] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -148,11 +142,21 @@ const AdminProducts = () => {
       const cleanBaseUrl = baseUrl.replace(/\/v1$/, '');
       
       const mappedProducts = productsArray.map(product => {
-        // Build full image URL if imageUrl is just filename
+        // Build full image URLs if they are just filenames
         let fullImageUrl = product.imageUrl || product.image;
         if (fullImageUrl && !fullImageUrl.startsWith('http') && !fullImageUrl.startsWith('data:') && !fullImageUrl.startsWith('/')) {
           // If imageUrl is just filename, construct full URL from wwwroot/Uploads/Images
           fullImageUrl = `${cleanBaseUrl}/Uploads/Images/${fullImageUrl}`;
+        }
+        
+        let fullImageUrl2 = product.imageUrl2 || product.image2;
+        if (fullImageUrl2 && !fullImageUrl2.startsWith('http') && !fullImageUrl2.startsWith('data:') && !fullImageUrl2.startsWith('/')) {
+          fullImageUrl2 = `${cleanBaseUrl}/Uploads/Images/${fullImageUrl2}`;
+        }
+        
+        let fullImageUrl3 = product.imageUrl3 || product.image3;
+        if (fullImageUrl3 && !fullImageUrl3.startsWith('http') && !fullImageUrl3.startsWith('data:') && !fullImageUrl3.startsWith('/')) {
+          fullImageUrl3 = `${cleanBaseUrl}/Uploads/Images/${fullImageUrl3}`;
         }
         
         // Logic đơn giản: price từ API = giá gốc, onPrices = giá khuyến mãi (nếu có)
@@ -182,6 +186,10 @@ const AdminProducts = () => {
           discount: discountValue,
           image: fullImageUrl,
           imageUrl: fullImageUrl,
+          imageUrl2: fullImageUrl2,
+          imageUrl3: fullImageUrl3,
+          image2: fullImageUrl2,
+          image3: fullImageUrl3,
           description: product.description || '',
           stock: product.stock || 0,
           warrantyPeriod: product.warrantyPeriod || 12,
@@ -196,7 +204,8 @@ const AdminProducts = () => {
           })(),
           badge: product.badge || '',
           featured: product.featured || false,
-          specs: product.specs || {}
+          specifications: product.specifications || product.specs || '',
+          specs: product.specs || {} // Keep for backward compatibility
         };
       });
       
@@ -243,21 +252,15 @@ const AdminProducts = () => {
       discount: 0,
       image: '',
       description: '',
-      specs: {
-        cpu: '',
-        ram: '',
-        storage: '',
-        display: '',
-        gpu: '',
-        os: ''
-      },
-      stock: 0,
-      status: 'active',
-      badge: '',
-      featured: false
+      specifications: '',
+      stock: 0
     });
     setImageFile(null);
+    setImageFile2(null);
+    setImageFile3(null);
     setImagePreview(null);
+    setImagePreview2(null);
+    setImagePreview3(null);
     setErrors({});
     setShowModal(true);
   };
@@ -286,10 +289,7 @@ const AdminProducts = () => {
       description: product.description || '',
       stock: product.stock || 0,
       warrantyPeriod: product.warrantyPeriod || 12,
-      specs: { ...product.specs } || {},
-      status: product.status || 'active',
-      badge: product.badge || '',
-      featured: product.featured || false
+      specifications: product.specifications || product.specs || ''
     });
     setImageFile(null);
     setImagePreview(previewImageUrl);
@@ -495,17 +495,25 @@ const AdminProducts = () => {
         price: originalPriceValue, // Giá gốc - API will use this as both price and onPrice initially
         categoryId: categoryId,
         stock: Number(productData.stock) || 0,
-        warrantyPeriod: Number(productData.warrantyPeriod) || 12
+        warrantyPeriod: Number(productData.warrantyPeriod) || 12,
+        specifications: productData.specifications || '', // Thông số kỹ thuật dạng text
+        isDisabled: false // Luôn luôn hoạt động khi tạo mới
       };
       
       if (editingProduct) {
         // Update product via API
         try {
-          // Include current image URL if not uploading new image
+          // Include current image URLs if not uploading new images
           if (!imageFile && formData.image) {
             apiProductData.currentImageUrl = formData.image;
           }
-          const updatedProduct = await productService.updateProduct(editingProduct.id, apiProductData, imageFile || null);
+          if (!imageFile2 && formData.image2) {
+            apiProductData.currentImageUrl2 = formData.image2;
+          }
+          if (!imageFile3 && formData.image3) {
+            apiProductData.currentImageUrl3 = formData.image3;
+          }
+          const updatedProduct = await productService.updateProduct(editingProduct.id, apiProductData, imageFile || null, imageFile2 || null, imageFile3 || null);
           
           console.log('[AdminProducts] ✅ API update product SUCCESS!');
           console.log('[AdminProducts] API Response:', updatedProduct);
@@ -555,7 +563,11 @@ const AdminProducts = () => {
             image: fullImageUrl
           }));
           setImagePreview(fullImageUrl);
-          setImageFile(null); // Clear uploaded file after success
+          setImageFile(null);
+          setImageFile2(null);
+          setImageFile3(null); // Clear uploaded files after success
+          setImageFile2(null);
+          setImageFile3(null);
           
           // Reload products list to get the latest data from server
           await loadProducts();
@@ -577,7 +589,7 @@ const AdminProducts = () => {
         console.log('[AdminProducts] Has Image File:', !!imageFile);
         
         try {
-          const newProduct = await productService.createProduct(apiProductData, imageFile || null);
+          const newProduct = await productService.createProduct(apiProductData, imageFile || null, imageFile2 || null, imageFile3 || null);
           
           console.log('[AdminProducts] ✅ API create product SUCCESS!');
           console.log('[AdminProducts] API Response:', newProduct);
@@ -616,7 +628,8 @@ const AdminProducts = () => {
             isDisabled: newProduct.isDisabled || false,
             badge: newProduct.badge || '',
             featured: newProduct.featured || false,
-            specs: newProduct.specs || {}
+            specifications: newProduct.specifications || newProduct.specs || '',
+            specs: newProduct.specs || {} // Keep for backward compatibility
           };
           
           console.log('[AdminProducts] Mapped Product:', mappedProduct);
@@ -644,21 +657,12 @@ const AdminProducts = () => {
             discount: 0,
             image: '',
             description: '',
-            specs: {
-              cpu: '',
-              ram: '',
-              storage: '',
-              display: '',
-              gpu: '',
-              os: ''
-            },
-            stock: 0,
-            warrantyPeriod: 12,
-            status: 'active',
-            badge: '',
-            featured: false
+            specifications: '',
+            stock: 0
           });
           setImageFile(null);
+          setImageFile2(null);
+          setImageFile3(null);
           setImagePreview(null);
           setErrors({});
           
@@ -706,19 +710,9 @@ const AdminProducts = () => {
         discount: 0,
         image: '',
         description: '',
-        specs: {
-          cpu: '',
-          ram: '',
-          storage: '',
-          display: '',
-          gpu: '',
-          os: ''
-        },
-        stock: 0,
-        status: 'active',
-        badge: '',
-        featured: false
-      });
+            specifications: '',
+            stock: 0
+          });
       setImageFile(null);
       setImagePreview(null);
       setErrors({});
@@ -733,47 +727,53 @@ const AdminProducts = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    if (name.startsWith('specs.')) {
-      const specKey = name.split('.')[1];
-      setFormData({
-        ...formData,
-        specs: {
-          ...formData.specs,
-          [specKey]: value
-        }
-      });
-    } else {
-      setFormData({
-        ...formData,
-        [name]: type === 'checkbox' ? checked : value
-      });
-    }
+    setFormData({
+      ...formData,
+      [name]: type === 'checkbox' ? checked : value
+    });
   };
 
-  const handleImageChange = (e) => {
+  const handleImageChange = (e, imageNumber = 1) => {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        setErrors({ ...errors, image: 'Vui lòng chọn file ảnh hợp lệ' });
+        setErrors({ ...errors, [`image${imageNumber > 1 ? imageNumber : ''}`]: 'Vui lòng chọn file ảnh hợp lệ' });
         return;
       }
       
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        setErrors({ ...errors, image: 'Kích thước ảnh không được vượt quá 5MB' });
+        setErrors({ ...errors, [`image${imageNumber > 1 ? imageNumber : ''}`]: 'Kích thước ảnh không được vượt quá 5MB' });
         return;
       }
       
-      setImageFile(file);
-      setErrors({ ...errors, image: null });
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      // Set the appropriate image file state
+      if (imageNumber === 1) {
+        setImageFile(file);
+        setErrors({ ...errors, image: null });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+      } else if (imageNumber === 2) {
+        setImageFile2(file);
+        setErrors({ ...errors, image2: null });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview2(reader.result);
+        };
+        reader.readAsDataURL(file);
+      } else if (imageNumber === 3) {
+        setImageFile3(file);
+        setErrors({ ...errors, image3: null });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview3(reader.result);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -1113,13 +1113,13 @@ const AdminProducts = () => {
                   <h3 className="form-section-title">Hình ảnh và mô tả</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                      <label htmlFor="image">Hình ảnh sản phẩm:</label>
+                      <label htmlFor="image">Hình ảnh sản phẩm 1:</label>
                       <input
                         type="file"
                         id="image"
                         name="image"
                         accept="image/*"
-                        onChange={handleImageChange}
+                        onChange={(e) => handleImageChange(e, 1)}
                         className={errors.image ? 'error' : ''}
                       />
                       {errors.image && <span className="error-message">{errors.image}</span>}
@@ -1127,7 +1127,7 @@ const AdminProducts = () => {
                         <div style={{ marginTop: '10px' }}>
                           <img 
                             src={imagePreview} 
-                            alt="Preview" 
+                            alt="Preview 1" 
                             style={{ 
                               width: '150px', 
                               height: '150px', 
@@ -1143,7 +1143,7 @@ const AdminProducts = () => {
                           <p style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Ảnh hiện tại:</p>
                           <img 
                             src={formData.image} 
-                            alt="Current" 
+                            alt="Current 1" 
                             style={{ 
                               width: '150px', 
                               height: '150px', 
@@ -1160,6 +1160,100 @@ const AdminProducts = () => {
                       <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
                         {editingProduct ? 'Chọn ảnh mới để thay thế ảnh hiện tại (tùy chọn)' : 'Chọn ảnh từ máy tính (tối đa 5MB)'}
                       </p>
+                    </div>
+
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label htmlFor="image2">Hình ảnh sản phẩm 2 (tùy chọn):</label>
+                      <input
+                        type="file"
+                        id="image2"
+                        name="image2"
+                        accept="image/*"
+                        onChange={(e) => handleImageChange(e, 2)}
+                        className={errors.image2 ? 'error' : ''}
+                      />
+                      {errors.image2 && <span className="error-message">{errors.image2}</span>}
+                      {imagePreview2 && (
+                        <div style={{ marginTop: '10px' }}>
+                          <img 
+                            src={imagePreview2} 
+                            alt="Preview 2" 
+                            style={{ 
+                              width: '150px', 
+                              height: '150px', 
+                              objectFit: 'cover', 
+                              borderRadius: '8px',
+                              border: '2px solid #e0e0e0'
+                            }} 
+                          />
+                        </div>
+                      )}
+                      {!imagePreview2 && editingProduct && formData.image2 && (
+                        <div style={{ marginTop: '10px' }}>
+                          <p style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Ảnh hiện tại:</p>
+                          <img 
+                            src={formData.image2} 
+                            alt="Current 2" 
+                            style={{ 
+                              width: '150px', 
+                              height: '150px', 
+                              objectFit: 'cover', 
+                              borderRadius: '8px',
+                              border: '2px solid #e0e0e0'
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label htmlFor="image3">Hình ảnh sản phẩm 3 (tùy chọn):</label>
+                      <input
+                        type="file"
+                        id="image3"
+                        name="image3"
+                        accept="image/*"
+                        onChange={(e) => handleImageChange(e, 3)}
+                        className={errors.image3 ? 'error' : ''}
+                      />
+                      {errors.image3 && <span className="error-message">{errors.image3}</span>}
+                      {imagePreview3 && (
+                        <div style={{ marginTop: '10px' }}>
+                          <img 
+                            src={imagePreview3} 
+                            alt="Preview 3" 
+                            style={{ 
+                              width: '150px', 
+                              height: '150px', 
+                              objectFit: 'cover', 
+                              borderRadius: '8px',
+                              border: '2px solid #e0e0e0'
+                            }} 
+                          />
+                        </div>
+                      )}
+                      {!imagePreview3 && editingProduct && formData.image3 && (
+                        <div style={{ marginTop: '10px' }}>
+                          <p style={{ fontSize: '12px', color: '#666', marginBottom: '5px' }}>Ảnh hiện tại:</p>
+                          <img 
+                            src={formData.image3} 
+                            alt="Current 3" 
+                            style={{ 
+                              width: '150px', 
+                              height: '150px', 
+                              objectFit: 'cover', 
+                              borderRadius: '8px',
+                              border: '2px solid #e0e0e0'
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -1180,124 +1274,32 @@ const AdminProducts = () => {
                 <div className="form-section">
                   <h3 className="form-section-title">Thông số kỹ thuật</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-                    <div className="form-group">
-                    <label htmlFor="specs.cpu">CPU:</label>
-                    <input
-                      type="text"
-                      id="specs.cpu"
-                      name="specs.cpu"
-                      value={formData.specs.cpu}
-                      onChange={handleInputChange}
-                      placeholder="Intel Core i5, AMD Ryzen 5..."
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="specs.ram">RAM:</label>
-                    <input
-                      type="text"
-                      id="specs.ram"
-                      name="specs.ram"
-                      value={formData.specs.ram}
-                      onChange={handleInputChange}
-                      placeholder="8GB, 16GB..."
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="specs.storage">Ổ cứng:</label>
-                    <input
-                      type="text"
-                      id="specs.storage"
-                      name="specs.storage"
-                      value={formData.specs.storage}
-                      onChange={handleInputChange}
-                      placeholder="512GB SSD, 1TB HDD..."
-                    />
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="specs.display">Màn hình:</label>
-                    <input
-                      type="text"
-                      id="specs.display"
-                      name="specs.display"
-                      value={formData.specs.display}
-                      onChange={handleInputChange}
-                      placeholder="15.6 FHD, 13.3 2K..."
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="specs.gpu">GPU:</label>
-                    <input
-                      type="text"
-                      id="specs.gpu"
-                      name="specs.gpu"
-                      value={formData.specs.gpu}
-                      onChange={handleInputChange}
-                      placeholder="RTX 3060, Intel Iris Xe..."
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label htmlFor="specs.os">Hệ điều hành:</label>
-                    <input
-                      type="text"
-                      id="specs.os"
-                      name="specs.os"
-                      value={formData.specs.os}
-                      onChange={handleInputChange}
-                      placeholder="Windows 11, macOS..."
-                    />
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label htmlFor="specifications">Thông số kỹ thuật:</label>
+                      <textarea
+                        id="specifications"
+                        name="specifications"
+                        value={formData.specifications}
+                        onChange={handleInputChange}
+                        rows="4"
+                        placeholder='Ví dụ: RAM : 36 GB ; CPU : chipset 6 nhân 8 luồng'
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
+                          resize: 'vertical'
+                        }}
+                      />
+                      <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                        Nhập thông số kỹ thuật theo định dạng: "RAM : 36 GB ; CPU : chipset 6 nhân 8 luồng" (phân cách bằng dấu chấm phẩy)
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Cấu hình khác */}
-                <div className="form-section">
-                  <h3 className="form-section-title">Cấu hình khác</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-                    <div className="form-group">
-                      <label htmlFor="badge">Badge:</label>
-                  <input
-                    type="text"
-                    id="badge"
-                    name="badge"
-                    value={formData.badge}
-                    onChange={handleInputChange}
-                    placeholder="Bán chạy, PC Văn Phòng..."
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="status">Trạng thái:</label>
-                  <select
-                    id="status"
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                  >
-                    <option value="active">Hoạt động</option>
-                    <option value="inactive">Không hoạt động</option>
-                  </select>
-                    </div>
-                    
-                    <div className="form-group checkbox-group">
-                      <label>
-                        <input
-                          type="checkbox"
-                          name="featured"
-                          checked={formData.featured}
-                          onChange={handleInputChange}
-                        />
-                        <span>Sản phẩm nổi bật</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
               </div>
             </form>
       </AdminModal>

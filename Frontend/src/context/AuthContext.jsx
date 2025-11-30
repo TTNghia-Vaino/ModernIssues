@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as authService from '../services/authService';
 import * as productService from '../services/productService';
 import * as userService from '../services/userService';
@@ -261,11 +262,15 @@ export const AuthProvider = ({ children }) => {
       
       // Only clear user if we have a user (to avoid clearing when not logged in)
       if (user) {
-        console.log('[AuthContext] Token expired, clearing user session', {
+        console.log('[AuthContext] Token expired, clearing user session and redirecting to home', {
           timeSinceLogin,
           url: event?.detail?.url
         });
         setUser(null);
+        // Redirect to home page when session expires
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 100);
       }
     };
 

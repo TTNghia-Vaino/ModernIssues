@@ -90,26 +90,35 @@ function ProductCard({
 
   // Determine prices
   const getPrices = () => {
-    // Support both 'price' prop and calculated price
+    // After transform, product.price is already the current price (promotion price if exists, else original)
+    // product.originalPrice is set only when there's a promotion
     let currentPrice = product.price || product.salePrice || 0;
     let originalPrice = product.originalPrice || null;
 
-    // If there's onPrice and it's less than price, onPrice is the sale price
-    if (product.onPrice && product.price && product.onPrice < product.price) {
-      currentPrice = product.onPrice;
-      originalPrice = product.price;
-    }
-    // If originalPrice exists and is greater than currentPrice
-    else if (originalPrice && originalPrice > currentPrice) {
-      // currentPrice is already the sale price
-    }
-    // If no originalPrice but price > salePrice
-    else if (!originalPrice && product.price && product.salePrice && product.price > product.salePrice) {
-      currentPrice = product.salePrice;
-      originalPrice = product.price;
+    // Primary case: If originalPrice exists and is greater than currentPrice, we have a promotion
+    // This is the main case after transform from productUtils
+    if (originalPrice && originalPrice > currentPrice) {
+      return { currentPrice, originalPrice };
     }
 
-    return { currentPrice, originalPrice };
+    // Fallback: Check _original data to determine promotion (for cases where transform might have missed it)
+    if (!originalPrice && product._original) {
+      const origPrice = product._original.price; // Original price from API
+      const promoPrice = product._original.onPrice; // Promotion price from API
+      if (origPrice && promoPrice && origPrice > promoPrice && promoPrice > 0) {
+        return { currentPrice: promoPrice, originalPrice: origPrice };
+      }
+    }
+
+    // Fallback: Check onPrice directly (for untransformed data)
+    // If onPrice exists and is less than price, then onPrice is the sale price
+    // Note: This might not work correctly if product.price was already transformed
+    if (!originalPrice && product.onPrice && product.price && product.onPrice < product.price && product.onPrice > 0) {
+      return { currentPrice: product.onPrice, originalPrice: product.price };
+    }
+
+    // No promotion found
+    return { currentPrice, originalPrice: null };
   };
 
   const { currentPrice, originalPrice } = getPrices();
@@ -153,7 +162,7 @@ function ProductCard({
   };
 
   const cardClasses = cn(
-    'group hover:shadow-lg transition-shadow duration-300 bg-white border border-gray-200 overflow-hidden p-0 cursor-pointer',
+    'group hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300 ease bg-white border border-gray-200 hover:border-green-400 overflow-hidden p-0 cursor-pointer',
     showAnimation && `slide-${animationDirection}`,
     className
   );
@@ -165,20 +174,22 @@ function ProductCard({
 
   return (
     <Card
-      className={cn(cardClasses, "flex flex-col h-full")}
+      className={cn(cardClasses, "flex flex-col h-full hover:-translate-y-[5px] hover:scale-[1.02] hover:opacity-95")}
       onClick={handleClick}
       style={{ ...animationStyle, ...style }}
     >
       {/* Image Section */}
-      <div className="aspect-square bg-gray-50 flex items-center justify-center relative overflow-hidden flex-shrink-0">
+      <div className="aspect-square bg-gray-50 flex items-center justify-center relative overflow-hidden flex-shrink-0 group/image-wrapper">
         {renderBadge()}
         
         <SafeImage
           src={getProductImage()}
           alt={title}
           className={cn(
-            "w-full h-full transition-opacity duration-300",
-            product.image2 ? "object-contain opacity-100 group-hover:opacity-0" : "object-contain"
+            "w-full h-full transition-all duration-300 ease",
+            product.image2 
+              ? "object-contain opacity-100 group-hover:opacity-0 scale-100 group-hover:scale-[1.05]" 
+              : "object-contain scale-100 group-hover:scale-[1.05] group-hover:brightness-110"
           )}
           loading="lazy"
         />
@@ -188,7 +199,7 @@ function ProductCard({
           <SafeImage
             src={product.image2}
             alt={`${title} - View 2`}
-            className="absolute inset-0 w-full h-full object-contain opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            className="absolute inset-0 w-full h-full object-contain opacity-0 transition-all duration-300 ease group-hover:opacity-100 scale-[1.05] group-hover:scale-100 group-hover:brightness-110"
             loading="lazy"
           />
         )}
@@ -197,7 +208,7 @@ function ProductCard({
       {/* Content Section - Fixed height container */}
       <div className="p-4 flex flex-col flex-grow min-h-0">
         {/* Title */}
-        <h3 className="text-base font-medium text-gray-900 mb-3 line-clamp-2 min-h-[3rem] flex-shrink-0">
+        <h3 className="text-base font-medium text-gray-900 mb-3 line-clamp-2 min-h-[3rem] flex-shrink-0 transition-colors duration-300 group-hover:text-green-600">
           {title}
         </h3>
 
@@ -220,7 +231,7 @@ function ProductCard({
 
         {/* Price Section - Fixed at bottom */}
         <div className="space-y-1 mt-auto flex-shrink-0">
-          <p className="text-2xl font-bold text-green-600">
+          <p className="text-2xl font-bold text-green-600 transition-transform duration-300 group-hover:scale-105">
             {formatPrice(currentPrice)} ₫
           </p>
           {/* Always reserve space for original price to prevent card height change */}

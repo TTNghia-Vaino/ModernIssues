@@ -12,7 +12,7 @@ import './ProductDetail.css';
 function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isInTokenGracePeriod } = useAuth();
+  const { isInTokenGracePeriod, isAuthenticated } = useAuth();
   const { addItem } = useCart();
   const { success, error: showError } = useNotification();
   const [product, setProduct] = useState(null);
@@ -234,6 +234,19 @@ function ProductDetail() {
   };
 
   const handleAddToCart = async () => {
+    // Check authentication first
+    if (!isAuthenticated) {
+      navigate('/login', { 
+        state: { 
+          from: `/products/${id}`,
+          action: 'addToCart',
+          productId: id,
+          message: 'Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng' 
+        }
+      });
+      return;
+    }
+
     const currentPrice = selectedCapacity ? selectedCapacity.price : product.price;
     const productToAdd = {
       id: product.id,
@@ -300,15 +313,53 @@ function ProductDetail() {
   const productImages = useMemo(() => {
     if (!product) return [placeholderImage];
     const images = [];
+    
+    // Helper function to build full URL from filename
+    const buildImageUrl = (imgUrl) => {
+      if (!imgUrl) return null;
+      if (imgUrl.startsWith('http') || imgUrl.startsWith('data:') || imgUrl.startsWith('/')) {
+        return imgUrl;
+      }
+      // If it's just a filename, construct full URL
+      // Default base URL (will be replaced by actual API base URL if available)
+      const baseUrl = 'http://35.232.61.38:5000';
+      const cleanBaseUrl = baseUrl.replace(/\/v1$/, '');
+      return `${cleanBaseUrl}/Uploads/Images/${imgUrl}`;
+    };
+    
+    // Add imageUrl (image 1)
     if (product?.image) {
       images.push(product.image);
     }
-    if (Array.isArray(product?.images)) {
-      images.push(...product.images.filter(Boolean));
+    
+    // Add imageUrl2 (image 2) if exists
+    if (product?.imageUrl2 || product?.image2) {
+      const img2 = buildImageUrl(product.imageUrl2 || product.image2);
+      if (img2 && !images.includes(img2)) {
+        images.push(img2);
+      }
     }
+    
+    // Add imageUrl3 (image 3) if exists
+    if (product?.imageUrl3 || product?.image3) {
+      const img3 = buildImageUrl(product.imageUrl3 || product.image3);
+      if (img3 && !images.includes(img3)) {
+        images.push(img3);
+      }
+    }
+    
+    // Add images from array if exists
+    if (Array.isArray(product?.images)) {
+      product.images.forEach(img => {
+        if (img && !images.includes(img)) {
+          images.push(img);
+        }
+      });
+    }
+    
     const uniqueImages = Array.from(new Set(images));
     return uniqueImages.length > 0 ? uniqueImages : [placeholderImage];
-  }, [product]);
+  }, [product, placeholderImage]);
 
   useEffect(() => {
     if (productImages.length > 0 && selectedImage >= productImages.length) {
@@ -359,6 +410,24 @@ function ProductDetail() {
           {/* Left: Product Images */}
           <div className="product-images-section">
             <div className="main-image">
+              {productImages.length > 1 && (
+                <>
+                  <button 
+                    className="image-nav-btn image-nav-prev"
+                    onClick={() => setSelectedImage((prev) => (prev - 1 + productImages.length) % productImages.length)}
+                    aria-label="Ảnh trước"
+                  >
+                    ❮
+                  </button>
+                  <button 
+                    className="image-nav-btn image-nav-next"
+                    onClick={() => setSelectedImage((prev) => (prev + 1) % productImages.length)}
+                    aria-label="Ảnh sau"
+                  >
+                    ❯
+                  </button>
+                </>
+              )}
               <img 
                 src={productImages[selectedImage]} 
                 alt={product.name} 
@@ -380,6 +449,16 @@ function ProductDetail() {
                     <img src={img} alt={`${product.name} ${index + 1}`} onError={handleImageError} />
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Product Description - Below Images */}
+            {product.description && (
+              <div className="product-description-below-image">
+                <h3 className="description-title">Mô tả sản phẩm</h3>
+                <div className="description-content">
+                  <p>{product.description}</p>
+                </div>
               </div>
             )}
           </div>
@@ -537,190 +616,24 @@ function ProductDetail() {
           </div>
         </div>
 
-        {/* Product Description */}
-        <div className="product-description-section">
-          <h2 className="section-title">Mô tả sản phẩm</h2>
-          <div className="description-content">
-            {product.description ? (
-              <p>{product.description}</p>
-            ) : (
-              <p>Thông tin chi tiết về sản phẩm sẽ được cập nhật sớm.</p>
-            )}
-          </div>
-
-          {/* Product Quick Features List */}
-          <div className="product-quick-features">
-            <div className="feature-item">
-              <span className="icon">✅</span>
-              <div>
-                <strong>Dung lượng ổ cứng:</strong> {product.specs?.storage || 'N/A'}
-              </div>
-            </div>
-            <div className="feature-item">
-              <span className="icon">✅</span>
-              <div>
-                <strong>Form Factor:</strong> {product.specs?.formFactor || 'M.2 2280'}
-              </div>
-            </div>
-            <div className="feature-item">
-              <span className="icon">✅</span>
-              <div>
-                <strong>Chuẩn kết nối:</strong> {product.specs?.interface || 'PCIe Gen 4.0 x4 NVMe'}
-              </div>
-            </div>
-            <div className="feature-item">
-              <span className="icon">✅</span>
-              <div>
-                <strong>Tốc độ đọc:</strong> {product.specs?.readSpeed || '5000 MB/s'}
-              </div>
-            </div>
-            <div className="feature-item">
-              <span className="icon">✅</span>
-              <div>
-                <strong>Tốc độ ghi:</strong> {product.specs?.writeSpeed || '3000 MB/s'}
-              </div>
-            </div>
-            <div className="feature-item">
-              <span className="icon">✅</span>
-              <div>
-                <strong>Bảo hành:</strong> {product.specs?.warranty || '60 tháng hoặc trong giới hạn TBW'}
-              </div>
+        {/* Specifications Section - Between product detail and related products */}
+        {product.specifications && product.specifications.trim() && (
+          <div className="product-details-section">
+            <h3 className="specifications-title">THÔNG SỐ KỸ THUẬT</h3>
+            <div className="specifications-content">
+              {product.specifications.split(';').map((spec, index) => {
+                const trimmedSpec = spec.trim();
+                if (!trimmedSpec) return null;
+                return (
+                  <div key={index} className="spec-item">
+                    <span className="spec-icon">✅</span>
+                    <span className="spec-text">{trimmedSpec}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
-
-          {/* Product Features/Specs Grid */}
-          {(product.specs || product.specs) && (
-            <div className="product-features-section">
-              <h3>Thông số kỹ thuật</h3>
-              <div className="features-grid">
-                {product.specs?.storage && (
-                  <div className="feature-box">
-                    <div className="feature-icon">💾</div>
-                    <div className="feature-label">Dung lượng ổ cứng</div>
-                    <div className="feature-value">{product.specs.storage}</div>
-                  </div>
-                )}
-                {product.specs?.formFactor && (
-                  <div className="feature-box">
-                    <div className="feature-icon">📦</div>
-                    <div className="feature-label">Form Factor</div>
-                    <div className="feature-value">{product.specs.formFactor}</div>
-                  </div>
-                )}
-                {product.specs?.interface && (
-                  <div className="feature-box">
-                    <div className="feature-icon">🔌</div>
-                    <div className="feature-label">Chuẩn kết nối</div>
-                    <div className="feature-value">{product.specs.interface}</div>
-                  </div>
-                )}
-                {product.specs?.readSpeed && (
-                  <div className="feature-box">
-                    <div className="feature-icon">📖</div>
-                    <div className="feature-label">Tốc độ đọc</div>
-                    <div className="feature-value">{product.specs.readSpeed}</div>
-                  </div>
-                )}
-                {product.specs?.writeSpeed && (
-                  <div className="feature-box">
-                    <div className="feature-icon">✍️</div>
-                    <div className="feature-label">Tốc độ ghi</div>
-                    <div className="feature-value">{product.specs.writeSpeed}</div>
-                  </div>
-                )}
-                {product.specs?.warranty && (
-                  <div className="feature-box">
-                    <div className="feature-icon">🛡️</div>
-                    <div className="feature-label">Bảo hành</div>
-                    <div className="feature-value">{product.specs.warranty}</div>
-                  </div>
-                )}
-                {product.specs?.cpu && (
-                  <div className="feature-box">
-                    <div className="feature-icon">⚙️</div>
-                    <div className="feature-label">CPU</div>
-                    <div className="feature-value">{product.specs.cpu}</div>
-                  </div>
-                )}
-                {product.specs?.ram && (
-                  <div className="feature-box">
-                    <div className="feature-icon">🧠</div>
-                    <div className="feature-label">RAM</div>
-                    <div className="feature-value">{product.specs.ram}</div>
-                  </div>
-                )}
-                {product.specs?.display && (
-                  <div className="feature-box">
-                    <div className="feature-icon">🖥️</div>
-                    <div className="feature-label">Màn hình</div>
-                    <div className="feature-value">{product.specs.display}</div>
-                  </div>
-                )}
-                {product.specs?.gpu && (
-                  <div className="feature-box">
-                    <div className="feature-icon">🎮</div>
-                    <div className="feature-label">Card đồ họa</div>
-                    <div className="feature-value">{product.specs.gpu}</div>
-                  </div>
-                )}
-                {product.specs?.os && (
-                  <div className="feature-box">
-                    <div className="feature-icon">💻</div>
-                    <div className="feature-label">Hệ điều hành</div>
-                    <div className="feature-value">{product.specs.os}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Specifications Table */}
-          {product.specs && (
-            <div className="specifications-table">
-              <h3>Chi tiết kỹ thuật</h3>
-              <table>
-                <tbody>
-                  {product.specs.cpu && (
-                    <tr>
-                      <td className="spec-label">CPU</td>
-                      <td className="spec-value">{product.specs.cpu}</td>
-                    </tr>
-                  )}
-                  {product.specs.ram && (
-                    <tr>
-                      <td className="spec-label">RAM</td>
-                      <td className="spec-value">{product.specs.ram}</td>
-                    </tr>
-                  )}
-                  {product.specs.storage && (
-                    <tr>
-                      <td className="spec-label">Ổ cứng</td>
-                      <td className="spec-value">{product.specs.storage}</td>
-                    </tr>
-                  )}
-                  {product.specs.display && (
-                    <tr>
-                      <td className="spec-label">Màn hình</td>
-                      <td className="spec-value">{product.specs.display}</td>
-                    </tr>
-                  )}
-                  {product.specs.gpu && (
-                    <tr>
-                      <td className="spec-label">Card đồ họa</td>
-                      <td className="spec-value">{product.specs.gpu}</td>
-                    </tr>
-                  )}
-                  {product.specs.os && (
-                    <tr>
-                      <td className="spec-label">Hệ điều hành</td>
-                      <td className="spec-value">{product.specs.os}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Related Products */}
         <RelatedProducts categoryId={product.categoryId} currentProductId={product.id} />
