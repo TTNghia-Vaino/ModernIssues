@@ -71,6 +71,17 @@ export const getDefaultHeaders = () => {
   const token = localStorage.getItem('auth_token');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+    
+    // Debug logging in production to troubleshoot auth issues
+    if (import.meta.env.PROD) {
+      console.log('[API Headers] Token found, adding Authorization header');
+    }
+  } else {
+    // Debug logging if no token found
+    if (import.meta.env.PROD) {
+      console.warn('[API Headers] No auth_token found in localStorage');
+      console.log('[API Headers] localStorage keys:', Object.keys(localStorage));
+    }
   }
   
   return headers;

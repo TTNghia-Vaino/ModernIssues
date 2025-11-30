@@ -14,9 +14,26 @@ export const apiRequest = async (endpoint, options = {}) => {
   const defaultOptions = {
     method: 'GET',
     headers: getDefaultHeaders(),
-    credentials: 'include', // Send cookies/session for 2FA
+    credentials: 'include', // Send cookies/session for 2FA and session-based auth
     ...options,
   };
+  
+  // Debug logging in production for authentication issues
+  if (import.meta.env.PROD) {
+    const token = localStorage.getItem('auth_token');
+    const user = localStorage.getItem('modernissues_auth_v1');
+    console.log('[API Request]', {
+      url,
+      method: defaultOptions.method,
+      hasToken: !!token,
+      hasUser: !!user,
+      credentials: defaultOptions.credentials,
+      headers: {
+        ...defaultOptions.headers,
+        Authorization: defaultOptions.headers['Authorization'] ? 'Bearer ***' : 'none'
+      }
+    });
+  }
 
   // Handle request body
   if (options.body && typeof options.body === 'object') {
