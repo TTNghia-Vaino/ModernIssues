@@ -60,13 +60,8 @@ namespace ModernIssues.Services
 
         public async Task<CategoryDto?> UpdateCategoryAsync(int categoryId, CategoryUpdateDto category, int adminId)
         {
-            // Validate that at least one field is being updated
-            if (string.IsNullOrWhiteSpace(category.CategoryName) && !category.ParentId.HasValue && !category.IsDisabled.HasValue)
-            {
-                throw new ArgumentException("Phải cập nhật ít nhất một trường (tên danh mục, danh mục cha hoặc trạng thái)");
-            }
-
-            // Validate parent category exists if specified
+            // Cho phép cập nhật CategoryName và ParentId
+            // Validate parent category exists if specified (value > 0)
             if (category.ParentId.HasValue && category.ParentId.Value > 0)
             {
                 var parentCategory = await _categoryRepository.GetCategoryByIdAsync(category.ParentId.Value);

@@ -134,17 +134,22 @@ namespace ModernIssues.Repositories
                 return null;
             }
 
-            if (!string.IsNullOrEmpty(category.CategoryName))
+            // Update CategoryName if provided (not null)
+            if (category.CategoryName != null)
             {
-                existingCategory.category_name = category.CategoryName.Trim();
+                var trimmedName = category.CategoryName.Trim();
+                if (string.IsNullOrEmpty(trimmedName))
+                {
+                    throw new ArgumentException("Tên danh mục không được để trống");
+                }
+                existingCategory.category_name = trimmedName;
             }
 
-            // Update ParentId if provided in the DTO
-            // Note: In JSON, if ParentId is not sent, it will be null
-            // If ParentId is null, it means "remove parent" (set to root level)
-            // If ParentId has a value, it means "set this parent"
-            // We always update ParentId when the DTO is provided, even if null
-            // This allows removing parent by sending null
+            // Update ParentId - luôn cập nhật khi có trong request body
+            // Nếu ParentId = null, nghĩa là xóa danh mục cha (đưa về danh mục gốc)
+            // Nếu ParentId có giá trị, nghĩa là đặt danh mục cha
+            // Lưu ý: Trong C# nullable, không thể phân biệt "không gửi" và "gửi null"
+            // Nên luôn cập nhật ParentId khi DTO được cung cấp
             existingCategory.parent_id = category.ParentId;
 
             // Update IsDisabled if provided
