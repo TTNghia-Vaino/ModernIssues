@@ -48,14 +48,19 @@ builder.Services.AddMemoryCache();
 builder.Services.AddDistributedMemoryCache(); 
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30); 
+    options.IdleTimeout = TimeSpan.FromMinutes(60); // Tăng thời gian timeout lên 60 phút
     options.Cookie.HttpOnly = true; // More secure - don't allow JavaScript access
     options.Cookie.IsEssential = true;
-    options.Cookie.SameSite = SameSiteMode.None; // None for cross-origin requests
-    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Allow HTTP
+    // Use None for cross-origin requests (different ports are considered cross-site)
+    // Note: Browser requires Secure=true when SameSite=None, but we're using HTTP
+    // This is a known limitation - for production, use HTTPS with Secure=true
+    options.Cookie.SameSite = SameSiteMode.None; // None allows cross-site cookies
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Allow HTTP (required for SameSite=None without HTTPS)
     options.Cookie.Path = "/"; // Ensure cookie is sent for all paths
     options.Cookie.Domain = null; // Don't set domain restriction (allows all domains)
     options.Cookie.Name = ".AspNetCore.Session"; // Use default ASP.NET Core session name
+    // Set MaxAge to ensure cookie persists
+    options.Cookie.MaxAge = TimeSpan.FromMinutes(60);
 });
 
 // Add SignalR for real-time notifications
@@ -146,10 +151,22 @@ app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/v1"))
     {
+        // Try to load session before checking
+        await context.Session.LoadAsync();
+        
         var sessionId = context.Session?.Id ?? "no-session";
         var username = context.Session?.GetString("username") ?? "not-set";
+        var userId = context.Session?.GetString("userId") ?? "not-set";
+        var role = context.Session?.GetString("role") ?? "not-set";
         var hasSessionCookie = context.Request.Cookies.ContainsKey(".AspNetCore.Session");
-        Console.WriteLine($"[Session Debug] Path: {context.Request.Path}, SessionId: {sessionId}, Username: {username}, HasCookie: {hasSessionCookie}");
+        var sessionCookie = context.Request.Cookies[".AspNetCore.Session"];
+        var allCookies = string.Join(", ", context.Request.Cookies.Keys);
+        
+        Console.WriteLine($"[Session Debug] Path: {context.Request.Path}");
+        Console.WriteLine($"[Session Debug] SessionId: {sessionId}, Username: {username}, UserId: {userId}, Role: {role}");
+        Console.WriteLine($"[Session Debug] HasCookie: {hasSessionCookie}, CookieValue: {(sessionCookie?.Length > 0 ? sessionCookie.Substring(0, Math.Min(20, sessionCookie.Length)) + "..." : "null")}");
+        Console.WriteLine($"[Session Debug] AllCookies: {allCookies}");
+        Console.WriteLine($"[Session Debug] Origin: {context.Request.Headers["Origin"]}, Referer: {context.Request.Headers["Referer"]}");
     }
     await next();
 });
