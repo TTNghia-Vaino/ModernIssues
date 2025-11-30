@@ -346,6 +346,7 @@ namespace ModernIssues.Controllers
                         ImageUrl2 = x.Product.image_url_2,
                         ImageUrl3 = x.Product.image_url_3,
                         Specifications = x.Product.specifications,
+                        Brand = x.Product.brand,
                         OnPrices = x.Product.on_prices ?? 0, // Giá khuyến mãi: 0 = không khuyến mãi, > 0 = có khuyến mãi
                         CategoryName = x.Category != null ? x.Category.category_name ?? "Chưa phân loại" : "Chưa phân loại",
                         IsDisabled = false
@@ -754,6 +755,7 @@ namespace ModernIssues.Controllers
                         WarrantyPeriod = x.Product.warranty_period ?? 0,
                         ImageUrl = x.Product.image_url ?? string.Empty,
                         Specifications = x.Product.specifications,
+                        Brand = x.Product.brand,
                         OnPrices = x.Product.on_prices ?? 0,
                         CategoryName = x.Category != null ? x.Category.category_name ?? "Chưa phân loại" : "Chưa phân loại",
                         IsDisabled = x.IsDisabledValue
