@@ -1233,5 +1233,264 @@ namespace ModernIssues.Controllers
                     new List<string> { ex.Message }));
             }
         }
+
+        // ============================================
+        // UPDATE ORDER STATUS: PUT api/v1/Order/Status/{orderId} (Admin only)
+        // ============================================
+        /// <summary>
+        /// Cập nhật trạng thái đơn hàng. Chỉ dành cho Admin.
+        /// </summary>
+        /// <param name="orderId">ID của đơn hàng cần cập nhật.</param>
+        /// <param name="statusUpdateDto">Thông tin cập nhật trạng thái.</param>
+        /// <response code="200">Cập nhật trạng thái thành công.</response>
+        /// <response code="400">Dữ liệu không hợp lệ.</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền admin.</response>
+        /// <response code="404">Không tìm thấy đơn hàng.</response>
+        [HttpPut("Status/{orderId}")]
+        [ProducesResponseType(typeof(ApiResponse<OrderDto>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        public async Task<IActionResult> UpdateOrderStatus(int orderId, [FromBody] OrderStatusUpdateDto statusUpdateDto)
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            // Kiểm tra quyền admin
+            if (!AuthHelper.IsAdmin(HttpContext))
+            {
+                return StatusCode(403, ApiResponse<object>.ErrorResponse("Chỉ có quyền admin mới được cập nhật trạng thái đơn hàng."));
+            }
+
+            try
+            {
+                if (statusUpdateDto == null || string.IsNullOrWhiteSpace(statusUpdateDto.Status))
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Trạng thái không được để trống."));
+                }
+
+                // Validate trạng thái hợp lệ - chỉ có 3 trạng thái: pending, paid, cancelled
+                var validStatuses = new[] { "pending", "paid", "cancelled" };
+                var statusLower = statusUpdateDto.Status.ToLower().Trim();
+                
+                if (!validStatuses.Contains(statusLower))
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse(
+                        $"Trạng thái không hợp lệ. Các trạng thái hợp lệ: Đang chờ xử lý (pending), Đã thanh toán (paid), Đã hủy (cancelled)"));
+                }
+
+                var adminId = AuthHelper.GetCurrentUserId(HttpContext);
+                if (!adminId.HasValue)
+                {
+                    return Unauthorized(ApiResponse<object>.ErrorResponse("Không thể xác định người dùng hiện tại."));
+                }
+
+                // Tìm đơn hàng
+                var order = await _context.orders
+                    .FirstOrDefaultAsync(o => o.order_id == orderId);
+
+                if (order == null)
+                {
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy đơn hàng với ID: {orderId}."));
+                }
+
+                // Lưu trạng thái cũ để kiểm tra
+                var oldStatus = order.status?.ToLower() ?? "";
+
+                // Cập nhật trạng thái
+                order.status = statusLower;
+                order.updated_at = DateTime.UtcNow;
+                order.updated_by = adminId.Value;
+
+                await _context.SaveChangesAsync();
+
+                // Nếu chuyển sang "paid" và loại thanh toán là COD, trừ stock và bán serial
+                if (statusLower == "paid" && oldStatus != "paid" && order.types == "COD")
+                {
+                    await ProcessStockAndSerialsForOrderAsync(orderId, adminId.Value, order.user_id);
+                }
+
+                // Lấy lại thông tin đơn hàng với đầy đủ thông tin
+                var updatedOrder = await (from o in _context.orders
+                                         join u in _context.users on o.user_id equals u.user_id into userGroup
+                                         from u in userGroup.DefaultIfEmpty()
+                                         where o.order_id == orderId
+                                         select new OrderDto
+                                         {
+                                             OrderId = o.order_id,
+                                             UserId = o.user_id,
+                                             Username = u != null ? u.username : null,
+                                             OrderDate = o.order_date,
+                                             Status = o.status,
+                                             TotalAmount = o.total_amount,
+                                             Types = o.types,
+                                             TypesDisplay = o.types == "COD" ? "Thanh toán khi nhận hàng" :
+                                                           o.types == "Transfer" ? "Chuyển khoản" :
+                                                           o.types == "ATM" ? "Thẻ ATM" : o.types ?? "COD",
+                                             CreatedAt = o.created_at,
+                                             UpdatedAt = o.updated_at,
+                                             CreatedBy = o.created_by,
+                                             UpdatedBy = o.updated_by,
+                                             OrderDetails = _context.order_details
+                                                 .Where(od => od.order_id == o.order_id)
+                                                 .Join(_context.products,
+                                                     od => od.product_id,
+                                                     p => p.product_id,
+                                                     (od, p) => new OrderDetailDto
+                                                     {
+                                                         OrderId = od.order_id,
+                                                         ProductId = od.product_id,
+                                                         ProductName = p.product_name ?? "",
+                                                         Quantity = od.quantity,
+                                                         PriceAtPurchase = od.price_at_purchase,
+                                                         ImageUrl = p.image_url,
+                                                         CreatedAt = od.created_at,
+                                                         UpdatedAt = od.updated_at,
+                                                         CreatedBy = od.created_by,
+                                                         UpdatedBy = od.updated_by
+                                                     })
+                                                 .ToList()
+                                         })
+                                         .FirstOrDefaultAsync();
+
+                if (updatedOrder == null)
+                {
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy đơn hàng với ID: {orderId}."));
+                }
+
+                // Map status display
+                var statusDisplay = statusLower switch
+                {
+                    "pending" => "Đang chờ xử lý",
+                    "paid" => "Đã thanh toán",
+                    "cancelled" => "Đã hủy",
+                    _ => statusLower
+                };
+
+                return Ok(ApiResponse<OrderDto>.SuccessResponse(updatedOrder, 
+                    $"Cập nhật trạng thái đơn hàng thành công. Trạng thái mới: {statusDisplay}"));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] UpdateOrderStatus: {ex.Message}");
+                return StatusCode(500, ApiResponse<object>.ErrorResponse(
+                    "Lỗi hệ thống khi cập nhật trạng thái đơn hàng.",
+                    new List<string> { ex.Message }));
+            }
+        }
+
+        /// <summary>
+        /// Xử lý trừ stock và bán serial cho đơn hàng khi thanh toán thành công (COD)
+        /// </summary>
+        private async Task ProcessStockAndSerialsForOrderAsync(int orderId, int updatedBy, int? userId)
+        {
+            try
+            {
+                // Lấy order_details của đơn hàng
+                var orderDetails = await _context.order_details
+                    .Include(od => od.product)
+                    .Where(od => od.order_id == orderId)
+                    .ToListAsync();
+
+                if (!orderDetails.Any())
+                {
+                    Console.WriteLine($"[ProcessStockAndSerials] No order details found for order {orderId}");
+                    return;
+                }
+
+                // Trừ stock và tạo warranty cho từng sản phẩm
+                foreach (var orderDetail in orderDetails)
+                {
+                    var product = orderDetail.product;
+                    if (product == null)
+                    {
+                        Console.WriteLine($"[ProcessStockAndSerials] Product not found for order detail: order_id={orderId}, product_id={orderDetail.product_id}");
+                        continue;
+                    }
+
+                    // Kiểm tra lại stock trước khi trừ
+                    if (product.stock < orderDetail.quantity)
+                    {
+                        throw new InvalidOperationException(
+                            $"Không đủ số lượng trong kho cho sản phẩm {product.product_name}. " +
+                            $"Cần {orderDetail.quantity} nhưng chỉ còn {product.stock}.");
+                    }
+
+                    // Trừ stock
+                    product.stock -= orderDetail.quantity;
+                    product.updated_at = DateTime.UtcNow;
+
+                    // Tạo warranty và đánh dấu serial đã bán (nếu có warranty_period)
+                    if (product.warranty_period.HasValue && product.warranty_period > 0)
+                    {
+                        var warrantyPeriod = product.warranty_period ?? 0;
+                        var startDate = DateTime.UtcNow;
+                        var endDate = startDate.AddMonths(warrantyPeriod);
+
+                        // Lấy serial numbers có sẵn trong kho
+                        var availableSerials = await _context.product_serials
+                            .Where(ps => ps.product_id == orderDetail.product_id
+                                      && (ps.is_sold == null || ps.is_sold == false)
+                                      && (ps.is_disabled == null || ps.is_disabled == false))
+                            .Take(orderDetail.quantity)
+                            .ToListAsync();
+
+                        // Kiểm tra đủ serial không
+                        if (availableSerials.Count < orderDetail.quantity)
+                        {
+                            throw new InvalidOperationException(
+                                $"Không đủ serial numbers trong kho cho sản phẩm {product.product_name}. " +
+                                $"Cần {orderDetail.quantity} nhưng chỉ có {availableSerials.Count} sản phẩm có serial.");
+                        }
+
+                        // Tạo warranty cho mỗi serial number
+                        var warranties = new List<warranty>();
+                        foreach (var productSerial in availableSerials)
+                        {
+                            var newWarranty = new warranty
+                            {
+                                product_id = orderDetail.product_id,
+                                user_id = userId,
+                                order_id = orderId,
+                                start_date = startDate,
+                                end_date = endDate,
+                                status = "active",
+                                serial_number = productSerial.serial_number,
+                                created_at = DateTime.UtcNow,
+                                updated_at = DateTime.UtcNow,
+                                created_by = updatedBy,
+                                updated_by = updatedBy,
+                                is_disabled = false
+                            };
+
+                            warranties.Add(newWarranty);
+
+                            // Đánh dấu serial đã bán
+                            productSerial.is_sold = true;
+                            productSerial.updated_at = DateTime.UtcNow;
+                            productSerial.updated_by = updatedBy;
+                        }
+
+                        if (warranties.Any())
+                        {
+                            _context.warranties.AddRange(warranties);
+                        }
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                Console.WriteLine($"[ProcessStockAndSerials] Successfully processed stock and serials for order {orderId}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ProcessStockAndSerials] Error processing stock and serials for order {orderId}: {ex.Message}");
+                throw; // Re-throw để caller có thể xử lý
+            }
+        }
     }
 }
