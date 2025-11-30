@@ -203,6 +203,8 @@ app.Use(async (context, next) =>
         throw;
     }
 });
+app.UseWebSockets();
+
 
 // Disable HTTPS redirection - using HTTP only
 // app.UseHttpsRedirection();
