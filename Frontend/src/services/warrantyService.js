@@ -112,7 +112,7 @@ export const createWarranty = async (warrantyData, imageFiles = []) => {
     
     // Use custom fetch for FormData
     const { getApiUrl, getDefaultHeaders } = await import('../config/api');
-    const url = getApiUrl('Warranty/CreateWarranty');
+    const url = getApiUrl('Warranty');
     const headers = getDefaultHeaders();
     // Remove Content-Type header to let browser set it with boundary
     delete headers['Content-Type'];
@@ -132,7 +132,7 @@ export const createWarranty = async (warrantyData, imageFiles = []) => {
     return handleResponse(result);
   } else {
     // No files, use regular JSON POST
-    const response = await apiPost('Warranty/CreateWarranty', warrantyData);
+    const response = await apiPost('Warranty', warrantyData);
     return handleResponse(response);
   }
 };
@@ -170,7 +170,7 @@ export const updateWarranty = async (id, warrantyData, imageFiles = []) => {
     
     // Use custom fetch for FormData
     const { getApiUrl, getDefaultHeaders } = await import('../config/api');
-    const url = getApiUrl(`Warranty/UpdateWarranty/${id}`);
+    const url = getApiUrl(`Warranty/${id}`);
     const headers = getDefaultHeaders();
     // Remove Content-Type header to let browser set it with boundary
     delete headers['Content-Type'];
@@ -190,7 +190,7 @@ export const updateWarranty = async (id, warrantyData, imageFiles = []) => {
     return handleResponse(result);
   } else {
     // No files, use regular JSON PUT
-    const response = await apiPut(`Warranty/UpdateWarranty/${id}`, warrantyData);
+    const response = await apiPut(`Warranty/${id}`, warrantyData);
     return handleResponse(response);
   }
 };
