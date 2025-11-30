@@ -352,7 +352,7 @@ namespace ModernIssues.Controllers
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, [FromServices] IMemoryCache cache)
         {
             var cacheKey = $"TEMP_TOKEN_{request.TempToken}";
-            if (!cache.TryGetValue(cacheKey, out string email))
+            if (!cache.TryGetValue(cacheKey, out string? email))
                 return BadRequest(new { message = "Invalid or expired token." });
 
             var user = await _context.users.FirstOrDefaultAsync(u => u.email == email);

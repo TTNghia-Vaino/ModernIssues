@@ -308,7 +308,8 @@ namespace ModernIssues.Controllers
                 if (period == "day")
                 {
                     reportData = orders
-                        .GroupBy(o => o.order_date.Value.Date)
+                        .Where(o => o.order_date.HasValue)
+                        .GroupBy(o => o.order_date!.Value.Date)
                         .Select(g => new RevenueReportDto
                         {
                             Period = g.Key.ToString("yyyy-MM-dd"),
@@ -322,7 +323,8 @@ namespace ModernIssues.Controllers
                 else if (period == "month")
                 {
                     reportData = orders
-                        .GroupBy(o => new { Year = o.order_date.Value.Year, Month = o.order_date.Value.Month })
+                        .Where(o => o.order_date.HasValue)
+                        .GroupBy(o => new { Year = o.order_date!.Value.Year, Month = o.order_date!.Value.Month })
                         .Select(g => new RevenueReportDto
                         {
                             Period = $"{g.Key.Year}-{g.Key.Month:D2}",
@@ -336,10 +338,11 @@ namespace ModernIssues.Controllers
                 else if (period == "quarter")
                 {
                     reportData = orders
+                        .Where(o => o.order_date.HasValue)
                         .GroupBy(o => new
                         {
-                            Year = o.order_date.Value.Year,
-                            Quarter = (o.order_date.Value.Month - 1) / 3 + 1
+                            Year = o.order_date!.Value.Year,
+                            Quarter = (o.order_date!.Value.Month - 1) / 3 + 1
                         })
                         .Select(g => new RevenueReportDto
                         {
@@ -354,7 +357,8 @@ namespace ModernIssues.Controllers
                 else // year
                 {
                     reportData = orders
-                        .GroupBy(o => o.order_date.Value.Year)
+                        .Where(o => o.order_date.HasValue)
+                        .GroupBy(o => o.order_date!.Value.Year)
                         .Select(g => new RevenueReportDto
                         {
                             Period = g.Key.ToString(),
@@ -1452,11 +1456,11 @@ namespace ModernIssues.Controllers
                         var warranties = new List<warranty>();
                         foreach (var productSerial in availableSerials)
                         {
-                            var newWarranty = new warranty
-                            {
-                                product_id = orderDetail.product_id,
-                                user_id = userId,
-                                order_id = orderId,
+                        var newWarranty = new warranty
+                        {
+                            product_id = orderDetail.product_id,
+                            user_id = userId ?? 0, // Default to 0 if null
+                            order_id = orderId,
                                 start_date = startDate,
                                 end_date = endDate,
                                 status = "active",
