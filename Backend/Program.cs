@@ -143,6 +143,10 @@ ApiResponse<object>.SetHttpContextAccessor(httpContextAccessor);
 //    app.UseSwaggerUI();
 //}
 
+app.UseRouting();
+
+
+
 // UseSession must be before UseCors
 app.UseSession();
 
@@ -196,6 +200,8 @@ app.Use(async (context, next) =>
         throw;
     }
 });
+app.UseWebSockets();
+
 
 // Disable HTTPS redirection - using HTTP only
 // app.UseHttpsRedirection();
@@ -213,4 +219,4 @@ app.MapHub<PaymentHub>("/paymentHub");
 
 app.MapControllers();
 
-app.Run();
+app.Run("http://0.0.0.0:5000");
