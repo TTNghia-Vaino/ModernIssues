@@ -144,11 +144,8 @@ ApiResponse<object>.SetHttpContextAccessor(httpContextAccessor);
 //}
 
 app.UseRouting();
-app.UseRouting();
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapHub<PaymentHub>("/paymentHub");
-});
+
+
 
 // UseSession must be before UseCors
 app.UseSession();
