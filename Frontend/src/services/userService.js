@@ -71,6 +71,7 @@ export const registerWithAvatar = async (userData, avatarFile = null) => {
   const response = await fetch(url, {
     method: 'POST',
     headers,
+    credentials: 'include', // IMPORTANT: Send cookies/session for authentication
     body
   });
   
@@ -365,6 +366,7 @@ export const uploadUserAvatar = async (userId, imageFile) => {
   const response = await fetch(url, {
     method: 'POST',
     headers,
+    credentials: 'include', // IMPORTANT: Send cookies/session for authentication
     body: formData
   });
   
@@ -448,6 +450,7 @@ export const uploadCurrentUserAvatar = async (imageFile) => {
   const response = await fetch(url, {
     method: 'POST',
     headers,
+    credentials: 'include', // IMPORTANT: Send cookies/session for authentication
     body: formData
   });
   
@@ -912,6 +915,7 @@ export const updateUserProfile = async (userId, userData, avatarFile = null) => 
   const response = await fetch(url, {
     method: 'PUT',
     headers,
+    credentials: 'include', // IMPORTANT: Send cookies/session for authentication
     body
   });
   

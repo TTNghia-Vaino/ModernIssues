@@ -120,6 +120,7 @@ export const createWarranty = async (warrantyData, imageFiles = []) => {
     const response = await fetch(url, {
       method: 'POST',
       headers,
+      credentials: 'include', // IMPORTANT: Send cookies/session for authentication
       body: formData
     });
     
@@ -178,6 +179,7 @@ export const updateWarranty = async (id, warrantyData, imageFiles = []) => {
     const response = await fetch(url, {
       method: 'PUT',
       headers,
+      credentials: 'include', // IMPORTANT: Send cookies/session for authentication
       body: formData
     });
     
@@ -255,6 +257,7 @@ export const uploadWarrantyImages = async (imageFiles) => {
   const response = await fetch(url, {
     method: 'POST',
     headers,
+    credentials: 'include', // IMPORTANT: Send cookies/session for authentication
     body: formData
   });
 

@@ -283,6 +283,7 @@ export const createProduct = async (productData, imageFile = null) => {
   const response = await fetch(url, {
     method: 'POST',
     headers,
+    credentials: 'include', // IMPORTANT: Send cookies/session for authentication
     body: formData
   });
   
@@ -431,6 +432,7 @@ export const updateProduct = async (id, productData, imageFile = null) => {
   const response = await fetch(url, {
     method: 'PUT',
     headers,
+    credentials: 'include', // IMPORTANT: Send cookies/session for authentication
     body: formData
   });
   

@@ -527,6 +527,7 @@ export const createPromotion = async (promotionData, bannerFile = null) => {
     const response = await fetch(url, {
       method: 'POST',
       headers,
+      credentials: 'include', // IMPORTANT: Send cookies/session for authentication
       body: formData
     });
     
@@ -668,6 +669,7 @@ export const updatePromotion = async (id, promotionData, bannerFile = null) => {
     const response = await fetch(url, {
       method: 'PUT',
       headers,
+      credentials: 'include', // IMPORTANT: Send cookies/session for authentication
       body: formData
     });
     
@@ -744,6 +746,7 @@ export const togglePromotion = async (id) => {
     const response = await fetch(url, {
       method: 'PUT',
       headers,
+      credentials: 'include', // IMPORTANT: Send cookies/session for authentication
     });
     
     if (!response.ok) {

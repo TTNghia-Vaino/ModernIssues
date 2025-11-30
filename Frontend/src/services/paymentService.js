@@ -103,6 +103,7 @@ export const generateQr = async (amount, gencode) => {
     const response = await fetch(fullUrl, {
       method: 'GET',
       headers: getDefaultHeaders(),
+      credentials: 'include', // IMPORTANT: Send cookies/session for authentication
     });
     
     console.log(`[PaymentService] Response status: ${response.status} ${response.statusText}`);
