@@ -1,0 +1,82 @@
+﻿
+
+# Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code settings
+.vscode/
+.history/
+*.code-workspace
+.vs
+
+# Build output
+*.dll
+*.exe
+*.app
+*.appx
+*.cache
+*.pdb
+
+# Rider
+.idea/
+
+# ASP.NET Core
+appsettings.Development.json
+appsettings.*.json
+
+# Publish output
+publish/
+dist/
+wwwroot/lib/
+
+# NuGet packages
+*.nupkg
+*.snupkg
+*.nuspec
+# Package restore
+**/packages/*
+!**/packages/build/
+!**/packages/repositories.config
+
+# Logs and database
+*.log
+*.db
+*.mdf
+*.ldf
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.vspscc
+*.vssscc
+.vs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Test results
+TestResults/
+*.coverage
+*.coveragexml
+
+# Secrets / Tokens
+secrets.json
+.env
+.env.*
+
+# JetBrains Rider
+.idea/
+
