@@ -71,13 +71,29 @@ const ProductMenu = ({ title = 'DANH MỤC SẢN PHẨM', categories: propCatego
       setCategories(propCategories);
       return;
     }
+    
+    // Force use DEFAULT_CATEGORIES to ensure consistent UI across environments
+    // This ensures the same code displays the same categories in local and production
+    // If you want to use API categories, uncomment the code below and comment out the DEFAULT_CATEGORIES line
+    setCategories(DEFAULT_CATEGORIES);
+    
+    /* 
+    // Uncomment below to use API categories instead of DEFAULT_CATEGORIES
     // Use categories from context instead of direct API call
     if (apiCategories && Array.isArray(apiCategories) && apiCategories.length > 0) {
       const transformed = transformCategories(apiCategories);
       if (transformed?.length > 0) {
+        console.log('[ProductMenu] Using categories from API:', transformed.length);
         setCategories(transformed);
+      } else {
+        console.log('[ProductMenu] API categories transformed to empty, using DEFAULT_CATEGORIES');
+        setCategories(DEFAULT_CATEGORIES);
       }
+    } else {
+      console.log('[ProductMenu] No API categories available, using DEFAULT_CATEGORIES');
+      setCategories(DEFAULT_CATEGORIES);
     }
+    */
   }, [propCategories, apiCategories]);
 
   const ITEM_TO_PRODUCT_ID = { 'Laptop Gaming X': 'p1', 'Chuột Pro M1': 'p2', 'SSD NVMe 1TB': 'p3', 'RAM 16GB DDR4': 'p4' };

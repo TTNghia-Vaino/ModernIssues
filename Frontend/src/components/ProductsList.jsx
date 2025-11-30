@@ -191,15 +191,41 @@ const ProductsList = () => {
           status: apiError.status,
           data: apiError.data
         });
+        
+        // Nếu là lỗi 500 từ Backend, hiển thị thông báo lỗi
+        if (apiError.status === 500) {
+          console.error('[ProductsList] Backend server error (500). Please check backend logs.');
+          // Vẫn thử fallback để hiển thị products từ cache nếu có
+        }
+        
         // Fallback to localStorage
         const savedProducts = localStorage.getItem('adminProducts');
         if (savedProducts) {
-          const allProducts = JSON.parse(savedProducts);
-          const activeProducts = allProducts.filter(p => {
-            const isNotDisabled = p.isDisabled !== true && p.isDisabled !== 'true';
-            return (p.status === 'active' || p.status !== 'disabled') && isNotDisabled;
-          });
-          setProducts(activeProducts);
+          try {
+            const allProducts = JSON.parse(savedProducts);
+            const activeProducts = allProducts.filter(p => {
+              const isNotDisabled = p.isDisabled !== true && p.isDisabled !== 'true';
+              return (p.status === 'active' || p.status !== 'disabled') && isNotDisabled;
+            });
+            
+            // Nếu có search query, filter theo query
+            if (activeSearchQuery && activeSearchQuery.trim()) {
+              const searchLower = activeSearchQuery.toLowerCase();
+              const filtered = activeProducts.filter(p => 
+                (p.name && p.name.toLowerCase().includes(searchLower)) ||
+                (p.productName && p.productName.toLowerCase().includes(searchLower)) ||
+                (p.description && p.description.toLowerCase().includes(searchLower))
+              );
+              setProducts(filtered);
+            } else {
+              setProducts(activeProducts);
+            }
+          } catch (parseError) {
+            console.error('[ProductsList] Failed to parse localStorage products:', parseError);
+            setProducts([]);
+          }
+        } else {
+          setProducts([]);
         }
       }
     } catch (error) {
@@ -235,13 +261,32 @@ const ProductsList = () => {
   const urlParams = useMemo(() => new URLSearchParams(search), [search]);
   const hasUrlQuery = urlParams.get('q');
   const filtered = useMemo(() => {
-    if (hasUrlQuery && !brand && !category && !maxPrice) {
-      // Chỉ có query từ URL, không có filter khác -> dùng products trực tiếp (API đã filter)
-      return products;
+    console.log('[ProductsList] Filtering products:', {
+      productsCount: products.length,
+      hasUrlQuery: !!hasUrlQuery,
+      q,
+      brand,
+      category,
+      maxPrice
+    });
+    
+    // Nếu có query từ URL, API đã filter rồi, chỉ cần filter theo brand/category/maxPrice nếu có
+    if (hasUrlQuery) {
+      // API đã filter theo q rồi, chỉ filter theo brand/category/maxPrice
+      const filteredByFilters = products.filter(p => (
+        (!brand || p.brand === brand) &&
+        (!category || p.category === category) &&
+        (maxPrice === undefined || maxPrice === '' || p.price <= Number(maxPrice))
+      ));
+      console.log('[ProductsList] Filtered by filters (hasUrlQuery):', filteredByFilters.length);
+      return filteredByFilters;
     }
-    // Có filter khác hoặc không có query từ URL -> filter client-side
-    return searchProducts({ q, brand, category, maxPrice, hasUrlQuery: !!hasUrlQuery });
-  }, [products, q, brand, category, maxPrice, search]);
+    
+    // Không có query từ URL -> filter client-side theo tất cả criteria
+    const filtered = searchProducts({ q, brand, category, maxPrice, hasUrlQuery: false });
+    console.log('[ProductsList] Filtered client-side (noUrlQuery):', filtered.length);
+    return filtered;
+  }, [products, q, brand, category, maxPrice, search, hasUrlQuery]);
 
   const handleProductClick = (productId) => {
     // Scroll to top immediately before navigation
@@ -308,7 +353,25 @@ const ProductsList = () => {
             ))
           ) : (
             <div style={{gridColumn:'1 / -1', textAlign:'center', padding:'40px', color:'#6b7280'}}>
-              Không tìm thấy sản phẩm nào. Vui lòng thêm sản phẩm từ trang Admin.
+              {loading ? (
+                <div>
+                  <p>Đang tải sản phẩm...</p>
+                </div>
+              ) : (
+                <div>
+                  <p style={{fontSize: '18px', marginBottom: '10px'}}>Không tìm thấy sản phẩm nào.</p>
+                  {hasUrlQuery && (
+                    <p style={{fontSize: '14px', color: '#9ca3af'}}>
+                      Có thể do lỗi Backend API (500). Vui lòng thử lại sau hoặc liên hệ admin.
+                    </p>
+                  )}
+                  {!hasUrlQuery && (
+                    <p style={{fontSize: '14px', color: '#9ca3af'}}>
+                      Vui lòng thêm sản phẩm từ trang Admin.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </section>
