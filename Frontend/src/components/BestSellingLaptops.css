@@ -333,7 +333,8 @@
 }
 
 /* ===== LAPTOP IMAGE ===== */
-.laptop-image-wrapper {
+/* ProductCard uses .product-image-wrapper and .product-image */
+.laptop-card .product-image-wrapper {
   position: relative;
   width: 100%;
   aspect-ratio: 1;
@@ -344,20 +345,24 @@
   justify-content: center;
 }
 
-.laptop-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 10px;
-  transition: transform 0.3s ease;
+.laptop-card .product-image {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  padding: 10px !important;
+  transition: transform 0.3s ease !important;
+  border: none !important;
+  border-radius: 0 !important;
+  flex-shrink: unset !important;
 }
 
-.laptop-card:hover .laptop-image {
+.laptop-card:hover .product-image {
   transform: scale(1.05);
 }
 
 /* ===== LAPTOP SPECS ===== */
-.laptop-specs {
+/* ProductCard uses .product-card-specs */
+.laptop-card .product-card-specs {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -365,7 +370,7 @@
   min-height: 0; /* Allow shrinking */
 }
 
-.spec-item {
+.laptop-card .spec-item {
   background: #f0f4ff;
   color: #333;
   padding: 3px 8px;
@@ -423,8 +428,8 @@
   font-weight: 600;
 }
 
-/* Product Info */
-.laptop-info {
+/* Product Info - Match ProductCard structure */
+.laptop-card .product-info {
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -435,7 +440,7 @@
   position: relative; /* Ensure proper positioning */
 }
 
-.laptop-name {
+.laptop-card .product-name {
   font-size: 13px;
   font-weight: 600;
   color: #333;
@@ -451,14 +456,14 @@
 }
 
 /* Brand Tag */
-.laptop-brand {
+.laptop-card .product-brand {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   flex-shrink: 1; /* Allow brand to shrink if needed */
 }
 
-.brand-tag {
+.laptop-card .brand-tag {
   background: #f0f4ff;
   color: #00a651;
   padding: 3px 8px;
@@ -469,7 +474,7 @@
 }
 
 /* Product Prices - Vertical Layout */
-.laptop-price-section {
+.laptop-card .product-price-section {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -481,7 +486,7 @@
   overflow: visible; /* Ensure price text is not clipped */
 }
 
-.current-price {
+.laptop-card .current-price {
   font-size: 12px;
   font-weight: 700;
   color: #0a804a;
@@ -489,7 +494,7 @@
   overflow: visible; /* Ensure full price is visible */
 }
 
-.original-price {
+.laptop-card .original-price {
   font-size: 10px;
   text-decoration: line-through;
   color: #999;
@@ -503,28 +508,28 @@
     grid-template-columns: repeat(4, 1fr);
   }
 
-  .laptop-info {
+  .laptop-card .product-info {
     padding: 10px;
     gap: 6px;
   }
 
-  .laptop-name {
+  .laptop-card .product-name {
     font-size: 12px;
     min-height: 30px;
     -webkit-line-clamp: 2;
     line-clamp: 2;
   }
 
-  .laptop-price-section {
+  .laptop-card .product-price-section {
     margin-top: 6px;
     padding-top: 4px;
   }
 
-  .current-price {
+  .laptop-card .current-price {
     font-size: 11px;
   }
 
-  .original-price {
+  .laptop-card .original-price {
     font-size: 9px;
   }
 }
@@ -535,37 +540,37 @@
     gap: 12px;
   }
 
-  .laptop-info {
+  .laptop-card .product-info {
     padding: 8px;
     gap: 5px;
   }
 
-  .laptop-name {
+  .laptop-card .product-name {
     font-size: 11px;
     min-height: 28px;
     -webkit-line-clamp: 2;
     line-clamp: 2;
   }
 
-  .laptop-specs {
+  .laptop-card .product-card-specs {
     gap: 4px;
   }
 
-  .spec-item {
+  .laptop-card .spec-item {
     font-size: 10px;
     padding: 2px 6px;
   }
 
-  .laptop-price-section {
+  .laptop-card .product-price-section {
     margin-top: 4px;
     padding-top: 4px;
   }
 
-  .current-price {
+  .laptop-card .current-price {
     font-size: 11px;
   }
 
-  .original-price {
+  .laptop-card .original-price {
     font-size: 9px;
   }
 }
@@ -576,36 +581,36 @@
     gap: 12px;
   }
 
-  .laptop-info {
+  .laptop-card .product-info {
     padding: 10px;
     gap: 6px;
     overflow: visible; /* Ensure price is visible */
   }
 
-  .laptop-name {
+  .laptop-card .product-name {
     font-size: 12px;
     min-height: 30px;
     -webkit-line-clamp: 2;
     line-clamp: 2;
   }
 
-  .laptop-specs {
+  .laptop-card .product-card-specs {
     max-height: none; /* Remove any height restrictions */
     flex-wrap: wrap; /* Allow specs to wrap */
   }
 
-  .laptop-price-section {
+  .laptop-card .product-price-section {
     margin-top: 6px;
     padding-top: 4px;
     flex-shrink: 0; /* Ensure price section doesn't shrink */
   }
 
-  .current-price {
+  .laptop-card .current-price {
     font-size: 11px;
     white-space: nowrap;
   }
 
-  .original-price {
+  .laptop-card .original-price {
     font-size: 9px;
     white-space: nowrap;
   }
@@ -626,42 +631,42 @@
     gap: 12px;
   }
 
-  .laptop-info {
+  .laptop-card .product-info {
     padding: 10px;
     gap: 6px;
     overflow: visible;
   }
 
-  .laptop-name {
+  .laptop-card .product-name {
     font-size: 11px;
     min-height: 30px;
     -webkit-line-clamp: 2;
     line-clamp: 2;
   }
 
-  .laptop-specs {
+  .laptop-card .product-card-specs {
     gap: 4px;
     flex-wrap: wrap;
     max-height: none;
   }
 
-  .spec-item {
+  .laptop-card .spec-item {
     font-size: 10px;
     padding: 2px 6px;
   }
 
-  .laptop-price-section {
+  .laptop-card .product-price-section {
     margin-top: 6px;
     padding-top: 4px;
     flex-shrink: 0;
   }
 
-  .current-price {
+  .laptop-card .current-price {
     font-size: 11px;
     white-space: nowrap;
   }
 
-  .original-price {
+  .laptop-card .original-price {
     font-size: 9px;
     white-space: nowrap;
   }
@@ -683,42 +688,42 @@
     gap: 10px;
   }
 
-  .laptop-info {
+  .laptop-card .product-info {
     padding: 8px;
     gap: 4px;
     overflow: visible; /* Ensure price is visible */
   }
 
-  .laptop-name {
+  .laptop-card .product-name {
     font-size: 10px;
     min-height: 28px;
     -webkit-line-clamp: 2;
     line-clamp: 2;
   }
 
-  .laptop-specs {
+  .laptop-card .product-card-specs {
     gap: 3px;
     flex-wrap: wrap;
     max-height: none;
   }
 
-  .spec-item {
+  .laptop-card .spec-item {
     font-size: 9px;
     padding: 2px 5px;
   }
 
-  .laptop-price-section {
+  .laptop-card .product-price-section {
     margin-top: 4px;
     padding-top: 4px;
     flex-shrink: 0; /* Critical: prevent price from being cut off */
   }
 
-  .current-price {
+  .laptop-card .current-price {
     font-size: 10px;
     white-space: nowrap;
   }
 
-  .original-price {
+  .laptop-card .original-price {
     font-size: 8px;
     white-space: nowrap;
   }

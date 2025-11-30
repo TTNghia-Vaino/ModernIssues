@@ -3,11 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as productService from '../services/productService';
 import { transformProducts } from '../utils/productUtils';
-import { handleProductImageError, getPlaceholderImage } from '../utils/imageUtils';
+import ProductCard from './ProductCard';
 import './ProductsList.css';
 
-const formatPrice = v => v.toLocaleString('vi-VN') + '₫';
-const placeholderImage = getPlaceholderImage('product');
 
 const ProductsList = () => {
   const { search } = useLocation();
@@ -301,26 +299,12 @@ const ProductsList = () => {
         <section className="products-grid-section">
           {filtered.length > 0 ? (
             filtered.map(p => (
-              <div 
-                key={p.id} 
-                onClick={() => handleProductClick(p.id)}
-                className="product-card"
-                style={{border:'1px solid #eee', borderRadius:'8px', padding:'12px', cursor:'pointer', color:'#2c3e50', transition:'box-shadow 0.2s'}}
-                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'}
-                onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
-              >
-                <div style={{height:220, background:'#f7f7f7', borderRadius:6, marginBottom:8, overflow:'hidden', width: '100%', flexShrink: 0}}>
-                  <img 
-                    src={p.image || placeholderImage} 
-                    alt={p.name} 
-                    style={{width:'100%', height:'100%', objectFit:'cover'}}
-                    onError={handleProductImageError}
-                  />
-                </div>
-                <div style={{fontSize:16, fontWeight:600, marginBottom: '8px', lineHeight: '1.5'}}>{p.name}</div>
-                <div style={{fontSize:18, color:'#0a804a', fontWeight:700, marginBottom: '6px'}}>{formatPrice(p.price || p.salePrice || 0)}</div>
-                <div style={{fontSize:13, color:'#6b7280'}}>{p.brand ? `${p.brand} · ` : ''}{p.category}</div>
-              </div>
+              <ProductCard
+                key={p.id}
+                product={p}
+                onClick={handleProductClick}
+                variant="default"
+              />
             ))
           ) : (
             <div style={{gridColumn:'1 / -1', textAlign:'center', padding:'40px', color:'#6b7280'}}>
