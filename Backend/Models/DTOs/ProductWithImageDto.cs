@@ -24,5 +24,9 @@ namespace ModernIssues.Models.DTOs
         /// Format: "RAM<bold>: 36GB ; CPU<bold>: Chip intel core i3 8 nhân"
         /// </summary>
         public string? Specifications { get; set; }
+        /// <summary>
+        /// Thương hiệu của sản phẩm
+        /// </summary>
+        public string? Brand { get; set; }
     }
 }

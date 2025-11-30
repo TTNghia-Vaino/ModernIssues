@@ -30,6 +30,9 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IHooksService, HooksService>();
 builder.Services.AddScoped<ITwoFactorAuthService, TwoFactorAuthService>();
 builder.Services.AddScoped<ILogService, LogService>();
+
+// Add HttpClient for EmbeddingService
+builder.Services.AddHttpClient<ModernIssues.Services.IEmbeddingService, ModernIssues.Services.EmbeddingService>();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {

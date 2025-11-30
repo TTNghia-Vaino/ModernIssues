@@ -228,7 +228,8 @@ namespace ModernIssues.Controllers
                     ImageUrl = imageUrlToUse,
                     ImageUrl2 = imageUrl2ToUse,
                     ImageUrl3 = imageUrl3ToUse,
-                    Specifications = productData.Specifications?.Trim()
+                    Specifications = productData.Specifications?.Trim(),
+                    Brand = productData.Brand?.Trim()
                 };
                 
                 Console.WriteLine($"[ProductController.CreateProduct] Creating product: {product.ProductName}, ImageUrl: {imageUrlToUse}");
@@ -639,7 +640,8 @@ namespace ModernIssues.Controllers
                     ImageUrl = imageUrlToUse,
                     ImageUrl2 = imageUrl2ToUse,
                     ImageUrl3 = imageUrl3ToUse,
-                    Specifications = productData.Specifications?.Trim()
+                    Specifications = productData.Specifications?.Trim(),
+                    Brand = productData.Brand?.Trim()
                 };
                 
                 Console.WriteLine($"[ProductController.UpdateProduct] Updating product ID: {id}, ImageUrl: {imageUrlToUse}");

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Repositories.Service;
 using ModernIssues.Models.Entities;
+using ModernIssues.Services;
 
 namespace ModernIssues.Repositories
 {
@@ -13,10 +14,14 @@ namespace ModernIssues.Repositories
     public class ProductService : IProductService
     {
         private readonly IProductRepository _productRepository;
+        private readonly IEmbeddingService _embeddingService;
+        private readonly ILogger<ProductService> _logger;
 
-        public ProductService(IProductRepository productRepository)
+        public ProductService(IProductRepository productRepository, IEmbeddingService embeddingService, ILogger<ProductService> logger)
         {
             _productRepository = productRepository;
+            _embeddingService = embeddingService;
+            _logger = logger;
         }
 
         // === CREATE ===
@@ -28,7 +33,25 @@ namespace ModernIssues.Repositories
             }
 
             // Gọi Repository với ProductCreateUpdateDto
-            return await _productRepository.CreateAsync(product, adminId);
+            var createdProduct = await _productRepository.CreateAsync(product, adminId);
+
+            // Tạo embedding cho sản phẩm mới (fire-and-forget, không block luồng chính)
+            if (createdProduct != null && createdProduct.ProductId > 0 && !string.IsNullOrWhiteSpace(product.Description))
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _embeddingService.CreateEmbeddingAsync(createdProduct.ProductId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"[ProductService] Error creating embedding for product {createdProduct.ProductId}: {ex.Message}");
+                    }
+                });
+            }
+
+            return createdProduct;
         }
 
         // === READ ONE ===
@@ -68,7 +91,25 @@ namespace ModernIssues.Repositories
             }
 
             // Gọi Repository với ProductCreateUpdateDto
-            return await _productRepository.UpdateAsync(productId, product, adminId);
+            var updatedProduct = await _productRepository.UpdateAsync(productId, product, adminId);
+
+            // Cập nhật embedding cho sản phẩm (fire-and-forget, không block luồng chính)
+            if (updatedProduct != null && updatedProduct.ProductId > 0 && !string.IsNullOrWhiteSpace(product.Description))
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _embeddingService.CreateEmbeddingAsync(updatedProduct.ProductId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"[ProductService] Error updating embedding for product {updatedProduct.ProductId}: {ex.Message}");
+                    }
+                });
+            }
+
+            return updatedProduct;
         }
 
         // === DELETE (Soft Delete) ===
