@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { generateQr } from '../services/paymentService';
 import { signalRService } from '../services/signalRService';
 import { useNotification } from '../context/NotificationContext';
+import * as orderService from '../services/orderService';
+import * as paymentCacheService from '../services/paymentCacheService';
+import { cancelOrder as cancelExpiredOrder } from '../services/paymentExpiryService';
 import './QRPaymentPage.css';
 
 const formatPrice = (price) => price.toLocaleString('vi-VN') + '₫';
 
 const QRPaymentPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { success } = useNotification();
   const [orderData, setOrderData] = useState(null);
   const [qrCodeUrl, setQrCodeUrl] = useState(null);
@@ -17,37 +21,235 @@ const QRPaymentPage = () => {
   const [paymentStatus, setPaymentStatus] = useState('pending'); // pending, success, failed
 
   useEffect(() => {
-    // Get order data from localStorage
-    const savedOrder = localStorage.getItem('pendingOrder');
-    if (savedOrder) {
+    const loadOrderData = async () => {
       try {
-        const order = JSON.parse(savedOrder);
-        setOrderData(order);
-        console.log('[QRPaymentPage] Loaded order data:', order);
+        setLoading(true);
+        const orderId = searchParams.get('orderId');
         
-        // Backend Checkout API now returns qrUrl directly in the response
-        // Use qrUrl from order data if available
-        const qrUrlFromOrder = order.qrUrl || order.qrCodeUrl;
-        
-        if (qrUrlFromOrder) {
-          console.log('[QRPaymentPage] Using QR URL from checkout response:', qrUrlFromOrder);
-          setQrCodeUrl(qrUrlFromOrder);
-          setLoading(false);
-        } else {
-          console.log('[QRPaymentPage] No QR URL in order data, will fetch from API');
-          setLoading(true);
+        // Nếu có orderId, thử load từ cache trước
+        if (orderId) {
+          // Kiểm tra cache có còn hạn không
+          const hasValidCache = paymentCacheService.hasValidCache(orderId);
+          
+          if (!hasValidCache) {
+            // Cache đã hết hạn, hủy đơn hàng hiện tại
+            console.log('[QRPaymentPage] Cache expired for order:', orderId);
+            try {
+              await cancelExpiredOrder(orderId);
+              setError('Đơn hàng đã hết hạn thanh toán (quá 30 phút). Đơn hàng đã được tự động hủy.');
+              setTimeout(() => {
+                navigate('/orders');
+              }, 3000);
+              return;
+            } catch (cancelError) {
+              console.error('[QRPaymentPage] Error cancelling expired order:', cancelError);
+              setError('Đơn hàng đã hết hạn thanh toán. Vui lòng kiểm tra trạng thái đơn hàng.');
+              setTimeout(() => {
+                navigate('/orders');
+              }, 3000);
+              return;
+            }
+          }
+          
+          const cachedData = paymentCacheService.getPaymentCache(orderId);
+          if (cachedData) {
+            console.log('[QRPaymentPage] Loaded order data from cache:', orderId);
+            setOrderData(cachedData);
+            
+            // Kiểm tra thời gian còn lại
+            const timeRemaining = paymentCacheService.getCacheTimeRemaining(orderId);
+            const minutesRemaining = Math.floor(timeRemaining / 60000);
+            console.log(`[QRPaymentPage] Cache time remaining: ${minutesRemaining} minutes`);
+            
+            // Use qrUrl from cached order data if available
+            const qrUrlFromOrder = cachedData.qrUrl || cachedData.qrCodeUrl;
+            if (qrUrlFromOrder) {
+              console.log('[QRPaymentPage] Using QR URL from cache:', qrUrlFromOrder);
+              setQrCodeUrl(qrUrlFromOrder);
+              setLoading(false);
+              return;
+            } else if (cachedData.totalAmount && cachedData.totalAmount > 0) {
+              // Generate QR code if not available in cache
+              const gencodeToUse = cachedData.gencode || String(orderId);
+              try {
+                const amount = Number(cachedData.totalAmount);
+                if (!isNaN(amount) && amount > 0 && gencodeToUse) {
+                  const qrData = await generateQr(amount, gencodeToUse);
+                  setQrCodeUrl(qrData.qrCode || qrData.imageUrl || qrData.base64 || qrData);
+                  setLoading(false);
+                  return;
+                }
+              } catch (qrError) {
+                console.error('[QRPaymentPage] Error generating QR from cache:', qrError);
+                // Fall through to API load
+              }
+            }
+          }
         }
-      } catch (error) {
-        console.error('[QRPaymentPage] Error parsing order data:', error);
-        setError('Lỗi khi tải thông tin đơn hàng.');
-        navigate('/checkout');
+        
+        // If orderId is provided in URL, load from API
+        if (orderId) {
+          console.log('[QRPaymentPage] Loading order from API with orderId:', orderId);
+          const apiResponse = await orderService.getOrderById(orderId);
+          
+          console.log('[QRPaymentPage] Raw API response:', JSON.stringify(apiResponse, null, 2));
+          
+          // Handle nested response format: { order: {...}, order_details: [...] }
+          // Or flat format: { order_id, status, total_amount, types, ... }
+          let orderDetails = apiResponse;
+          if (apiResponse && typeof apiResponse === 'object' && apiResponse.order) {
+            // Nested format: extract order object
+            orderDetails = apiResponse.order;
+            console.log('[QRPaymentPage] Using nested order object:', orderDetails);
+          } else {
+            console.log('[QRPaymentPage] Using flat response format');
+          }
+          
+          console.log('[QRPaymentPage] Order details after extraction:', orderDetails);
+          console.log('[QRPaymentPage] All keys in orderDetails:', Object.keys(orderDetails || {}));
+          
+          // Check if order is pending and payment method requires QR
+          const orderStatus = orderDetails.status || orderDetails.order_status;
+          const paymentType = orderDetails.types || orderDetails.paymentType || orderDetails.payment_type;
+          
+          console.log('[QRPaymentPage] Order status:', orderStatus, 'Payment type:', paymentType);
+          
+          if (orderStatus && orderStatus.toLowerCase() !== 'pending') {
+            setError('Đơn hàng này không còn ở trạng thái chờ thanh toán.');
+            navigate('/orders');
+            return;
+          }
+          
+          if (paymentType && paymentType !== 'Transfer' && paymentType !== 'ATM' && 
+              paymentType.toLowerCase() !== 'transfer' && paymentType.toLowerCase() !== 'atm') {
+            setError('Đơn hàng này không sử dụng phương thức thanh toán QR.');
+            navigate('/orders');
+            return;
+          }
+          
+          // Extract order ID
+          const extractedOrderId = orderDetails.order_id || orderDetails.orderId || orderId;
+          
+          // Prepare order data - try all possible field names
+          const order = {
+            orderId: extractedOrderId,
+            totalPrice: orderDetails.total_amount || orderDetails.totalAmount || orderDetails.total || 0,
+            totalAmount: orderDetails.total_amount || orderDetails.totalAmount || orderDetails.total || 0,
+            status: orderDetails.status || orderDetails.order_status || 'pending',
+            paymentType: orderDetails.types || orderDetails.paymentType || orderDetails.payment_type || 'Transfer',
+            paymentTypeDisplay: orderDetails.types_display || orderDetails.typesDisplay || 'Chuyển khoản',
+            qrUrl: orderDetails.qrUrl || orderDetails.qrCodeUrl || orderDetails.qr_code_url || orderDetails.qr_url,
+            // Try to get gencode from various sources, fallback to orderId if not found
+            gencode: orderDetails.gencode || orderDetails.genCode || orderDetails.gen_code || orderDetails.gencode_value || 
+                     String(extractedOrderId), // Use orderId as fallback for gencode
+            orderDate: orderDetails.order_date || orderDetails.orderDate,
+            items: apiResponse.order_details || orderDetails.order_details || orderDetails.orderDetails || orderDetails.items || []
+          };
+          
+          console.log('[QRPaymentPage] Prepared order data:', order);
+          console.log('[QRPaymentPage] QR URL:', order.qrUrl);
+          console.log('[QRPaymentPage] Gencode:', order.gencode);
+          console.log('[QRPaymentPage] Total Amount:', order.totalAmount);
+          console.log('[QRPaymentPage] Order ID:', order.orderId);
+          
+          setOrderData(order);
+          console.log('[QRPaymentPage] Loaded order data from API:', order);
+          
+          // Use qrUrl from order data if available
+          const qrUrlFromOrder = order.qrUrl || order.qrCodeUrl;
+          if (qrUrlFromOrder) {
+            console.log('[QRPaymentPage] Using QR URL from order:', qrUrlFromOrder);
+            setQrCodeUrl(qrUrlFromOrder);
+            setLoading(false);
+          } else if (order.totalAmount && order.totalAmount > 0) {
+            // Generate QR code if not available
+            // Use gencode if available, otherwise use orderId
+            const gencodeToUse = order.gencode || String(order.orderId);
+            
+            console.log('[QRPaymentPage] Generating QR code with:', {
+              amount: order.totalAmount,
+              gencode: gencodeToUse,
+              amountType: typeof order.totalAmount,
+              gencodeType: typeof gencodeToUse
+            });
+            
+            try {
+              // Ensure amount is a valid number
+              const amount = Number(order.totalAmount);
+              if (isNaN(amount) || amount <= 0) {
+                throw new Error(`Invalid amount: ${order.totalAmount}`);
+              }
+              
+              // Ensure gencode is valid
+              if (!gencodeToUse || String(gencodeToUse).trim() === '') {
+                throw new Error(`Invalid gencode: ${gencodeToUse}`);
+              }
+              
+              console.log('[QRPaymentPage] Calling generateQr with:', { amount, gencode: gencodeToUse });
+              const qrData = await generateQr(amount, gencodeToUse);
+              console.log('[QRPaymentPage] QR code generated successfully:', qrData);
+              setQrCodeUrl(qrData.qrCode || qrData.imageUrl || qrData.base64 || qrData);
+              setLoading(false);
+            } catch (qrError) {
+              console.error('[QRPaymentPage] Error generating QR:', qrError);
+              console.error('[QRPaymentPage] QR Error details:', {
+                message: qrError.message,
+                stack: qrError.stack,
+                amount: order.totalAmount,
+                gencode: gencodeToUse
+              });
+              setError(`Không thể tạo mã QR: ${qrError.message || 'Vui lòng thử lại.'}`);
+            }
+          } else {
+            console.error('[QRPaymentPage] Missing required data for QR:', {
+              hasGencode: !!order.gencode,
+              hasTotalAmount: !!order.totalAmount,
+              totalAmount: order.totalAmount,
+              gencode: order.gencode,
+              orderId: order.orderId
+            });
+            setError('Không tìm thấy thông tin thanh toán cho đơn hàng này. Vui lòng liên hệ hỗ trợ.');
+          }
+        } else {
+          // Fallback to localStorage (for direct checkout flow)
+          const savedOrder = localStorage.getItem('pendingOrder');
+          if (savedOrder) {
+            try {
+              const order = JSON.parse(savedOrder);
+              setOrderData(order);
+              console.log('[QRPaymentPage] Loaded order data from localStorage:', order);
+              
+              const qrUrlFromOrder = order.qrUrl || order.qrCodeUrl;
+              if (qrUrlFromOrder) {
+                console.log('[QRPaymentPage] Using QR URL from localStorage:', qrUrlFromOrder);
+                setQrCodeUrl(qrUrlFromOrder);
+                setLoading(false);
+              } else {
+                console.log('[QRPaymentPage] No QR URL in order data, will fetch from API');
+                setLoading(true);
+              }
+            } catch (error) {
+              console.error('[QRPaymentPage] Error parsing order data:', error);
+              setError('Lỗi khi tải thông tin đơn hàng.');
+              navigate('/checkout');
+            }
+          } else {
+            console.warn('[QRPaymentPage] No orderId or pending order found');
+            setError('Không tìm thấy thông tin đơn hàng.');
+            navigate('/orders');
+          }
+        }
+      } catch (err) {
+        console.error('[QRPaymentPage] Error loading order:', err);
+        setError(err.message || 'Lỗi khi tải thông tin đơn hàng.');
+        navigate('/orders');
+      } finally {
+        setLoading(false);
       }
-    } else {
-      // If no order data, redirect to checkout
-      console.warn('[QRPaymentPage] No pending order found');
-      navigate('/checkout');
-    }
-  }, [navigate]);
+    };
+    
+    loadOrderData();
+  }, [navigate, searchParams]);
 
   // Connect SignalR and listen for payment notifications
   useEffect(() => {
@@ -126,6 +328,13 @@ const QRPaymentPage = () => {
               localStorage.setItem('lastOrder', savedOrder);
             }
             localStorage.removeItem('pendingOrder');
+            
+            // Xóa cache thanh toán khi thanh toán thành công
+            const orderId = orderData.orderId || orderData.id || orderData.order_id;
+            if (orderId) {
+              paymentCacheService.removePaymentCache(orderId);
+              console.log('[QRPaymentPage] Removed payment cache after successful payment');
+            }
             
             // Navigate to order confirmation after 2 seconds
             setTimeout(() => {

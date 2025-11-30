@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import * as checkoutService from '../services/checkoutService';
 import * as emailService from '../services/emailService';
+import * as paymentCacheService from '../services/paymentCacheService';
 import './CheckoutPage.css';
 
 // ========================================
@@ -146,8 +147,16 @@ const CheckoutPage = () => {
         // If payment method requires QR (Transfer/ATM), redirect to QR payment page
         // Otherwise (COD), redirect to confirmation page
         if (isQrPayment) {
-          // Save order data to localStorage for QR payment page
+          // Save order data to localStorage for QR payment page (backward compatibility)
           localStorage.setItem('pendingOrder', JSON.stringify(orderData));
+          
+          // Lưu vào cache thanh toán với TTL 30 phút
+          const orderId = orderData.orderId || orderData.id || orderData.order_id;
+          if (orderId) {
+            paymentCacheService.savePaymentCache(orderId, orderData);
+            console.log('[CheckoutPage] Saved payment cache for order:', orderId);
+          }
+          
           navigate('/qr-payment');
         } else {
           // Save order data to localStorage for confirmation page
