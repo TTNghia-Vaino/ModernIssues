@@ -61,28 +61,16 @@ export const getApiUrl = (endpoint) => {
 };
 
 // Default headers
+// Note: Backend uses session-based authentication (cookies), not Bearer tokens
 export const getDefaultHeaders = () => {
   const headers = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
   
-  // Add authorization token if available
-  const token = localStorage.getItem('auth_token');
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-    
-    // Debug logging in production to troubleshoot auth issues
-    if (import.meta.env.PROD) {
-      console.log('[API Headers] Token found, adding Authorization header');
-    }
-  } else {
-    // Debug logging if no token found
-    if (import.meta.env.PROD) {
-      console.warn('[API Headers] No auth_token found in localStorage');
-      console.log('[API Headers] localStorage keys:', Object.keys(localStorage));
-    }
-  }
+  // Session-based auth: Don't send Authorization header
+  // Backend uses session cookies set during login
+  // credentials: 'include' in apiRequest ensures cookies are sent
   
   return headers;
 };
