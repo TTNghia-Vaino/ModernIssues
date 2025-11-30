@@ -12,5 +12,26 @@ namespace ModernIssues.Models.DTOs
         public int WarrantyPeriod { get; set; }
         public IFormFile? ImageFile { get; set; }
         public string? CurrentImageUrl { get; set; } // Ảnh hiện tại (không bắt buộc)
+        /// <summary>
+        /// Ảnh thứ 2 của sản phẩm
+        /// </summary>
+        public IFormFile? ImageFile2 { get; set; }
+        /// <summary>
+        /// Ảnh thứ 3 của sản phẩm
+        /// </summary>
+        public IFormFile? ImageFile3 { get; set; }
+        /// <summary>
+        /// Ảnh thứ 2 hiện tại (không bắt buộc)
+        /// </summary>
+        public string? CurrentImageUrl2 { get; set; }
+        /// <summary>
+        /// Ảnh thứ 3 hiện tại (không bắt buộc)
+        /// </summary>
+        public string? CurrentImageUrl3 { get; set; }
+        /// <summary>
+        /// Thông số kỹ thuật của sản phẩm (lưu dưới dạng text)
+        /// Format: "RAM<bold>: 36GB ; CPU<bold>: Chip intel core i3 8 nhân"
+        /// </summary>
+        public string? Specifications { get; set; }
     }
 }

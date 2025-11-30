@@ -71,6 +71,9 @@ namespace ModernIssues.Repositories
                 stock = product.Stock,
                 warranty_period = product.WarrantyPeriod,
                 image_url = product.ImageUrl,
+                image_url_2 = product.ImageUrl2,
+                image_url_3 = product.ImageUrl3,
+                specifications = product.Specifications,
                 created_by = adminId,
                 updated_by = adminId,
                 created_at = DateTime.UtcNow,
@@ -98,6 +101,9 @@ namespace ModernIssues.Repositories
                 Stock = newProduct.stock ?? 0,
                 WarrantyPeriod = newProduct.warranty_period ?? 0,
                 ImageUrl = newProduct.image_url ?? "default.jpg",
+                ImageUrl2 = newProduct.image_url_2,
+                ImageUrl3 = newProduct.image_url_3,
+                Specifications = newProduct.specifications,
                 OnPrices = newProduct.on_prices ?? 0,
                 CategoryName = categoryName ?? "Chưa phân loại"
             };
@@ -118,6 +124,9 @@ namespace ModernIssues.Repositories
                     Stock = p.stock ?? 0,
                     WarrantyPeriod = p.warranty_period ?? 0,
                     ImageUrl = p.image_url ?? "default.jpg",
+                    ImageUrl2 = p.image_url_2,
+                    ImageUrl3 = p.image_url_3,
+                    Specifications = p.specifications,
                     OnPrices = p.on_prices ?? 0,
                     CategoryName = p.category_id.HasValue 
                         ? _context.categories
@@ -170,6 +179,9 @@ namespace ModernIssues.Repositories
                     Stock = x.p.stock ?? 0,
                     WarrantyPeriod = x.p.warranty_period ?? 0,
                     ImageUrl = x.p.image_url ?? "default.jpg",
+                    ImageUrl2 = x.p.image_url_2,
+                    ImageUrl3 = x.p.image_url_3,
+                    Specifications = x.p.specifications,
                     OnPrices = x.p.on_prices ?? 0,
                     CategoryName = x.CategoryName ?? "Chưa phân loại"
                 })
@@ -224,6 +236,9 @@ namespace ModernIssues.Repositories
             existingProduct.stock = product.Stock;
             existingProduct.warranty_period = product.WarrantyPeriod;
             existingProduct.image_url = product.ImageUrl;
+            existingProduct.image_url_2 = product.ImageUrl2;
+            existingProduct.image_url_3 = product.ImageUrl3;
+            existingProduct.specifications = product.Specifications;
             existingProduct.updated_at = DateTime.UtcNow;
             existingProduct.updated_by = adminId;
 
@@ -246,6 +261,9 @@ namespace ModernIssues.Repositories
                 Stock = existingProduct.stock ?? 0,
                 WarrantyPeriod = existingProduct.warranty_period ?? 0,
                 ImageUrl = existingProduct.image_url ?? "default.jpg",
+                ImageUrl2 = existingProduct.image_url_2,
+                ImageUrl3 = existingProduct.image_url_3,
+                Specifications = existingProduct.specifications,
                 OnPrices = existingProduct.on_prices ?? 0,
                 CategoryName = categoryName ?? "Chưa phân loại"
             };

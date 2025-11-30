@@ -128,49 +128,78 @@ namespace ModernIssues.Controllers
                     return BadRequest(ApiResponse<object>.ErrorResponse($"Danh mục với ID {productData.CategoryId} không tồn tại."));
                 }
 
+                // Validation: Kiểm tra phải có đủ 3 ảnh
+                if (productData.ImageFile == null || productData.ImageFile.Length == 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Vui lòng upload ảnh thứ nhất cho sản phẩm."));
+                }
+                if (productData.ImageFile2 == null || productData.ImageFile2.Length == 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Vui lòng upload ảnh thứ hai cho sản phẩm."));
+                }
+                if (productData.ImageFile3 == null || productData.ImageFile3.Length == 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Vui lòng upload ảnh thứ ba cho sản phẩm."));
+                }
+
                 // Xác định ảnh sẽ sử dụng
                 string imageUrlToUse = "default.jpg";
+                string imageUrl2ToUse = "default.jpg";
+                string imageUrl3ToUse = "default.jpg";
                 
-                // Xử lý upload ảnh nếu có
-                if (productData.ImageFile != null && productData.ImageFile.Length > 0)
+                try
                 {
-                    try
+                    // Đảm bảo đường dẫn upload luôn đúng
+                    var uploadPath = _webHostEnvironment.WebRootPath;
+                    if (string.IsNullOrEmpty(uploadPath))
                     {
-                        // Đảm bảo đường dẫn upload luôn đúng
-                        var uploadPath = _webHostEnvironment.WebRootPath;
-                        if (string.IsNullOrEmpty(uploadPath))
-                        {
-                            uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-                        }
-                        
-                        // Tạo thư mục nếu chưa tồn tại
-                        var uploadsDir = Path.Combine(uploadPath, "Uploads", "Images");
-                        if (!Directory.Exists(uploadsDir))
-                        {
-                            Directory.CreateDirectory(uploadsDir);
-                        }
+                        uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                    }
+                    
+                    // Tạo thư mục nếu chưa tồn tại
+                    var uploadsDir = Path.Combine(uploadPath, "Uploads", "Images");
+                    if (!Directory.Exists(uploadsDir))
+                    {
+                        Directory.CreateDirectory(uploadsDir);
+                    }
 
-                        Console.WriteLine($"[ProductController.CreateProduct] Upload path: {uploadPath}");
-                        Console.WriteLine($"[ProductController.CreateProduct] Uploads directory: {uploadsDir}");
+                    Console.WriteLine($"[ProductController.CreateProduct] Upload path: {uploadPath}");
+                    Console.WriteLine($"[ProductController.CreateProduct] Uploads directory: {uploadsDir}");
 
-                        var fileName = await ImageUploadHelper.UploadImageAsync(productData.ImageFile, uploadPath);
-                        if (!string.IsNullOrEmpty(fileName))
-                        {
-                            imageUrlToUse = fileName;
-                            Console.WriteLine($"[ProductController.CreateProduct] Image uploaded: {fileName}");
-                        }
-                    }
-                    catch (ArgumentException ex)
+                    // Upload ảnh thứ nhất
+                    var fileName = await ImageUploadHelper.UploadImageAsync(productData.ImageFile, uploadPath);
+                    if (!string.IsNullOrEmpty(fileName))
                     {
-                        Console.WriteLine($"[ProductController.CreateProduct] Upload image error: {ex.Message}");
-                        return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi upload ảnh: {ex.Message}"));
+                        imageUrlToUse = fileName;
+                        Console.WriteLine($"[ProductController.CreateProduct] Image 1 uploaded: {fileName}");
                     }
-                    catch (Exception ex)
+
+                    // Upload ảnh thứ hai
+                    var fileName2 = await ImageUploadHelper.UploadImageAsync(productData.ImageFile2, uploadPath);
+                    if (!string.IsNullOrEmpty(fileName2))
                     {
-                        Console.WriteLine($"[ProductController.CreateProduct] Upload image exception: {ex.Message}");
-                        Console.WriteLine($"[ProductController.CreateProduct] StackTrace: {ex.StackTrace}");
-                        return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi hệ thống khi upload ảnh: {ex.Message}"));
+                        imageUrl2ToUse = fileName2;
+                        Console.WriteLine($"[ProductController.CreateProduct] Image 2 uploaded: {fileName2}");
                     }
+
+                    // Upload ảnh thứ ba
+                    var fileName3 = await ImageUploadHelper.UploadImageAsync(productData.ImageFile3, uploadPath);
+                    if (!string.IsNullOrEmpty(fileName3))
+                    {
+                        imageUrl3ToUse = fileName3;
+                        Console.WriteLine($"[ProductController.CreateProduct] Image 3 uploaded: {fileName3}");
+                    }
+                }
+                catch (ArgumentException ex)
+                {
+                    Console.WriteLine($"[ProductController.CreateProduct] Upload image error: {ex.Message}");
+                    return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi upload ảnh: {ex.Message}"));
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ProductController.CreateProduct] Upload image exception: {ex.Message}");
+                    Console.WriteLine($"[ProductController.CreateProduct] StackTrace: {ex.StackTrace}");
+                    return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi hệ thống khi upload ảnh: {ex.Message}"));
                 }
                 
                 // Tạo ProductCreateUpdateDto từ form data
@@ -182,7 +211,10 @@ namespace ModernIssues.Controllers
                     CategoryId = productData.CategoryId,
                     Stock = productData.Stock,
                     WarrantyPeriod = productData.WarrantyPeriod,
-                    ImageUrl = imageUrlToUse
+                    ImageUrl = imageUrlToUse,
+                    ImageUrl2 = imageUrl2ToUse,
+                    ImageUrl3 = imageUrl3ToUse,
+                    Specifications = productData.Specifications?.Trim()
                 };
                 
                 Console.WriteLine($"[ProductController.CreateProduct] Creating product: {product.ProductName}, ImageUrl: {imageUrlToUse}");
@@ -365,7 +397,7 @@ namespace ModernIssues.Controllers
                 // Lấy sản phẩm hiện tại để giữ nguyên ảnh nếu không có ảnh mới
                 var existingProduct = await _context.products
                     .Where(p => p.product_id == id)
-                    .Select(p => new { p.image_url, p.is_disabled })
+                    .Select(p => new { p.image_url, p.image_url_2, p.image_url_3, p.is_disabled })
                     .FirstOrDefaultAsync();
 
                 if (existingProduct == null)
@@ -375,6 +407,8 @@ namespace ModernIssues.Controllers
 
                 // Xác định ảnh sẽ sử dụng: ưu tiên ảnh mới upload, sau đó là CurrentImageUrl từ form, cuối cùng là ảnh hiện tại trong DB
                 string imageUrlToUse = existingProduct.image_url ?? "default.jpg";
+                string imageUrl2ToUse = existingProduct.image_url_2 ?? "default.jpg";
+                string imageUrl3ToUse = existingProduct.image_url_3 ?? "default.jpg";
                 
                 // Nếu có CurrentImageUrl từ form, ưu tiên dùng nó (trừ khi có ảnh mới upload)
                 if (!string.IsNullOrWhiteSpace(productData.CurrentImageUrl) && 
@@ -382,47 +416,80 @@ namespace ModernIssues.Controllers
                 {
                     imageUrlToUse = productData.CurrentImageUrl;
                 }
+                if (!string.IsNullOrWhiteSpace(productData.CurrentImageUrl2) && 
+                    (productData.ImageFile2 == null || productData.ImageFile2.Length == 0))
+                {
+                    imageUrl2ToUse = productData.CurrentImageUrl2;
+                }
+                if (!string.IsNullOrWhiteSpace(productData.CurrentImageUrl3) && 
+                    (productData.ImageFile3 == null || productData.ImageFile3.Length == 0))
+                {
+                    imageUrl3ToUse = productData.CurrentImageUrl3;
+                }
 
                 // Xử lý upload ảnh mới nếu có
-                if (productData.ImageFile != null && productData.ImageFile.Length > 0)
+                try
                 {
-                    try
+                    // Đảm bảo đường dẫn upload luôn đúng
+                    var uploadPath = _webHostEnvironment.WebRootPath;
+                    if (string.IsNullOrEmpty(uploadPath))
                     {
-                        // Đảm bảo đường dẫn upload luôn đúng
-                        var uploadPath = _webHostEnvironment.WebRootPath;
-                        if (string.IsNullOrEmpty(uploadPath))
-                        {
-                            uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-                        }
-                        
-                        // Tạo thư mục nếu chưa tồn tại
-                        var uploadsDir = Path.Combine(uploadPath, "Uploads", "Images");
-                        if (!Directory.Exists(uploadsDir))
-                        {
-                            Directory.CreateDirectory(uploadsDir);
-                        }
+                        uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                    }
+                    
+                    // Tạo thư mục nếu chưa tồn tại
+                    var uploadsDir = Path.Combine(uploadPath, "Uploads", "Images");
+                    if (!Directory.Exists(uploadsDir))
+                    {
+                        Directory.CreateDirectory(uploadsDir);
+                    }
 
-                        Console.WriteLine($"[ProductController.UpdateProduct] Upload path: {uploadPath}");
-                        Console.WriteLine($"[ProductController.UpdateProduct] Uploads directory: {uploadsDir}");
+                    Console.WriteLine($"[ProductController.UpdateProduct] Upload path: {uploadPath}");
+                    Console.WriteLine($"[ProductController.UpdateProduct] Uploads directory: {uploadsDir}");
 
+                    // Upload ảnh thứ nhất nếu có
+                    if (productData.ImageFile != null && productData.ImageFile.Length > 0)
+                    {
                         var fileName = await ImageUploadHelper.UploadImageAsync(productData.ImageFile, uploadPath);
                         if (!string.IsNullOrEmpty(fileName))
                         {
                             imageUrlToUse = fileName;
-                            Console.WriteLine($"[ProductController.UpdateProduct] New image uploaded: {fileName}");
+                            Console.WriteLine($"[ProductController.UpdateProduct] New image 1 uploaded: {fileName}");
                         }
                     }
-                    catch (ArgumentException ex)
+
+                    // Upload ảnh thứ hai nếu có
+                    if (productData.ImageFile2 != null && productData.ImageFile2.Length > 0)
                     {
-                        Console.WriteLine($"[ProductController.UpdateProduct] Upload image error: {ex.Message}");
-                        return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi upload ảnh: {ex.Message}"));
+                        var fileName2 = await ImageUploadHelper.UploadImageAsync(productData.ImageFile2, uploadPath);
+                        if (!string.IsNullOrEmpty(fileName2))
+                        {
+                            imageUrl2ToUse = fileName2;
+                            Console.WriteLine($"[ProductController.UpdateProduct] New image 2 uploaded: {fileName2}");
+                        }
                     }
-                    catch (Exception ex)
+
+                    // Upload ảnh thứ ba nếu có
+                    if (productData.ImageFile3 != null && productData.ImageFile3.Length > 0)
                     {
-                        Console.WriteLine($"[ProductController.UpdateProduct] Upload image exception: {ex.Message}");
-                        Console.WriteLine($"[ProductController.UpdateProduct] StackTrace: {ex.StackTrace}");
-                        return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi hệ thống khi upload ảnh: {ex.Message}"));
+                        var fileName3 = await ImageUploadHelper.UploadImageAsync(productData.ImageFile3, uploadPath);
+                        if (!string.IsNullOrEmpty(fileName3))
+                        {
+                            imageUrl3ToUse = fileName3;
+                            Console.WriteLine($"[ProductController.UpdateProduct] New image 3 uploaded: {fileName3}");
+                        }
                     }
+                }
+                catch (ArgumentException ex)
+                {
+                    Console.WriteLine($"[ProductController.UpdateProduct] Upload image error: {ex.Message}");
+                    return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi upload ảnh: {ex.Message}"));
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ProductController.UpdateProduct] Upload image exception: {ex.Message}");
+                    Console.WriteLine($"[ProductController.UpdateProduct] StackTrace: {ex.StackTrace}");
+                    return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi hệ thống khi upload ảnh: {ex.Message}"));
                 }
                 
                 // Tạo ProductCreateUpdateDto từ form data với ảnh đã xác định
@@ -434,7 +501,10 @@ namespace ModernIssues.Controllers
                     CategoryId = productData.CategoryId,
                     Stock = productData.Stock,
                     WarrantyPeriod = productData.WarrantyPeriod,
-                    ImageUrl = imageUrlToUse
+                    ImageUrl = imageUrlToUse,
+                    ImageUrl2 = imageUrl2ToUse,
+                    ImageUrl3 = imageUrl3ToUse,
+                    Specifications = productData.Specifications?.Trim()
                 };
                 
                 Console.WriteLine($"[ProductController.UpdateProduct] Updating product ID: {id}, ImageUrl: {imageUrlToUse}");
@@ -581,6 +651,7 @@ namespace ModernIssues.Controllers
                         Stock = x.StockValue,
                         WarrantyPeriod = x.Product.warranty_period ?? 0,
                         ImageUrl = x.Product.image_url ?? string.Empty,
+                        Specifications = x.Product.specifications,
                         OnPrices = x.Product.on_prices ?? 0,
                         CategoryName = x.Category != null ? x.Category.category_name ?? "Chưa phân loại" : "Chưa phân loại",
                         IsDisabled = x.IsDisabledValue

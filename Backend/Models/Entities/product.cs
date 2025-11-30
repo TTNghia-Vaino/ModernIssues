@@ -24,6 +24,22 @@ public partial class product
 
     public string? image_url { get; set; }
 
+    /// <summary>
+    /// Ảnh thứ 2 của sản phẩm
+    /// </summary>
+    public string? image_url_2 { get; set; }
+
+    /// <summary>
+    /// Ảnh thứ 3 của sản phẩm
+    /// </summary>
+    public string? image_url_3 { get; set; }
+
+    /// <summary>
+    /// Thông số kỹ thuật của sản phẩm (lưu dưới dạng text)
+    /// Format: "RAM<bold>: 36GB ; CPU<bold>: Chip intel core i3 8 nhân"
+    /// </summary>
+    public string? specifications { get; set; }
+
     public bool? is_disabled { get; set; }
 
     public DateTime? created_at { get; set; }
