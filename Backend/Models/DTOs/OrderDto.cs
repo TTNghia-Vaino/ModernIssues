@@ -103,4 +103,14 @@ namespace ModernIssues.Models.DTOs
 
         public string? ImageUrl { get; set; }
     }
+
+    /// <summary>
+    /// DTO cho cập nhật trạng thái đơn hàng
+    /// </summary>
+    public class OrderStatusUpdateDto
+    {
+        [Required(ErrorMessage = "Trạng thái là bắt buộc")]
+        [StringLength(50, ErrorMessage = "Trạng thái không được vượt quá 50 ký tự")]
+        public string Status { get; set; } = string.Empty;
+    }
 }
