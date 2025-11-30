@@ -7,13 +7,13 @@ using System.Threading.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using ModernIssues.Models.Common;
 using ModernIssues.Repositories.Interface;
 using ModernIssues.Repositories.Service;
 using Microsoft.AspNetCore.Hosting;
 using ModernIssues.Models.Entities;
 using Microsoft.EntityFrameworkCore;
-using ModernIssues.Services;
 
 // Loại bỏ các using không cần thiết ở Controller như Dapper, Npgsql, System.Data
 
@@ -95,39 +95,109 @@ namespace ModernIssues.Controllers
             {
                 var adminId = GetAdminId();
                 
-                // Tạo ProductCreateUpdateDto từ form data
-                var product = new ProductCreateUpdateDto
+                // Validation dữ liệu đầu vào
+                if (string.IsNullOrWhiteSpace(productData.ProductName))
                 {
-                    ProductName = productData.ProductName,
-                    Description = productData.Description,
-                    Price = productData.Price,
-                    CategoryId = productData.CategoryId,
-                    Stock = productData.Stock,
-                    WarrantyPeriod = productData.WarrantyPeriod,
-                    ImageUrl = "default.jpg" // Ảnh mặc định
-                };
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Tên sản phẩm không được để trống."));
+                }
+
+                if (productData.Price <= 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Giá sản phẩm phải lớn hơn 0."));
+                }
+
+                if (productData.CategoryId <= 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Danh mục sản phẩm không hợp lệ."));
+                }
+
+                if (productData.Stock < 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Số lượng tồn kho không được âm."));
+                }
+
+                if (productData.WarrantyPeriod < 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Thời gian bảo hành không được âm."));
+                }
+
+                // Kiểm tra category có tồn tại không
+                var categoryExists = await _context.categories.AnyAsync(c => c.category_id == productData.CategoryId);
+                if (!categoryExists)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse($"Danh mục với ID {productData.CategoryId} không tồn tại."));
+                }
+
+                // Xác định ảnh sẽ sử dụng
+                string imageUrlToUse = "default.jpg";
                 
                 // Xử lý upload ảnh nếu có
                 if (productData.ImageFile != null && productData.ImageFile.Length > 0)
                 {
                     try
                     {
-                        // Sử dụng đường dẫn tuyệt đối nếu WebRootPath null
-                        var uploadPath = _webHostEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                        // Đảm bảo đường dẫn upload luôn đúng
+                        var uploadPath = _webHostEnvironment.WebRootPath;
+                        if (string.IsNullOrEmpty(uploadPath))
+                        {
+                            uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                        }
+                        
+                        // Tạo thư mục nếu chưa tồn tại
+                        var uploadsDir = Path.Combine(uploadPath, "Uploads", "Images");
+                        if (!Directory.Exists(uploadsDir))
+                        {
+                            Directory.CreateDirectory(uploadsDir);
+                        }
+
+                        Console.WriteLine($"[ProductController.CreateProduct] Upload path: {uploadPath}");
+                        Console.WriteLine($"[ProductController.CreateProduct] Uploads directory: {uploadsDir}");
+
                         var fileName = await ImageUploadHelper.UploadImageAsync(productData.ImageFile, uploadPath);
                         if (!string.IsNullOrEmpty(fileName))
                         {
-                            product.ImageUrl = fileName;
+                            imageUrlToUse = fileName;
+                            Console.WriteLine($"[ProductController.CreateProduct] Image uploaded: {fileName}");
                         }
                     }
                     catch (ArgumentException ex)
                     {
+                        Console.WriteLine($"[ProductController.CreateProduct] Upload image error: {ex.Message}");
                         return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi upload ảnh: {ex.Message}"));
                     }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[ProductController.CreateProduct] Upload image exception: {ex.Message}");
+                        Console.WriteLine($"[ProductController.CreateProduct] StackTrace: {ex.StackTrace}");
+                        return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi hệ thống khi upload ảnh: {ex.Message}"));
+                    }
                 }
-                // Nếu không có ảnh upload, sử dụng ảnh mặc định "default.jpg"
+                
+                // Tạo ProductCreateUpdateDto từ form data
+                var product = new ProductCreateUpdateDto
+                {
+                    ProductName = productData.ProductName.Trim(),
+                    Description = productData.Description?.Trim() ?? string.Empty,
+                    Price = productData.Price,
+                    CategoryId = productData.CategoryId,
+                    Stock = productData.Stock,
+                    WarrantyPeriod = productData.WarrantyPeriod,
+                    ImageUrl = imageUrlToUse
+                };
+                
+                Console.WriteLine($"[ProductController.CreateProduct] Creating product: {product.ProductName}, ImageUrl: {imageUrlToUse}");
                 
                 var newProduct = await _productService.CreateProductAsync(product, adminId);
+
+                // Kiểm tra kết quả tạo sản phẩm
+                if (newProduct == null || newProduct.ProductId == 0)
+                {
+                    Console.WriteLine($"[ProductController.CreateProduct] Failed to create product");
+                    return StatusCode(HttpStatusCodes.InternalServerError,
+                        ApiResponse<object>.ErrorResponse("Không thể tạo sản phẩm. Vui lòng thử lại."));
+                }
+
+                Console.WriteLine($"[ProductController.CreateProduct] Product created successfully: {newProduct.ProductId} - {newProduct.ProductName}");
 
                 // TRẢ VỀ THÀNH CÔNG: 201 Created
                 return StatusCode(HttpStatusCodes.Created,
@@ -135,11 +205,17 @@ namespace ModernIssues.Controllers
             }
             catch (ArgumentException ex)
             {
+                Console.WriteLine($"[ProductController.CreateProduct] ArgumentException: {ex.Message}");
                 return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[CRITICAL DB ERROR] during CREATE: {ex.Message}");
+                Console.WriteLine($"[CRITICAL DB ERROR] StackTrace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[CRITICAL DB ERROR] InnerException: {ex.InnerException.Message}");
+                }
                 return StatusCode(HttpStatusCodes.InternalServerError,
                     ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi tạo sản phẩm.", new List<string> { ex.Message }));
             }
@@ -253,57 +329,142 @@ namespace ModernIssues.Controllers
             {
                 var adminId = GetAdminId();
                 
-                // Tạo ProductCreateUpdateDto từ form data
-                var product = new ProductCreateUpdateDto
+                // Validation dữ liệu đầu vào
+                if (string.IsNullOrWhiteSpace(productData.ProductName))
                 {
-                    ProductName = productData.ProductName,
-                    Description = productData.Description,
-                    Price = productData.Price,
-                    CategoryId = productData.CategoryId,
-                    Stock = productData.Stock,
-                    WarrantyPeriod = productData.WarrantyPeriod,
-                    ImageUrl = productData.CurrentImageUrl ?? "default.jpg" // Giữ ảnh hiện tại hoặc dùng mặc định
-                };
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Tên sản phẩm không được để trống."));
+                }
+
+                if (productData.Price <= 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Giá sản phẩm phải lớn hơn 0."));
+                }
+
+                if (productData.CategoryId <= 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Danh mục sản phẩm không hợp lệ."));
+                }
+
+                if (productData.Stock < 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Số lượng tồn kho không được âm."));
+                }
+
+                if (productData.WarrantyPeriod < 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Thời gian bảo hành không được âm."));
+                }
+
+                // Kiểm tra category có tồn tại không
+                var categoryExists = await _context.categories.AnyAsync(c => c.category_id == productData.CategoryId);
+                if (!categoryExists)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse($"Danh mục với ID {productData.CategoryId} không tồn tại."));
+                }
+
+                // Lấy sản phẩm hiện tại để giữ nguyên ảnh nếu không có ảnh mới
+                var existingProduct = await _context.products
+                    .Where(p => p.product_id == id)
+                    .Select(p => new { p.image_url, p.is_disabled })
+                    .FirstOrDefaultAsync();
+
+                if (existingProduct == null)
+                {
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy sản phẩm với ID: {id} để cập nhật."));
+                }
+
+                // Xác định ảnh sẽ sử dụng: ưu tiên ảnh mới upload, sau đó là CurrentImageUrl từ form, cuối cùng là ảnh hiện tại trong DB
+                string imageUrlToUse = existingProduct.image_url ?? "default.jpg";
                 
+                // Nếu có CurrentImageUrl từ form, ưu tiên dùng nó (trừ khi có ảnh mới upload)
+                if (!string.IsNullOrWhiteSpace(productData.CurrentImageUrl) && 
+                    (productData.ImageFile == null || productData.ImageFile.Length == 0))
+                {
+                    imageUrlToUse = productData.CurrentImageUrl;
+                }
+
                 // Xử lý upload ảnh mới nếu có
                 if (productData.ImageFile != null && productData.ImageFile.Length > 0)
                 {
                     try
                     {
-                        // Sử dụng đường dẫn tuyệt đối nếu WebRootPath null
-                        var uploadPath = _webHostEnvironment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                        // Đảm bảo đường dẫn upload luôn đúng
+                        var uploadPath = _webHostEnvironment.WebRootPath;
+                        if (string.IsNullOrEmpty(uploadPath))
+                        {
+                            uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                        }
+                        
+                        // Tạo thư mục nếu chưa tồn tại
+                        var uploadsDir = Path.Combine(uploadPath, "Uploads", "Images");
+                        if (!Directory.Exists(uploadsDir))
+                        {
+                            Directory.CreateDirectory(uploadsDir);
+                        }
+
+                        Console.WriteLine($"[ProductController.UpdateProduct] Upload path: {uploadPath}");
+                        Console.WriteLine($"[ProductController.UpdateProduct] Uploads directory: {uploadsDir}");
+
                         var fileName = await ImageUploadHelper.UploadImageAsync(productData.ImageFile, uploadPath);
                         if (!string.IsNullOrEmpty(fileName))
                         {
-                            product.ImageUrl = fileName;
+                            imageUrlToUse = fileName;
+                            Console.WriteLine($"[ProductController.UpdateProduct] New image uploaded: {fileName}");
                         }
                     }
                     catch (ArgumentException ex)
                     {
+                        Console.WriteLine($"[ProductController.UpdateProduct] Upload image error: {ex.Message}");
                         return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi upload ảnh: {ex.Message}"));
                     }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[ProductController.UpdateProduct] Upload image exception: {ex.Message}");
+                        Console.WriteLine($"[ProductController.UpdateProduct] StackTrace: {ex.StackTrace}");
+                        return BadRequest(ApiResponse<object>.ErrorResponse($"Lỗi hệ thống khi upload ảnh: {ex.Message}"));
+                    }
                 }
-                // Nếu không có ảnh mới, giữ nguyên ảnh hiện tại
+                
+                // Tạo ProductCreateUpdateDto từ form data với ảnh đã xác định
+                var product = new ProductCreateUpdateDto
+                {
+                    ProductName = productData.ProductName.Trim(),
+                    Description = productData.Description?.Trim() ?? string.Empty,
+                    Price = productData.Price,
+                    CategoryId = productData.CategoryId,
+                    Stock = productData.Stock,
+                    WarrantyPeriod = productData.WarrantyPeriod,
+                    ImageUrl = imageUrlToUse
+                };
+                
+                Console.WriteLine($"[ProductController.UpdateProduct] Updating product ID: {id}, ImageUrl: {imageUrlToUse}");
                 
                 var updatedProduct = await _productService.UpdateProductAsync(id, product, adminId);
 
-                if (updatedProduct == null)
+                if (updatedProduct == null || updatedProduct.ProductId == 0)
                 {
-                    // TRẢ VỀ LỖI: 404 Not Found
+                    Console.WriteLine($"[ProductController.UpdateProduct] Product not found after update: {id}");
                     return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy sản phẩm với ID: {id} để cập nhật."));
                 }
 
+                Console.WriteLine($"[ProductController.UpdateProduct] Product updated successfully: {id}");
+                
                 // TRẢ VỀ THÀNH CÔNG: 200 OK
                 return Ok(ApiResponse<ProductDto>.SuccessResponse(updatedProduct, "Cập nhật sản phẩm thành công."));
             }
             catch (ArgumentException ex)
             {
-                // TRẢ VỀ LỖI: 400 Bad Request
+                Console.WriteLine($"[ProductController.UpdateProduct] ArgumentException: {ex.Message}");
                 return BadRequest(ApiResponse<object>.ErrorResponse(ex.Message));
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[CRITICAL DB ERROR] during UPDATE: {ex.Message}");
+                Console.WriteLine($"[CRITICAL DB ERROR] StackTrace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[CRITICAL DB ERROR] InnerException: {ex.InnerException.Message}");
+                }
                 return StatusCode(HttpStatusCodes.InternalServerError,
                     ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi cập nhật sản phẩm.", new List<string> { ex.Message }));
             }
