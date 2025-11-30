@@ -51,10 +51,11 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromMinutes(30); 
     options.Cookie.HttpOnly = false; // Allow JavaScript access for debugging
     options.Cookie.IsEssential = true;
-    options.Cookie.SameSite = SameSiteMode.Lax; // Lax mode for same-site + CORS
+    options.Cookie.SameSite = SameSiteMode.None; // None for cross-origin requests
     options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Allow HTTP
     options.Cookie.Path = "/"; // Ensure cookie is sent for all paths
     options.Cookie.Domain = null; // Don't set domain restriction
+    options.Cookie.Name = "ModernIssues.Session"; // Explicit session name
 });
 
 // Add SignalR for real-time notifications
