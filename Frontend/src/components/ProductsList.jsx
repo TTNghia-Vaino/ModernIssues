@@ -40,6 +40,7 @@ const ProductsList = () => {
   const [category, setCategory] = useState(effectiveCategory); // Set category từ URL hoặc subcategory
   const [maxPrice, setMaxPrice] = useState('');
   const [loading, setLoading] = useState(true);
+  const [brands, setBrands] = useState([]); // Brands từ API
 
   // Cập nhật category, query và promotion khi URL thay đổi
   useEffect(() => {
@@ -95,6 +96,33 @@ const ProductsList = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [search]);
+
+  // Load brands from API on mount
+  useEffect(() => {
+    let cancelled = false;
+    
+    const loadBrands = async () => {
+      try {
+        console.log('[ProductsList] Loading brands from API...');
+        const brandsData = await productService.getBrands();
+        console.log('[ProductsList] Brands loaded:', brandsData);
+        if (!cancelled) {
+          setBrands(Array.isArray(brandsData) ? brandsData : []);
+        }
+      } catch (error) {
+        console.error('[ProductsList] Error loading brands:', error);
+        if (!cancelled) {
+          setBrands([]);
+        }
+      }
+    };
+    
+    loadBrands();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, []); // Only run on mount
 
   // Load products from API on initial mount, but delay if in grace period
   useEffect(() => {
@@ -358,7 +386,8 @@ const ProductsList = () => {
     ));
   };
 
-  const brands = useMemo(() => uniqueValues('brand'), [products]);
+  // Use brands from API instead of extracting from products
+  // const brands = useMemo(() => uniqueValues('brand'), [products]);
   const categories = useMemo(() => uniqueValues('category'), [products]);
 
   // Nếu có query từ URL, không cần filter client-side nữa (API đã filter rồi)

@@ -294,6 +294,10 @@ export const createProduct = async (productData, imageFile = null, imageFile2 = 
   
   // Optional fields
   if (productData.specifications !== undefined) formData.append('specifications', productData.specifications);
+  // Brand: only send if it has a value (not empty, not null)
+  if (productData.brand !== undefined && productData.brand !== null && productData.brand.trim() !== '') {
+    formData.append('brand', productData.brand.trim());
+  }
   if (productData.currentImageUrl) formData.append('currentImageUrl', productData.currentImageUrl);
   if (imageFile) formData.append('imageFile', imageFile);
   if (imageFile2) formData.append('imageFile2', imageFile2);
@@ -444,6 +448,10 @@ export const updateProduct = async (id, productData, imageFile = null, imageFile
     formData.append('isDisabled', String(productData.isDisabled));
   }
   if (productData.specifications !== undefined) formData.append('specifications', productData.specifications);
+  // Brand: only send if it has a value (not empty, not null)
+  if (productData.brand !== undefined && productData.brand !== null && productData.brand.trim() !== '') {
+    formData.append('brand', productData.brand.trim());
+  }
   if (productData.currentImageUrl) formData.append('currentImageUrl', productData.currentImageUrl);
   if (productData.currentImageUrl2) formData.append('currentImageUrl2', productData.currentImageUrl2);
   if (productData.currentImageUrl3) formData.append('currentImageUrl3', productData.currentImageUrl3);
@@ -622,6 +630,67 @@ export const getProductCountByCategory = async () => {
     return Array.isArray(response) ? response : [];
   } catch (error) {
     console.error('[ProductService.getProductCountByCategory] Error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get latest products
+ * Endpoint: GET /v1/Product/GetLatestProducts
+ * Response format: { success: boolean, message: string, data: array }
+ * Response includes: price (giá gốc), onPrices (giá khuyến mãi: 0 = không có, > 0 = có khuyến mãi)
+ * @returns {Promise} - Latest products data array
+ */
+export const getLatestProducts = async () => {
+  try {
+    const response = await apiGet('Product/GetLatestProducts');
+    
+    if (import.meta.env.DEV) {
+      console.log('[ProductService.getLatestProducts] Response received:', response);
+    }
+    
+    const data = handleResponse(response);
+    
+    // Extract data array if nested
+    if (data && typeof data === 'object' && Array.isArray(data.data)) {
+      return data.data;
+    } else if (Array.isArray(data)) {
+      return data;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('[ProductService.getLatestProducts] Error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get brands list
+ * Endpoint: GET /v1/Product/GetBrands
+ * Response format: { success: boolean, message: string, data: string[] }
+ * @returns {Promise} - Array of brand names (string[])
+ */
+export const getBrands = async () => {
+  try {
+    const response = await apiGet('Product/GetBrands');
+    
+    if (import.meta.env.DEV) {
+      console.log('[ProductService.getBrands] Response received:', response);
+    }
+    
+    const data = handleResponse(response);
+    
+    // Extract data array if nested
+    if (data && typeof data === 'object' && Array.isArray(data.data)) {
+      return data.data;
+    } else if (Array.isArray(data)) {
+      return data;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('[ProductService.getBrands] Error:', error);
     throw error;
   }
 };
