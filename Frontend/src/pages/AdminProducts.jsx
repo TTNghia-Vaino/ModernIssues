@@ -489,6 +489,12 @@ const AdminProducts = () => {
       // Send originalPrice as price to API
       // API will store it as price and onPrice (giá gốc)
       // When promotion is applied, UpdatePrices will update price to promotion price
+      
+      // Process specifications: split by newlines, filter empty lines, join with " ; "
+      const processedSpecifications = productData.specifications
+        ? productData.specifications.split('\n').map(s => s.trim()).filter(Boolean).join(' ; ')
+        : '';
+      
       const apiProductData = {
         productName: productData.name || 'Untitled Product',
         description: productData.description || 'No description',
@@ -496,7 +502,7 @@ const AdminProducts = () => {
         categoryId: categoryId,
         stock: Number(productData.stock) || 0,
         warrantyPeriod: Number(productData.warrantyPeriod) || 12,
-        specifications: productData.specifications || '', // Thông số kỹ thuật dạng text
+        specifications: processedSpecifications, // Thông số kỹ thuật dạng text: "RAM : 36 GB ; CPU : 22 luồng"
         isDisabled: false // Luôn luôn hoạt động khi tạo mới
       };
       

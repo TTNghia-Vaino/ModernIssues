@@ -213,11 +213,20 @@ export const transformProduct = (apiProduct) => {
       })
     : apiProduct.variants;
   
+  // Resolve imageUrl2 and imageUrl3
+  const resolvedImage2 = normalizeImageUrl(apiProduct.imageUrl2 || apiProduct.image2);
+  const resolvedImage3 = normalizeImageUrl(apiProduct.imageUrl3 || apiProduct.image3);
+  
   return {
     // Map API properties to component properties
     id: productIdValue,
     name: apiProduct.productName || apiProduct.name,
     image: resolvedImage || resolvedImages[0],
+    imageUrl: resolvedImage || resolvedImages[0], // Keep for compatibility
+    imageUrl2: resolvedImage2, // Map imageUrl2 from API
+    imageUrl3: resolvedImage3, // Map imageUrl3 from API
+    image2: resolvedImage2, // Alias for imageUrl2
+    image3: resolvedImage3, // Alias for imageUrl3
     category: apiProduct.categoryName || apiProduct.category,
     categoryId: apiProduct.categoryId || apiProduct.categoryId,
     
@@ -258,6 +267,8 @@ export const transformProduct = (apiProduct) => {
       productId: apiProduct.productId,
       productName: apiProduct.productName,
       imageUrl: apiProduct.imageUrl,
+      imageUrl2: apiProduct.imageUrl2,
+      imageUrl3: apiProduct.imageUrl3,
       categoryName: apiProduct.categoryName,
       onPrice: apiProduct.onPrice,
       onPrices: apiProduct.onPrices

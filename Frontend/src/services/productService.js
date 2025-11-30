@@ -252,6 +252,7 @@ export const createProduct = async (productData, imageFile = null, imageFile2 = 
   if (productData.warrantyPeriod !== undefined) formData.append('warrantyPeriod', productData.warrantyPeriod);
   
   // Optional fields
+  if (productData.specifications !== undefined) formData.append('specifications', productData.specifications);
   if (productData.currentImageUrl) formData.append('currentImageUrl', productData.currentImageUrl);
   if (imageFile) formData.append('imageFile', imageFile);
   if (imageFile2) formData.append('imageFile2', imageFile2);
@@ -401,6 +402,7 @@ export const updateProduct = async (id, productData, imageFile = null, imageFile
     // Convert boolean to string for FormData (API expects string "true" or "false")
     formData.append('isDisabled', String(productData.isDisabled));
   }
+  if (productData.specifications !== undefined) formData.append('specifications', productData.specifications);
   if (productData.currentImageUrl) formData.append('currentImageUrl', productData.currentImageUrl);
   if (productData.currentImageUrl2) formData.append('currentImageUrl2', productData.currentImageUrl2);
   if (productData.currentImageUrl3) formData.append('currentImageUrl3', productData.currentImageUrl3);

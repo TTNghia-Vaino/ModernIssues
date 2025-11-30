@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useNotification } from '../context/NotificationContext';
 import * as productService from '../services/productService';
-import { transformProduct } from '../utils/productUtils';
+import { transformProduct, resolveAllImageUrls } from '../utils/productUtils';
 import { handleProductImageError, getPlaceholderImage } from '../utils/imageUtils';
 import RelatedProducts from '../components/RelatedProducts';
 import './ProductDetail.css';
@@ -312,53 +312,11 @@ function ProductDetail() {
   // All hooks must be called before any conditional returns
   const productImages = useMemo(() => {
     if (!product) return [placeholderImage];
-    const images = [];
     
-    // Helper function to build full URL from filename
-    const buildImageUrl = (imgUrl) => {
-      if (!imgUrl) return null;
-      if (imgUrl.startsWith('http') || imgUrl.startsWith('data:') || imgUrl.startsWith('/')) {
-        return imgUrl;
-      }
-      // If it's just a filename, construct full URL
-      // Default base URL (will be replaced by actual API base URL if available)
-      const baseUrl = 'http://35.232.61.38:5000';
-      const cleanBaseUrl = baseUrl.replace(/\/v1$/, '');
-      return `${cleanBaseUrl}/Uploads/Images/${imgUrl}`;
-    };
+    // Use resolveAllImageUrls utility function to get all images
+    const images = resolveAllImageUrls(product);
     
-    // Add imageUrl (image 1)
-    if (product?.image) {
-      images.push(product.image);
-    }
-    
-    // Add imageUrl2 (image 2) if exists
-    if (product?.imageUrl2 || product?.image2) {
-      const img2 = buildImageUrl(product.imageUrl2 || product.image2);
-      if (img2 && !images.includes(img2)) {
-        images.push(img2);
-      }
-    }
-    
-    // Add imageUrl3 (image 3) if exists
-    if (product?.imageUrl3 || product?.image3) {
-      const img3 = buildImageUrl(product.imageUrl3 || product.image3);
-      if (img3 && !images.includes(img3)) {
-        images.push(img3);
-      }
-    }
-    
-    // Add images from array if exists
-    if (Array.isArray(product?.images)) {
-      product.images.forEach(img => {
-        if (img && !images.includes(img)) {
-          images.push(img);
-        }
-      });
-    }
-    
-    const uniqueImages = Array.from(new Set(images));
-    return uniqueImages.length > 0 ? uniqueImages : [placeholderImage];
+    return images.length > 0 ? images : [placeholderImage];
   }, [product, placeholderImage]);
 
   useEffect(() => {
