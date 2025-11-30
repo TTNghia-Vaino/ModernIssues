@@ -143,6 +143,7 @@ ApiResponse<object>.SetHttpContextAccessor(httpContextAccessor);
 //    app.UseSwaggerUI();
 //}
 
+app.UseRouting();
 // UseSession must be before UseCors
 app.UseSession();
 
@@ -213,4 +214,4 @@ app.MapHub<PaymentHub>("/paymentHub");
 
 app.MapControllers();
 
-app.Run();
+app.Run("http://0.0.0.0:5000");
