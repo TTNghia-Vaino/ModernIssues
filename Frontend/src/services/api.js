@@ -59,6 +59,19 @@ export const apiRequest = async (endpoint, options = {}) => {
   try {
     const response = await fetch(url, defaultOptions);
     
+    // Log cookies in production for debugging session issues
+    if (import.meta.env.PROD) {
+      // Check if cookies are being sent (can't read cookies directly, but can check response)
+      const setCookieHeader = response.headers.get('set-cookie');
+      console.log('[API Response]', {
+        url,
+        status: response.status,
+        hasSetCookie: !!setCookieHeader,
+        setCookieHeader: setCookieHeader ? 'Cookie set' : 'No cookie set',
+        // Note: Can't read document.cookie in production due to security, but can check if Set-Cookie header exists
+      });
+    }
+    
     // Handle non-JSON responses
     const contentType = response.headers.get('content-type');
     const isJson = contentType && contentType.includes('application/json');

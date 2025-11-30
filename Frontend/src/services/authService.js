@@ -52,7 +52,40 @@ export const register = async (userData) => {
  * @returns {Promise} - User data and token, or 2FA requirement { requires2FA: true, email, message, method }
  */
 export const login = async (credentials) => {
-  const response = await apiPost('Auth/Login', credentials);
+  // For session-based auth, login should set a cookie
+  // Use custom fetch to check response headers
+  const { getApiUrl, getDefaultHeaders } = await import('../config/api');
+  const url = getApiUrl('Auth/Login');
+  const headers = getDefaultHeaders();
+  
+  const loginResponse = await fetch(url, {
+    method: 'POST',
+    headers,
+    credentials: 'include', // Important: must include credentials to receive cookies
+    body: JSON.stringify(credentials)
+  });
+  
+  // Check if cookie was set
+  if (import.meta.env.PROD || import.meta.env.DEV) {
+    const setCookieHeader = loginResponse.headers.get('set-cookie');
+    console.log('[AuthService.login]', {
+      status: loginResponse.status,
+      hasSetCookie: !!setCookieHeader,
+      setCookieHeader: setCookieHeader ? 'Cookie set by backend' : 'No cookie set',
+      cookiesWillBeSent: true // With credentials: 'include', cookies will be sent automatically
+    });
+  }
+  
+  // Parse response
+  const contentType = loginResponse.headers.get('content-type');
+  const isJson = contentType && contentType.includes('application/json');
+  let response;
+  if (isJson) {
+    response = await loginResponse.json();
+  } else {
+    const text = await loginResponse.text();
+    response = text ? { message: text } : {};
+  }
   
   // Handle Swagger response format
   let data = response;
