@@ -102,11 +102,6 @@ const CartPage = () => {
   if (items.length === 0) {
     return (
       <>
-        <div className="breadcrumbs">
-          <div className="container">
-            <span>Trang chủ / Giỏ hàng</span>
-          </div>
-        </div>
         <div className="container cart-container">
           <h2 className="cart-title">Giỏ hàng</h2>
           <div className="cart-empty-state">
@@ -126,11 +121,6 @@ const CartPage = () => {
 
   return (
     <>
-      <div className="breadcrumbs">
-        <div className="container">
-          <span>Trang chủ / Giỏ hàng</span>
-        </div>
-      </div>
       <div className="container cart-container">
         <h2 className="cart-title">Giỏ hàng</h2>
         <div className="cart-grid">

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as productService from '../services/productService';
+import * as promotionService from '../services/promotionService';
 import { transformProducts } from '../utils/productUtils';
 import { getPlaceholderImage } from '../utils/imageUtils';
 import SafeImage from './SafeImage';
@@ -14,6 +15,7 @@ function BestSellingLaptops() {
   const [laptops, setLaptops] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState('next');
+  const [activePromotions, setActivePromotions] = useState([]);
   const placeholderImage = getPlaceholderImage('product');
 
   // Load laptops from API, but delay if in grace period
@@ -45,11 +47,28 @@ function BestSellingLaptops() {
       // Try API first
       try {
         console.log('[BestSellingLaptops] Fetching products from API...');
-        const productsData = await productService.listProducts({ 
-          page: 1, 
-          limit: 50,
-          search: 'Laptop'
-        });
+        let productsData;
+        try {
+          productsData = await productService.listProducts({ 
+            page: 1, 
+            limit: 50,
+            search: 'Laptop'
+          });
+        } catch (listError) {
+          // If ListProducts fails, try getAllListProducts as fallback
+          console.warn('[BestSellingLaptops] listProducts failed, trying getAllListProducts...', listError);
+          productsData = await productService.getAllListProducts();
+          // Filter to only active laptops
+          if (productsData && Array.isArray(productsData)) {
+            productsData = productsData.filter(p => {
+              const category = (p.categoryName || p.category || '').toString().trim().toLowerCase();
+              const isLaptop = category === 'laptop';
+              const isActive = (p.status === 'active' || p.status === undefined) && 
+                              (p.isDisabled !== true && p.isDisabled !== 'true');
+              return isLaptop && isActive;
+            });
+          }
+        }
         
         console.log('[BestSellingLaptops] Raw API response:', productsData);
         
@@ -77,9 +96,40 @@ function BestSellingLaptops() {
         
         console.log('[BestSellingLaptops] Products array length:', productsArray.length);
         
+        // Debug: Log raw API data for first product to check promotion fields
+        if (productsArray.length > 0 && import.meta.env.DEV) {
+          const firstRawProduct = productsArray[0];
+          console.log('[BestSellingLaptops] First raw product from API:', {
+            productId: firstRawProduct.productId || firstRawProduct.id,
+            productName: firstRawProduct.productName || firstRawProduct.name,
+            price: firstRawProduct.price,
+            onPrice: firstRawProduct.onPrice,
+            onPrices: firstRawProduct.onPrices,
+            discount: firstRawProduct.discount,
+            promotionPrice: firstRawProduct.promotionPrice,
+            salePrice: firstRawProduct.salePrice
+          });
+        }
+        
         // Transform API format to component format
         const transformedProducts = transformProducts(productsArray);
         console.log('[BestSellingLaptops] Transformed products:', transformedProducts.length);
+        
+        // Debug: Log transformed product to check promotion data
+        if (transformedProducts.length > 0 && import.meta.env.DEV) {
+          transformedProducts.forEach((product, index) => {
+            if (product.originalPrice || product.onPrice || product.discount > 0) {
+              console.log(`[BestSellingLaptops] Product ${index + 1} with promotion:`, {
+                name: product.name,
+                price: product.price,
+                originalPrice: product.originalPrice,
+                onPrice: product.onPrice,
+                discount: product.discount,
+                hasPromotion: product.originalPrice && product.originalPrice > product.price
+              });
+            }
+          });
+        }
         
         // Filter only laptops - must be exact category match, not just containing "laptop"
         const activeLaptops = transformedProducts.filter(product => {
