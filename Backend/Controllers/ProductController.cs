@@ -378,6 +378,38 @@ namespace ModernIssues.Controllers
         }
 
         // ============================================
+        // GET BRANDS: GET api/v1/Product/GetBrands
+        // ============================================
+        /// <summary>
+        /// Lấy danh sách tất cả các thương hiệu (brand) có trong database. Dùng để hiển thị filter hoặc dropdown.
+        /// </summary>
+        /// <response code="200">Trả về danh sách các thương hiệu.</response>
+        /// <response code="500">Lỗi hệ thống.</response>
+        [HttpGet("GetBrands")]
+        [ProducesResponseType(typeof(ApiResponse<List<string>>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.InternalServerError)]
+        public async Task<IActionResult> GetBrands()
+        {
+            try
+            {
+                var brands = await _context.products
+                    .Where(p => !string.IsNullOrWhiteSpace(p.brand) && (p.is_disabled == null || p.is_disabled == false))
+                    .Select(p => p.brand!)
+                    .Distinct()
+                    .OrderBy(b => b)
+                    .ToListAsync();
+
+                return Ok(ApiResponse<List<string>>.SuccessResponse(brands, "Lấy danh sách thương hiệu thành công."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] GetBrands: {ex.Message}");
+                return StatusCode(HttpStatusCodes.InternalServerError,
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy danh sách thương hiệu.", new List<string> { ex.Message }));
+            }
+        }
+
+        // ============================================
         // 3. READ ONE: GET api/v1/Product/{id}
         // ============================================
         /// <summary>
