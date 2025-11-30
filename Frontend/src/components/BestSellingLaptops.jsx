@@ -15,6 +15,34 @@ function BestSellingLaptops() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState('next');
   const [activePromotions, setActivePromotions] = useState([]);
+  const [allBrands, setAllBrands] = useState([]); // Brands từ API
+
+  // Load brands from API on mount
+  useEffect(() => {
+    let cancelled = false;
+    
+    const loadBrands = async () => {
+      try {
+        console.log('[BestSellingLaptops] Loading brands from API...');
+        const brandsData = await productService.getBrands();
+        console.log('[BestSellingLaptops] Brands loaded:', brandsData);
+        if (!cancelled) {
+          setAllBrands(Array.isArray(brandsData) ? brandsData : []);
+        }
+      } catch (error) {
+        console.error('[BestSellingLaptops] Error loading brands:', error);
+        if (!cancelled) {
+          setAllBrands([]);
+        }
+      }
+    };
+    
+    loadBrands();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, []); // Only run on mount
 
   // Load laptops from API, but delay if in grace period
   useEffect(() => {
@@ -181,10 +209,12 @@ function BestSellingLaptops() {
     }
   };
 
-  // Extract unique brands (memoized)
+  // Extract brands from API that exist in current laptops (memoized)
   const brands = useMemo(() => {
-    return [...new Set(laptops.map(p => p.brand).filter(Boolean))];
-  }, [laptops]);
+    const laptopBrands = new Set(laptops.map(p => p.brand).filter(Boolean));
+    // Filter allBrands to only include brands that exist in current laptops
+    return allBrands.filter(brand => laptopBrands.has(brand));
+  }, [laptops, allBrands]);
 
   // Filter laptops by active tab (memoized)
   const filteredLaptops = useMemo(() => {

@@ -19,6 +19,7 @@ const AdminProducts = () => {
   const { isInTokenGracePeriod } = useAuth();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]); // Brands từ API
   
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const [showModal, setShowModal] = useState(false);
@@ -33,7 +34,8 @@ const AdminProducts = () => {
     image: '',
     description: '',
     specifications: '', // Thông số kỹ thuật dạng text: "RAM : 36 GB ; CPU : chipset 6 nhân 8 luồng"
-    stock: 0
+    stock: 0,
+    brand: '' // Thương hiệu (optional)
   });
   const [errors, setErrors] = useState({});
   const [imageFile, setImageFile] = useState(null);
@@ -59,6 +61,33 @@ const AdminProducts = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  // Load brands from API on mount
+  useEffect(() => {
+    let cancelled = false;
+    
+    const loadBrands = async () => {
+      try {
+        console.log('[AdminProducts] Loading brands from API...');
+        const brandsData = await productService.getBrands();
+        console.log('[AdminProducts] Brands loaded:', brandsData);
+        if (!cancelled) {
+          setBrands(Array.isArray(brandsData) ? brandsData : []);
+        }
+      } catch (error) {
+        console.error('[AdminProducts] Error loading brands:', error);
+        if (!cancelled) {
+          setBrands([]);
+        }
+      }
+    };
+    
+    loadBrands();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, []); // Only run on mount
 
   // Load products and categories from API on mount, but delay if in grace period
   useEffect(() => {
@@ -205,7 +234,8 @@ const AdminProducts = () => {
           badge: product.badge || '',
           featured: product.featured || false,
           specifications: product.specifications || product.specs || '',
-          specs: product.specs || {} // Keep for backward compatibility
+          specs: product.specs || {}, // Keep for backward compatibility
+          brand: product.brand || null // Thương hiệu (có thể null)
         };
       });
       
@@ -253,7 +283,8 @@ const AdminProducts = () => {
       image: '',
       description: '',
       specifications: '',
-      stock: 0
+      stock: 0,
+      brand: ''
     });
     setImageFile(null);
     setImageFile2(null);
@@ -289,7 +320,8 @@ const AdminProducts = () => {
       description: product.description || '',
       stock: product.stock || 0,
       warrantyPeriod: product.warrantyPeriod || 12,
-      specifications: product.specifications || product.specs || ''
+      specifications: product.specifications || product.specs || '',
+      brand: product.brand || ''
     });
     setImageFile(null);
     setImagePreview(previewImageUrl);
@@ -503,7 +535,8 @@ const AdminProducts = () => {
         stock: Number(productData.stock) || 0,
         warrantyPeriod: Number(productData.warrantyPeriod) || 12,
         specifications: processedSpecifications, // Thông số kỹ thuật dạng text: "RAM : 36 GB ; CPU : 22 luồng"
-        isDisabled: false // Luôn luôn hoạt động khi tạo mới
+        isDisabled: false, // Luôn luôn hoạt động khi tạo mới
+        brand: productData.brand || null // Thương hiệu (optional, có thể null)
       };
       
       if (editingProduct) {
@@ -557,6 +590,7 @@ const AdminProducts = () => {
             isDisabled: updatedProduct.isDisabled || false,
             statusText: updatedProduct.statusText,
             statusColor: updatedProduct.statusColor,
+            brand: updatedProduct.brand || null, // Thương hiệu
             ...updatedProduct
           };
           
@@ -635,7 +669,8 @@ const AdminProducts = () => {
             badge: newProduct.badge || '',
             featured: newProduct.featured || false,
             specifications: newProduct.specifications || newProduct.specs || '',
-            specs: newProduct.specs || {} // Keep for backward compatibility
+            specs: newProduct.specs || {}, // Keep for backward compatibility
+            brand: newProduct.brand || null // Thương hiệu
           };
           
           console.log('[AdminProducts] Mapped Product:', mappedProduct);
@@ -664,7 +699,8 @@ const AdminProducts = () => {
             image: '',
             description: '',
             specifications: '',
-            stock: 0
+            stock: 0,
+            brand: ''
           });
           setImageFile(null);
           setImageFile2(null);
@@ -716,9 +752,10 @@ const AdminProducts = () => {
         discount: 0,
         image: '',
         description: '',
-            specifications: '',
-            stock: 0
-          });
+        specifications: '',
+        stock: 0,
+        brand: ''
+      });
       setImageFile(null);
       setImagePreview(null);
       setErrors({});
@@ -1069,6 +1106,30 @@ const AdminProducts = () => {
                       Đang tải danh sách danh mục...
                     </span>
                   )}
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="brand">Thương hiệu:</label>
+                  <input
+                    type="text"
+                    id="brand"
+                    name="brand"
+                    list="brand-list"
+                    value={formData.brand || ''}
+                    onChange={handleInputChange}
+                    placeholder="Chọn hoặc nhập thương hiệu (tùy chọn)"
+                    className={errors.brand ? 'error' : ''}
+                    autoComplete="off"
+                  />
+                  <datalist id="brand-list">
+                    {brands.map((brand, index) => (
+                      <option key={index} value={brand} />
+                    ))}
+                  </datalist>
+                  {errors.brand && <span className="error-message">{errors.brand}</span>}
+                  <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                    Chọn từ danh sách hoặc nhập thương hiệu mới (ví dụ: Dell, HP, Asus...)
+                  </p>
                 </div>
               </div>
 
