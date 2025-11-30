@@ -50,7 +50,7 @@ const Navbar = () => {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  // Fetch suggestions from API when query changes (debounced)
+  // Auto search when query changes (debounced) - chỉ hiển thị suggestions, không tự động navigate
   useEffect(() => {
     const trimmed = query.trim();
     
@@ -66,7 +66,7 @@ const Navbar = () => {
     const timeoutId = setTimeout(async () => {
       try {
         setSearchLoading(true);
-        console.log('[Navbar] Searching products with query:', trimmed);
+        console.log('[Navbar] Auto searching products with query:', trimmed);
         
         // Call API to search products
         const productsData = await listProducts({
@@ -103,7 +103,7 @@ const Navbar = () => {
         
         console.log('[Navbar] Search results:', activeProducts.length);
         setSuggestions(activeProducts);
-        // Keep suggestions visible if query still has content (handled by onChange)
+        // Keep suggestions visible - user can click to navigate
       } catch (error) {
         console.error('[Navbar] Search error:', error);
         setSuggestions([]);
@@ -111,7 +111,7 @@ const Navbar = () => {
       } finally {
         setSearchLoading(false);
       }
-    }, 300); // Debounce 300ms
+    }, 500); // Debounce 500ms để tự động search khi nhập
 
     return () => clearTimeout(timeoutId);
   }, [query]);
@@ -198,7 +198,7 @@ const Navbar = () => {
 
           {/* Search Bar */}
           <div className="navbar-search" ref={containerRef}>
-            <form className="search-container" onSubmit={(e)=>{e.preventDefault(); goToSearch();}} role="search" aria-label="Tìm kiếm sản phẩm">
+            <div className="search-container" role="search" aria-label="Tìm kiếm sản phẩm">
               <input 
                 ref={inputRef}
                 type="text" 
@@ -211,10 +211,10 @@ const Navbar = () => {
                 aria-expanded={showSuggestions}
                 aria-controls="search-suggestions-list"
               />
-              <button type="submit" className="search-btn" aria-label="Tìm kiếm">
+              <div className="search-btn" aria-label="Tìm kiếm">
                 <i className="fas fa-search" aria-hidden="true"></i>
-              </button>
-            </form>
+              </div>
+            </div>
             {showSuggestions && (
               <ul id="search-suggestions-list" className="search-suggestions" role="listbox">
                 {searchLoading ? (
