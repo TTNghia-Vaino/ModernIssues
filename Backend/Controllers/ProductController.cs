@@ -303,6 +303,80 @@ namespace ModernIssues.Controllers
         }
 
         // ============================================
+        // GET LATEST PRODUCTS: GET api/v1/Product/GetLatestProducts
+        // ============================================
+        /// <summary>
+        /// Lấy danh sách 10 sản phẩm mới nhất trong Database. Dùng cho trang home page.
+        /// </summary>
+        /// <response code="200">Trả về danh sách 10 sản phẩm mới nhất.</response>
+        /// <response code="500">Lỗi hệ thống.</response>
+        [HttpGet("GetLatestProducts")]
+        [ProducesResponseType(typeof(ApiResponse<List<ProductDto>>), HttpStatusCodes.OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), HttpStatusCodes.InternalServerError)]
+        public async Task<IActionResult> GetLatestProducts()
+        {
+            try
+            {
+                var products = await (from p in _context.products
+                                    join c in _context.categories on p.category_id equals c.category_id into categoryGroup
+                                    from c in categoryGroup.DefaultIfEmpty()
+                                    where (p.is_disabled == null || p.is_disabled == false)
+                                    orderby p.created_at descending, p.product_id descending
+                                    select new
+                                    {
+                                        Product = p,
+                                        Category = c,
+                                        StockValue = p.stock ?? 0
+                                    })
+                                    .Take(10)
+                                    .ToListAsync();
+
+                var productDtos = products.Select(x =>
+                {
+                    var dto = new ProductDto
+                    {
+                        ProductId = x.Product.product_id,
+                        CategoryId = x.Product.category_id ?? 0,
+                        ProductName = x.Product.product_name ?? string.Empty,
+                        Description = x.Product.description ?? string.Empty,
+                        Price = x.Product.price,
+                        Stock = x.StockValue,
+                        WarrantyPeriod = x.Product.warranty_period ?? 0,
+                        ImageUrl = x.Product.image_url ?? string.Empty,
+                        ImageUrl2 = x.Product.image_url_2,
+                        ImageUrl3 = x.Product.image_url_3,
+                        Specifications = x.Product.specifications,
+                        OnPrices = x.Product.on_prices ?? 0, // Giá khuyến mãi: 0 = không khuyến mãi, > 0 = có khuyến mãi
+                        CategoryName = x.Category != null ? x.Category.category_name ?? "Chưa phân loại" : "Chưa phân loại",
+                        IsDisabled = false
+                    };
+
+                    // Xác định trạng thái và màu sắc
+                    if (x.StockValue <= 0)
+                    {
+                        dto.StatusText = "Hết hàng";
+                        dto.StatusColor = "#ff4444"; // Đỏ
+                    }
+                    else
+                    {
+                        dto.StatusText = "Đang hoạt động";
+                        dto.StatusColor = "#4CAF50"; // Xanh lá
+                    }
+
+                    return dto;
+                }).ToList();
+
+                return Ok(ApiResponse<List<ProductDto>>.SuccessResponse(productDtos, "Lấy danh sách sản phẩm mới nhất thành công."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] GetLatestProducts: {ex.Message}");
+                return StatusCode(HttpStatusCodes.InternalServerError,
+                    ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy danh sách sản phẩm mới nhất.", new List<string> { ex.Message }));
+            }
+        }
+
+        // ============================================
         // 3. READ ONE: GET api/v1/Product/{id}
         // ============================================
         /// <summary>
@@ -1303,5 +1377,6 @@ namespace ModernIssues.Controllers
                     ApiResponse<object>.ErrorResponse("Lỗi hệ thống khi lấy danh sách sản phẩm bán chạy.", new List<string> { ex.Message }));
             }
         }
+
     }
 }
