@@ -4,6 +4,7 @@
 // Get base URL from environment variable or use default
 // For local: use proxy (relative path) or http://35.232.61.38:5000
 // For server: set VITE_API_BASE_URL in .env file
+// With reverse proxy: use empty string (relative path) for same-origin requests
 export const getBaseURL = () => {
   // If VITE_API_BASE_URL is set, use it
   if (import.meta.env.VITE_API_BASE_URL) {
@@ -20,8 +21,11 @@ export const getBaseURL = () => {
     return '';
   }
   
-  // Default for production - use remote server
-  return 'http://35.232.61.38:5000'; // Production server
+  // Production: With reverse proxy (Nginx), use relative path for same-origin requests
+  // This ensures session cookies work correctly (same origin = no CORS issues)
+  // If reverse proxy is configured, API will be at /v1/ (same origin as frontend)
+  // If not using reverse proxy, set VITE_API_BASE_URL=http://35.232.61.38:5000 in .env
+  return ''; // Use relative path with reverse proxy (same origin)
 };
 
 // API Base URL

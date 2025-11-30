@@ -51,11 +51,10 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromMinutes(60); // Tăng thời gian timeout lên 60 phút
     options.Cookie.HttpOnly = true; // More secure - don't allow JavaScript access
     options.Cookie.IsEssential = true;
-    // Use None for cross-origin requests (different ports are considered cross-site)
-    // Note: Browser requires Secure=true when SameSite=None, but we're using HTTP
-    // This is a known limitation - for production, use HTTPS with Secure=true
-    options.Cookie.SameSite = SameSiteMode.None; // None allows cross-site cookies
-    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Allow HTTP (required for SameSite=None without HTTPS)
+    // Use Lax for same-origin requests (after reverse proxy, frontend and backend are same origin)
+    // Lax allows cookies to be sent with top-level navigations and same-site requests
+    options.Cookie.SameSite = SameSiteMode.Lax; // Lax works with reverse proxy (same origin)
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Allow HTTP (can change to Always if using HTTPS)
     options.Cookie.Path = "/"; // Ensure cookie is sent for all paths
     options.Cookie.Domain = null; // Don't set domain restriction (allows all domains)
     options.Cookie.Name = ".AspNetCore.Session"; // Use default ASP.NET Core session name
