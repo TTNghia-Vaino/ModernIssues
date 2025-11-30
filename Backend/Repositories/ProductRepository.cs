@@ -74,6 +74,7 @@ namespace ModernIssues.Repositories
                 image_url_2 = product.ImageUrl2,
                 image_url_3 = product.ImageUrl3,
                 specifications = product.Specifications,
+                brand = product.Brand,
                 created_by = adminId,
                 updated_by = adminId,
                 created_at = DateTime.UtcNow,
@@ -104,6 +105,7 @@ namespace ModernIssues.Repositories
                 ImageUrl2 = newProduct.image_url_2,
                 ImageUrl3 = newProduct.image_url_3,
                 Specifications = newProduct.specifications,
+                Brand = newProduct.brand,
                 OnPrices = newProduct.on_prices ?? 0,
                 CategoryName = categoryName ?? "Chưa phân loại"
             };
@@ -127,6 +129,7 @@ namespace ModernIssues.Repositories
                     ImageUrl2 = p.image_url_2,
                     ImageUrl3 = p.image_url_3,
                     Specifications = p.specifications,
+                    Brand = p.brand,
                     OnPrices = p.on_prices ?? 0,
                     CategoryName = p.category_id.HasValue 
                         ? _context.categories
@@ -182,6 +185,7 @@ namespace ModernIssues.Repositories
                     ImageUrl2 = x.p.image_url_2,
                     ImageUrl3 = x.p.image_url_3,
                     Specifications = x.p.specifications,
+                    Brand = x.p.brand,
                     OnPrices = x.p.on_prices ?? 0,
                     CategoryName = x.CategoryName ?? "Chưa phân loại"
                 })
@@ -239,6 +243,7 @@ namespace ModernIssues.Repositories
             existingProduct.image_url_2 = product.ImageUrl2;
             existingProduct.image_url_3 = product.ImageUrl3;
             existingProduct.specifications = product.Specifications;
+            existingProduct.brand = product.Brand;
             existingProduct.updated_at = DateTime.UtcNow;
             existingProduct.updated_by = adminId;
 
@@ -264,6 +269,7 @@ namespace ModernIssues.Repositories
                 ImageUrl2 = existingProduct.image_url_2,
                 ImageUrl3 = existingProduct.image_url_3,
                 Specifications = existingProduct.specifications,
+                Brand = existingProduct.brand,
                 OnPrices = existingProduct.on_prices ?? 0,
                 CategoryName = categoryName ?? "Chưa phân loại"
             };

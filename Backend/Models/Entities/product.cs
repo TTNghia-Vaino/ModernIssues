@@ -40,6 +40,11 @@ public partial class product
     /// </summary>
     public string? specifications { get; set; }
 
+    /// <summary>
+    /// Thương hiệu của sản phẩm
+    /// </summary>
+    public string? brand { get; set; }
+
     public bool? is_disabled { get; set; }
 
     public DateTime? created_at { get; set; }
