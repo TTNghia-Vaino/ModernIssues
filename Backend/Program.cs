@@ -76,9 +76,10 @@ builder.Services.AddCors(options =>
                   "http://127.0.0.1:5273",
                   "http://localhost:5173",      // Fallback for other dev setups
                   "http://127.0.0.1:5173",
-                  "http://35.232.61.38", 
-                  "http://35.232.61.38:5000",
-                  "http://35.232.61.38:8000")// ")   // HTTPS explicit port
+                  "http://35.232.61.38",        // Frontend production (port 80 - default HTTP)
+                  "http://35.232.61.38:80",     // Frontend production (explicit port 80)
+                  "http://35.232.61.38:5000",   // Backend (if accessed directly)
+                  "http://35.232.61.38:8000")   // Chatbox (Python FastAPI)
               .AllowAnyMethod()   // Allow POST/PUT/GET etc.
               .AllowAnyHeader()   // Allow Authorization header
               .AllowCredentials() // Allow cookies/session for authentication
