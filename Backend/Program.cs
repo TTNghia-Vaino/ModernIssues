@@ -21,6 +21,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient(); // Add HttpClient for calling Python API
 builder.Services.Configure<SepayConfig>(builder.Configuration.GetSection("SepayConfig"));
 builder.Services.Configure<HooksConfig>(builder.Configuration.GetSection("HooksConfig"));
 builder.Services.AddDbContext<WebDbContext>(options =>

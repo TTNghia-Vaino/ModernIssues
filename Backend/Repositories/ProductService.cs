@@ -45,18 +45,20 @@ namespace ModernIssues.Repositories
             page = Math.Max(1, page);
             int offset = (page - 1) * limit;
 
-            // Chạy song song truy vấn Data và Count
-            var productsTask = _productRepository.GetAllAsync(limit, offset, categoryId, search);
-            var countTask = _productRepository.CountAllAsync(categoryId, search);
-
-            await Task.WhenAll(productsTask, countTask);
+            // Chạy tuần tự để tránh lỗi DbContext concurrent access
+            // Không thể chạy song song vì cả hai đều dùng cùng một DbContext instance
+            // Đảm bảo query đầu tiên hoàn thành hoàn toàn trước khi bắt đầu query thứ hai
+            var products = await _productRepository.GetAllAsync(limit, offset, categoryId, search).ConfigureAwait(false);
+            
+            // Đợi query đầu tiên hoàn thành hoàn toàn trước khi tiếp tục
+            var totalCount = await _productRepository.CountAllAsync(categoryId, search).ConfigureAwait(false);
 
             return new ProductListResponse
             {
-                TotalCount = countTask.Result,
+                TotalCount = totalCount,
                 CurrentPage = page,
                 Limit = limit,
-                Data = productsTask.Result.ToList()
+                Data = products.ToList()
             };
         }
 

@@ -14,6 +14,9 @@ using ModernIssues.Repositories.Service;
 using Microsoft.AspNetCore.Hosting;
 using ModernIssues.Models.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 
 // Loại bỏ các using không cần thiết ở Controller như Dapper, Npgsql, System.Data
 
@@ -27,16 +30,52 @@ namespace ModernIssues.Controllers
         private readonly IWebHostEnvironment _webHostEnvironment;
         private readonly WebDbContext _context;
         private readonly ILogService _logService;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private const string PYTHON_API_BASE_URL = "http://35.232.61.38:8000";
 
-        public ProductController(IProductService productService, IWebHostEnvironment webHostEnvironment, WebDbContext context, ILogService logService)
+        public ProductController(IProductService productService, IWebHostEnvironment webHostEnvironment, WebDbContext context, ILogService logService, IHttpClientFactory httpClientFactory)
         {
             _productService = productService;
             _webHostEnvironment = webHostEnvironment;
             _context = context;
             _logService = logService;
+            _httpClientFactory = httpClientFactory;
         }
 
         private int GetAdminId() => 1; // Giả lập lấy ID Admin
+
+        /// <summary>
+        /// Gọi Python API để cập nhật embedding cho sản phẩm
+        /// </summary>
+        private async Task UpdateProductEmbeddingAsync(int productId)
+        {
+            try
+            {
+                var httpClient = _httpClientFactory.CreateClient();
+                var requestBody = new { product_id = productId };
+                var jsonContent = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+                var response = await httpClient.PostAsync($"{PYTHON_API_BASE_URL}/update-vector-by-product-id", content);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseText = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"[ProductController] Embedding updated successfully for product {productId}: {responseText}");
+                }
+                else
+                {
+                    var errorText = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"[ProductController] Failed to update embedding for product {productId}: {response.StatusCode} - {errorText}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the main operation
+                Console.WriteLine($"[ProductController] Error updating embedding for product {productId}: {ex.Message}");
+                Console.WriteLine($"[ProductController] StackTrace: {ex.StackTrace}");
+            }
+        }
 
         /// <summary>
         /// Lấy thông tin user hiện tại
@@ -244,6 +283,13 @@ namespace ModernIssues.Controllers
                 }
 
                 Console.WriteLine($"[ProductController.CreateProduct] Product created successfully: {newProduct.ProductId} - {newProduct.ProductName}");
+
+                // Tự động cập nhật embedding cho sản phẩm mới (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(1000); // Đợi 1 giây để đảm bảo product đã được lưu vào DB
+                    await UpdateProductEmbeddingAsync(newProduct.ProductId);
+                });
 
                 // TRẢ VỀ THÀNH CÔNG: 201 Created
                 return StatusCode(HttpStatusCodes.Created,
@@ -546,6 +592,13 @@ namespace ModernIssues.Controllers
                 }
 
                 Console.WriteLine($"[ProductController.UpdateProduct] Product updated successfully: {id}");
+
+                // Tự động cập nhật embedding cho sản phẩm đã cập nhật (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(1000); // Đợi 1 giây để đảm bảo product đã được cập nhật trong DB
+                    await UpdateProductEmbeddingAsync(id);
+                });
                 
                 // TRẢ VỀ THÀNH CÔNG: 200 OK
                 return Ok(ApiResponse<ProductDto>.SuccessResponse(updatedProduct, "Cập nhật sản phẩm thành công."));
