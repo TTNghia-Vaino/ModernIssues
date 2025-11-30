@@ -48,8 +48,8 @@ section.products-grid-section,
   align-items: start !important;
 }
 
-/* Product card styling */
-.product-card {
+/* Product card styling - Only apply to ProductsList context */
+.products-list-container .product-card {
   width: 100% !important;
   max-width: 100% !important;
   display: flex !important;
@@ -62,39 +62,39 @@ section.products-grid-section,
   min-height: 400px !important; /* Chiều cao hợp lý */
 }
 
-/* Product card image container */
-.product-card > div:first-child {
+/* Product card image container - Only apply to ProductsList context */
+.products-list-container .product-card .product-image-wrapper {
   height: 250px !important; /* Chiều cao hình ảnh hợp lý */
   min-height: 250px !important;
 }
 
-/* Product card text styling */
-.product-card > div:nth-child(2) {
+/* Product card text styling - Only apply to ProductsList context */
+.products-list-container .product-card .product-name {
   font-size: 16px !important; /* Font size hợp lý */
   font-weight: 600 !important;
   line-height: 1.5 !important;
   margin-bottom: 10px !important;
 }
 
-.product-card > div:nth-child(3) {
+.products-list-container .product-card .current-price {
   font-size: 20px !important; /* Font size hợp lý */
   font-weight: 700 !important;
   margin-bottom: 8px !important;
 }
 
-.product-card > div:nth-child(4) {
+.products-list-container .product-card .brand-tag {
   font-size: 14px !important; /* Font size hợp lý */
 }
 
-/* Ensure product images don't break the layout */
-.product-card img {
+/* Ensure product images don't break the layout - Only apply to ProductsList context */
+.products-list-container .product-card .product-image {
   max-width: 100% !important;
   height: auto !important;
   object-fit: cover !important;
   display: block !important;
 }
 
-.product-card > div:first-child {
+.products-list-container .product-card .product-image-wrapper {
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
@@ -169,12 +169,12 @@ body {
     gap: 4px !important; /* Giảm gap tối đa để card rộng hơn */
   }
   
-  .product-card {
+  .products-list-container .product-card {
     padding: 4px !important; /* Giảm padding tối đa để card rộng hơn */
     min-height: 380px !important;
   }
   
-  .product-card > div:first-child {
+  .products-list-container .product-card .product-image-wrapper {
     height: 240px !important;
     min-height: 240px !important;
   }
@@ -241,12 +241,12 @@ body {
     gap: 4px !important; /* Giảm gap tối đa để card rộng hơn */
   }
   
-  .product-card {
+  .products-list-container .product-card {
     padding: 4px !important; /* Padding giảm tối đa */
     min-height: 400px !important; /* Chiều cao hợp lý */
   }
   
-  .product-card > div:first-child {
+  .products-list-container .product-card .product-image-wrapper {
     height: 250px !important; /* Chiều cao hình ảnh hợp lý */
     min-height: 250px !important;
   }

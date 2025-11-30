@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import * as productService from '../services/productService';
 import { transformProduct } from '../utils/productUtils';
-import { handleProductImageError, getPlaceholderImage } from '../utils/imageUtils';
+import ProductCard from './ProductCard';
 import './RelatedProducts.css';
 
 function RelatedProducts({ categoryId, currentProductId }) {
@@ -134,11 +133,11 @@ function RelatedProducts({ categoryId, currentProductId }) {
     }
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(price);
+  const handleProductClick = (productId) => {
+    // Scroll to top immediately before navigation
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   };
 
   if (loading) {
@@ -186,45 +185,16 @@ function RelatedProducts({ categoryId, currentProductId }) {
             }}>
               {/* Show only visible products */}
               {visibleProducts.map((product, idx) => (
-                <Link 
+                <ProductCard
                   key={`product-${currentIndex}-${idx}`}
-                  to={`/products/${product.id}`}
-                  className={`related-product-card slide-${direction}`}
-                  style={{
-                    animation: `${direction === 'next' ? 'itemSlideInRight' : 'itemSlideInLeft'} 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
-                    animationDelay: `${idx * 0.05}s`
-                  }}
-                >
-                  <div className="product-image-container">
-                    <img 
-                      src={product.image || getPlaceholderImage('product')} 
-                      alt={product.name}
-                      className="product-image"
-                      onError={handleProductImageError}
-                    />
-                    {product.discount > 0 && (
-                      <div className="discount-badge">-{product.discount}%</div>
-                    )}
-                    {product.isNew && (
-                      <div className="new-badge">Mới</div>
-                    )}
-                  </div>
-
-                  <div className="product-info">
-                    <h3 className="product-name">{product.name}</h3>
-                    
-                    <div className="product-brand">
-                      {product.brand && <span className="brand-tag">{product.brand}</span>}
-                    </div>
-
-                    <div className="product-prices-horizontal">
-                      <div className="sale-price">{formatPrice(product.price || product.salePrice)}</div>
-                      {product.originalPrice && product.originalPrice > (product.price || product.salePrice) && (
-                        <div className="original-price">{formatPrice(product.originalPrice)}</div>
-                      )}
-                    </div>
-                  </div>
-                </Link>
+                  product={product}
+                  onClick={handleProductClick}
+                  variant="default"
+                  showAnimation={true}
+                  animationDirection={direction}
+                  animationDelay={idx * 0.05}
+                  className="related-product-card"
+                />
               ))}
             </div>
           </div>

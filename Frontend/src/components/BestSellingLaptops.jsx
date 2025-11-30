@@ -4,8 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import * as productService from '../services/productService';
 import * as promotionService from '../services/promotionService';
 import { transformProducts } from '../utils/productUtils';
-import { getPlaceholderImage } from '../utils/imageUtils';
-import SafeImage from './SafeImage';
+import ProductCard from './ProductCard';
 import './BestSellingLaptops.css';
 
 function BestSellingLaptops() {
@@ -16,7 +15,6 @@ function BestSellingLaptops() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState('next');
   const [activePromotions, setActivePromotions] = useState([]);
-  const placeholderImage = getPlaceholderImage('product');
 
   // Load laptops from API, but delay if in grace period
   useEffect(() => {
@@ -195,13 +193,6 @@ function BestSellingLaptops() {
       : laptops.filter(laptop => laptop.brand === activeTab);
   }, [activeTab, laptops]);
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(price);
-  };
-
   const handleProductClick = (productId) => {
     // Scroll to top immediately before navigation
     window.scrollTo(0, 0);
@@ -228,75 +219,6 @@ function BestSellingLaptops() {
   const handleCarouselPrev = () => {
     setDirection('prev');
     setCurrentIndex(prev => (prev - 1 + filteredLaptops.length) % filteredLaptops.length);
-  };
-
-  // Render laptop specs
-  const renderSpecs = (specs) => {
-    if (!specs) return null;
-    
-    const specItems = [
-      specs.cpu,
-      specs.gpu,
-      specs.ram,
-      specs.storage,
-      specs.display
-    ].filter(Boolean);
-
-    return (
-      <div className="laptop-specs">
-        {specItems.map((spec, index) => (
-          <div key={index} className="spec-item">{spec}</div>
-        ))}
-      </div>
-    );
-  };
-
-  // Render laptop badge
-  const renderBadge = (laptop) => {
-    if (!laptop.badge) return null;
-
-    const BoltIcon = () => (
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-      </svg>
-    );
-
-    return (
-      <>
-        <div className="new-badge">
-          <BoltIcon />
-        </div>
-        <div className="laptop-badge">
-          <div className="badge-icon">
-            <BoltIcon />
-          </div>
-          <div className="badge-text">
-            <div className="badge-title">{laptop.badge}</div>
-            {laptop.featured && <div className="badge-date">SẢN PHẨM NỔI BẬT</div>}
-          </div>
-        </div>
-      </>
-    );
-  };
-
-  const getLaptopImage = (laptop) => {
-    if (!laptop) return placeholderImage;
-    if (laptop.image && laptop.image.trim() !== '') {
-      return laptop.image;
-    }
-    if (Array.isArray(laptop.images) && laptop.images.length > 0) {
-      const firstImage = laptop.images.find(Boolean);
-      if (typeof firstImage === 'string' && firstImage.trim()) {
-        return firstImage;
-      }
-      if (firstImage && typeof firstImage === 'object') {
-        const url = firstImage.url || firstImage.src || firstImage.path || firstImage.image;
-        if (url && url.trim()) {
-          return url;
-        }
-      }
-    }
-    return placeholderImage;
   };
 
   return (
@@ -353,49 +275,16 @@ function BestSellingLaptops() {
                           }
                         }
                         return visibleLaptops.map((laptop, idx) => (
-                          <div 
+                          <ProductCard
                             key={`${currentIndex}-${idx}`}
-                            className={`laptop-card slide-${direction}`}
-                            onClick={() => handleProductClick(laptop.id)}
-                            style={{
-                              animation: `${direction === 'next' ? 'itemSlideInRight' : 'itemSlideInLeft'} 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
-                              animationDelay: `${idx * 0.05}s`
-                            }}
-                          >
-                            {laptop.discount > 0 && (
-                              <div className="discount-badge">-{laptop.discount}%</div>
-                            )}
-                            
-                            {renderBadge(laptop)}
-                            
-                            <div className="laptop-image-wrapper">
-                              <SafeImage 
-                                src={getLaptopImage(laptop)} 
-                                alt={laptop.name} 
-                                className="laptop-image"
-                                loading="lazy"
-                              />
-                            </div>
-
-                            <div className="laptop-info">
-                              <h3 className="laptop-name">{laptop.name}</h3>
-
-                              {laptop.brand && (
-                                <div className="laptop-brand">
-                                  <span className="brand-tag">{laptop.brand}</span>
-                                </div>
-                              )}
-
-                              {renderSpecs(laptop.specs)}
-
-                              <div className="laptop-price-section">
-                                <div className="current-price">{formatPrice(laptop.price)}</div>
-                                {laptop.originalPrice && laptop.originalPrice > laptop.price && (
-                                  <div className="original-price">{formatPrice(laptop.originalPrice)}</div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                            product={laptop}
+                            onClick={handleProductClick}
+                            variant="laptop"
+                            showAnimation={true}
+                            animationDirection={direction}
+                            animationDelay={idx * 0.05}
+                            className="laptop-card"
+                          />
                         ));
                       })()}
                     </div>

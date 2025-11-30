@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as productService from '../services/productService';
 import { transformProducts } from '../utils/productUtils';
-import SafeImage from './SafeImage';
+import ProductCard from './ProductCard';
 import './MiniPCShowcase.css';
 import miniPCBanner from '../assets/section_product_2.webp';
 
@@ -224,13 +224,6 @@ function MiniPCShowcase() {
     setSelectedCategory(null);
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(price);
-  };
-
 
   if (loading) {
     return <div className="mini-pc-showcase loading">Đang tải...</div>;
@@ -270,76 +263,14 @@ function MiniPCShowcase() {
               <p>Chưa có sản phẩm Mini PC nào. Vui lòng thêm sản phẩm trong trang Admin.</p>
             </div>
           ) : (
-            products.map(product => {
-              return (
-                <div
-                  key={product.id}
-                  className="product-card"
-                  onClick={() => handleProductClick(product.id)}
-                >
-                  {product.discount > 0 && (
-                    <div className="discount-badge">-{product.discount}%</div>
-                  )}
-                  
-                  {product.badge && (
-                    <div className="product-badge">{product.badge}</div>
-                  )}
-
-                  <div className={`product-image ${product.image2 ? 'has-hover-image' : ''}`}>
-                    <SafeImage 
-                      src={product.image} 
-                      alt={product.name}
-                      className="product-image-main"
-                      loading="lazy"
-                    />
-                    {product.image2 && (
-                      <SafeImage 
-                        src={product.image2} 
-                        alt={`${product.name} - View 2`} 
-                        className="product-image-hover"
-                        loading="lazy"
-                      />
-                    )}
-                  </div>
-
-                  <div className="product-specs">
-                    {product.specs && (
-                      <>
-                        {product.specs.cpu && (
-                          <div className="spec-item">
-                            <span>💻 {product.specs.cpu}</span>
-                          </div>
-                        )}
-                        {product.specs.ram && (
-                          <div className="spec-item">
-                            <span>🎮 {product.specs.ram}</span>
-                          </div>
-                        )}
-                        {product.specs.storage && (
-                          <div className="spec-item">
-                            <span>💾 {product.specs.storage}</span>
-                          </div>
-                        )}
-                        {product.specs.gpu && (
-                          <div className="spec-item">
-                            <span>🖥️ {product.specs.gpu}</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  <h3 className="product-name">{product.name}</h3>
-
-                  <div className="product-pricing">
-                    <div className="current-price">{formatPrice(product.price)}</div>
-                    {product.originalPrice && product.originalPrice > product.price && (
-                      <div className="original-price">{formatPrice(product.originalPrice)}</div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
+            products.map(product => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onClick={handleProductClick}
+                variant="default"
+              />
+            ))
           )}
         </div>
       </div>

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as productService from '../services/productService';
 import { transformProducts } from '../utils/productUtils';
-import { handleProductImageError, getPlaceholderImage } from '../utils/imageUtils';
+import ProductCard from './ProductCard';
 import './SSDShowcase.css';
 
 function SSDShowcase() {
@@ -154,13 +154,6 @@ function SSDShowcase() {
     navigate('/products?category=SSD');
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(price);
-  };
-
   const calculateDiscount = (originalPrice, salePrice) => {
     return Math.round(((originalPrice - salePrice) / originalPrice) * 100);
   };
@@ -241,71 +234,21 @@ function SSDShowcase() {
                 ? calculateDiscount(product.originalPrice, product.price)
                 : product.discount || 0;
 
+              // Update product with calculated discount and rating
+              const productWithDiscount = {
+                ...product,
+                discount: discount,
+                rating: product.rating || 5,
+                reviewCount: product.reviews || product.reviewCount || 0
+              };
+
               return (
-                <div
+                <ProductCard
                   key={product.id}
-                  className="product-card"
-                  onClick={() => handleProductClick(product.id)}
-                >
-                  {discount > 0 && (
-                    <div className="discount-badge">-{discount}%</div>
-                  )}
-                  
-                  {product.badge && (
-                    <div className="product-badge">{product.badge}</div>
-                  )}
-
-                  <div className="product-image">
-                    <img 
-                      src={product.image || getPlaceholderImage('product')} 
-                      alt={product.name}
-                      onError={handleProductImageError}
-                    />
-                  </div>
-
-                  <h3 className="product-name">{product.name}</h3>
-
-                  <div className="product-specs">
-                    {product.specs && (
-                      <>
-                        {product.specs.capacity && (
-                          <div className="spec-item">
-                            <span>💾 {product.specs.capacity}</span>
-                          </div>
-                        )}
-                        {product.specs.interface && (
-                          <div className="spec-item">
-                            <span>🔗 {product.specs.interface}</span>
-                          </div>
-                        )}
-                        {product.specs.speed && (
-                          <div className="spec-item">
-                            <span>⚡ {product.specs.speed}</span>
-                          </div>
-                        )}
-                        {product.specs.warranty && (
-                          <div className="spec-item">
-                            <span>🛡️ {product.specs.warranty}</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  <div className="product-pricing">
-                    <div className="current-price">{formatPrice(product.price)}</div>
-                    {product.originalPrice && product.originalPrice > product.price && (
-                      <div className="original-price">{formatPrice(product.originalPrice)}</div>
-                    )}
-                  </div>
-
-                  <div className="product-rating">
-                    <div className="stars">
-                      {'⭐'.repeat(5)}
-                    </div>
-                    <span className="review-count">({product.reviews || 0} đánh giá)</span>
-                  </div>
-                </div>
+                  product={productWithDiscount}
+                  onClick={handleProductClick}
+                  variant="default"
+                />
               );
             })
           )}
