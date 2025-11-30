@@ -100,88 +100,11 @@ namespace ModernIssues.Repositories
             _context.order_details.AddRange(orderDetails);
             await _context.SaveChangesAsync();
 
-            // 6. Trừ số lượng tồn kho
-            foreach (var cartItem in cartItems)
-            {
-                if (cartItem.product != null)
-                {
-                    cartItem.product.stock -= cartItem.quantity;
-                    cartItem.product.updated_at = DateTime.UtcNow;
-                }
-            }
+            // 6. Lưu ý: Không trừ stock và bán serial ở đây
+            // - Với Transfer/ATM: Sẽ trừ stock và bán serial khi thanh toán thành công (trong HooksService)
+            // - Với COD: Sẽ trừ stock và bán serial khi cập nhật trạng thái đơn hàng thành "paid"
 
-            await _context.SaveChangesAsync();
-
-            // 7. Tạo warranty tự động cho từng sản phẩm (nếu có warranty_period)
-            // Lấy serial numbers từ product_serials (trong kho) thay vì tạo mới
-            var warranties = new List<warranty>();
-
-            foreach (var cartItem in cartItems)
-            {
-                if (cartItem.product != null && 
-                    cartItem.product.warranty_period.HasValue && 
-                    cartItem.product.warranty_period > 0)
-                {
-                    var warrantyPeriod = cartItem.product.warranty_period ?? 0;
-                    var startDate = DateTime.UtcNow;
-                    var endDate = startDate.AddMonths(warrantyPeriod);
-
-                    // Lấy serial numbers có sẵn trong kho (chưa bán: is_sold = false, còn bảo hành: is_disabled = false)
-                    var availableSerials = await _context.product_serials
-                        .Where(ps => ps.product_id == cartItem.product_id 
-                                  && (ps.is_sold == null || ps.is_sold == false)
-                                  && (ps.is_disabled == null || ps.is_disabled == false))
-                        .Take(cartItem.quantity)
-                        .ToListAsync();
-
-                    // Kiểm tra đủ serial không
-                    if (availableSerials.Count < cartItem.quantity)
-                    {
-                        throw new ArgumentException(
-                            $"Không đủ serial numbers trong kho cho sản phẩm {cartItem.product.product_name}. " +
-                            $"Cần {cartItem.quantity} nhưng chỉ có {availableSerials.Count} sản phẩm có serial.");
-                    }
-
-                    // Tạo warranty cho mỗi serial number
-                    foreach (var productSerial in availableSerials)
-                    {
-                        var newWarranty = new warranty
-                        {
-                            product_id = cartItem.product_id,
-                            user_id = userId,
-                            order_id = newOrder.order_id,
-                            start_date = startDate,
-                            end_date = endDate,
-                            status = "active",
-                            serial_number = productSerial.serial_number, // Sử dụng serial từ kho
-                            created_at = DateTime.UtcNow,
-                            updated_at = DateTime.UtcNow,
-                            created_by = userId,
-                            updated_by = userId,
-                            is_disabled = false
-                        };
-
-                        warranties.Add(newWarranty);
-
-                        // Cập nhật serial: đánh dấu đã bán (is_sold = true)
-                        // Không cần đổi is_disabled vì vẫn còn bảo hành (is_disabled = false)
-                        productSerial.is_sold = true;
-                        productSerial.updated_at = DateTime.UtcNow;
-                        productSerial.updated_by = userId;
-                    }
-                }
-            }
-
-            if (warranties.Any())
-            {
-                _context.warranties.AddRange(warranties);
-                await _context.SaveChangesAsync();
-
-                // Note: Database thực tế KHÔNG có warranty_id trong product_serials
-                // Không cần cập nhật warranty_id vào product_serials
-            }
-
-            // 8. Xóa tất cả cart items
+            // 7. Xóa tất cả cart items
             _context.carts.RemoveRange(cartItems);
             await _context.SaveChangesAsync();
 
