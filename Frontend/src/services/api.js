@@ -14,9 +14,23 @@ export const apiRequest = async (endpoint, options = {}) => {
   const defaultOptions = {
     method: 'GET',
     headers: getDefaultHeaders(),
-    credentials: 'include', // Send cookies/session for 2FA
+    credentials: 'include', // Send cookies/session for 2FA and session-based auth
     ...options,
   };
+  
+  // Debug logging in production for authentication issues
+  // Note: Using session-based auth (cookies), not Bearer tokens
+  if (import.meta.env.PROD) {
+    const user = localStorage.getItem('modernissues_auth_v1');
+    console.log('[API Request]', {
+      url,
+      method: defaultOptions.method,
+      hasUser: !!user,
+      credentials: defaultOptions.credentials, // Should be 'include' for session cookies
+      usingSessionAuth: true, // Backend uses session cookies
+      headers: defaultOptions.headers
+    });
+  }
 
   // Handle request body
   if (options.body && typeof options.body === 'object') {
@@ -69,6 +83,24 @@ export const apiRequest = async (endpoint, options = {}) => {
       
       // Handle 401 Unauthorized - clear token and trigger logout
       if (response.status === 401) {
+        // Log detailed info in production for debugging
+        if (import.meta.env.PROD) {
+          const token = localStorage.getItem('auth_token');
+          const user = localStorage.getItem('modernissues_auth_v1');
+          console.error('[API 401 Error]', {
+            url,
+            method: defaultOptions.method,
+            hasToken: !!token,
+            tokenLength: token ? token.length : 0,
+            hasUser: !!user,
+            sentHeaders: {
+              ...defaultOptions.headers,
+              Authorization: defaultOptions.headers['Authorization'] ? 'Bearer ***' : 'MISSING'
+            },
+            responseData: data
+          });
+        }
+        
         // Check if we're in grace period (first 8 seconds after login)
         // Don't trigger logout if user just logged in
         let shouldTriggerLogout = true;
@@ -81,7 +113,7 @@ export const apiRequest = async (endpoint, options = {}) => {
               const timeSinceLogin = Date.now() - new Date(user.loginTime).getTime();
               if (timeSinceLogin < 8000) { // 8 seconds threshold
                 shouldTriggerLogout = false;
-                if (import.meta.env.DEV) {
+                if (import.meta.env.DEV || import.meta.env.PROD) {
                   console.log('[API] Ignoring 401 during grace period', {
                     timeSinceLogin,
                     url

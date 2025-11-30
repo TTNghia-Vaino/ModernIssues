@@ -61,17 +61,16 @@ export const getApiUrl = (endpoint) => {
 };
 
 // Default headers
+// Note: Backend uses session-based authentication (cookies), not Bearer tokens
 export const getDefaultHeaders = () => {
   const headers = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
   
-  // Add authorization token if available
-  const token = localStorage.getItem('auth_token');
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  // Session-based auth: Don't send Authorization header
+  // Backend uses session cookies set during login
+  // credentials: 'include' in apiRequest ensures cookies are sent
   
   return headers;
 };
