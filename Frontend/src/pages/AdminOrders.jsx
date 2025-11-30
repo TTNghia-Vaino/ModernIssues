@@ -362,11 +362,13 @@ const AdminOrders = () => {
             value={status}
             onChange={(e) => handleStatusChange(orderId, e.target.value)}
           >
+            {/* Chỉ cho phép chọn 3 trạng thái hợp lệ theo API: pending, paid, cancelled */}
             <option value="pending">Chờ xác nhận</option>
             <option value="paid">Đã thanh toán</option>
-            <option value="processing">Đang xử lý</option>
-            <option value="delivered">Đã giao</option>
             <option value="cancelled">Đã hủy</option>
+            {/* Hiển thị các trạng thái khác nếu đơn hàng đã có (chỉ để hiển thị, không thể chọn) */}
+            {status === 'processing' && <option value="processing" disabled>Đang xử lý</option>}
+            {status === 'delivered' && <option value="delivered" disabled>Đã giao</option>}
           </select>
         </div>
       </div>
