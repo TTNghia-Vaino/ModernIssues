@@ -143,7 +143,7 @@ const AdminProducts = () => {
       
       // Map API fields to component format
       const { getBaseURL } = await import('../config/api');
-      const baseUrl = getBaseURL() || 'http://35.232.61.38:5000'; // Fallback to server URL if using proxy
+      const baseUrl = getBaseURL() || 'http://35.232.61.38:5000'; // Fallback to remote server
       // Remove v1 from base URL if present
       const cleanBaseUrl = baseUrl.replace(/\/v1$/, '');
       
@@ -518,7 +518,7 @@ const AdminProducts = () => {
           if (fullImageUrl && !fullImageUrl.startsWith('http') && !fullImageUrl.startsWith('data:') && !fullImageUrl.startsWith('/')) {
             // If imageUrl is just filename, construct full URL from wwwroot/Uploads/Images
             const { getBaseURL } = await import('../config/api');
-            const baseUrl = getBaseURL() || 'http://35.232.61.38:5000'; // Fallback to server URL if using proxy
+            const baseUrl = getBaseURL() || 'http://35.232.61.38:5000'; // Fallback to remote server
             // Remove v1 from base URL if present, then add Uploads/Images path
             const cleanBaseUrl = baseUrl.replace(/\/v1$/, '');
             fullImageUrl = `${cleanBaseUrl}/Uploads/Images/${fullImageUrl}`;
@@ -588,7 +588,7 @@ const AdminProducts = () => {
           if (fullImageUrl && !fullImageUrl.startsWith('http') && !fullImageUrl.startsWith('data:') && !fullImageUrl.startsWith('/')) {
             // If imageUrl is just filename, construct full URL from wwwroot/Uploads/Images
             const { getBaseURL } = await import('../config/api');
-            const baseUrl = getBaseURL() || 'http://35.232.61.38:5000'; // Fallback to server URL if using proxy
+            const baseUrl = getBaseURL() || 'http://35.232.61.38:5000'; // Fallback to remote server
             // Remove v1 from base URL if present, then add Uploads/Images path
             const cleanBaseUrl = baseUrl.replace(/\/v1$/, '');
             fullImageUrl = `${cleanBaseUrl}/Uploads/Images/${fullImageUrl}`;

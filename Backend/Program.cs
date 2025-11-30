@@ -49,13 +49,13 @@ builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromMinutes(30); 
-    options.Cookie.HttpOnly = false; // Allow JavaScript access for debugging
+    options.Cookie.HttpOnly = true; // More secure - don't allow JavaScript access
     options.Cookie.IsEssential = true;
     options.Cookie.SameSite = SameSiteMode.None; // None for cross-origin requests
     options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Allow HTTP
     options.Cookie.Path = "/"; // Ensure cookie is sent for all paths
-    options.Cookie.Domain = null; // Don't set domain restriction
-    options.Cookie.Name = "ModernIssues.Session"; // Explicit session name
+    options.Cookie.Domain = null; // Don't set domain restriction (allows all domains)
+    options.Cookie.Name = ".AspNetCore.Session"; // Use default ASP.NET Core session name
 });
 
 // Add SignalR for real-time notifications
@@ -67,7 +67,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowSePayWebhook", policy =>
     {
         policy.WithOrigins(
-                  "http://localhost:5173",      // Local frontend dev
+                  "http://localhost:5273",      // Local frontend dev
+                  "http://127.0.0.1:5273",
+                  "http://localhost:5173",      // Fallback for other dev setups
                   "http://127.0.0.1:5173",
                   "http://35.232.61.38", 
                   "http://35.232.61.38:5000",
@@ -136,7 +138,21 @@ ApiResponse<object>.SetHttpContextAccessor(httpContextAccessor);
 //    app.UseSwaggerUI();
 //}
 
+// UseSession must be before UseCors
 app.UseSession();
+
+// Debug middleware to log session info
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/v1"))
+    {
+        var sessionId = context.Session?.Id ?? "no-session";
+        var username = context.Session?.GetString("username") ?? "not-set";
+        var hasSessionCookie = context.Request.Cookies.ContainsKey(".AspNetCore.Session");
+        Console.WriteLine($"[Session Debug] Path: {context.Request.Path}, SessionId: {sessionId}, Username: {username}, HasCookie: {hasSessionCookie}");
+    }
+    await next();
+});
 
 // Add request ID middleware early in the pipeline
 app.UseMiddleware<RequestIdMiddleware>();
@@ -164,7 +180,8 @@ app.Use(async (context, next) =>
     }
 });
 
-app.UseHttpsRedirection();
+// Disable HTTPS redirection - using HTTP only
+// app.UseHttpsRedirection();
 
 // Enable CORS for SePay webhook (must be before UseAuthorization)
 app.UseCors("AllowSePayWebhook");

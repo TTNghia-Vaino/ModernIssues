@@ -355,7 +355,7 @@ const ProfilePage = () => {
         return avatarPath;
       }
       
-      // Normalize URL using backend domain: http://35.232.61.38:5000/Uploads/Images/{filename}
+      // Normalize URL using backend domain
       const baseUrl = getBaseURL() || 'http://35.232.61.38:5000';
       const cleanBaseUrl = baseUrl.replace(/\/v1$/, '').replace(/\/$/, '');
       return `${cleanBaseUrl}/Uploads/Images/${avatarPath}`;

@@ -5,27 +5,67 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    port: 5173, // Port cho frontend
     open: true, // Tự động mở browser khi chạy dev server
     proxy: {
       '/v1': {
-        target: 'http://35.232.61.38:5000', // Server backend
+        target: 'http://35.232.61.38:5000', // Remote backend server
         changeOrigin: true,
         secure: false, // Allow HTTP
         rewrite: (path) => path, // Keep the path as is
-        cookieDomainRewrite: 'localhost', // Rewrite cookie domain to localhost
-        cookiePathRewrite: '/', // Rewrite cookie path
-        configure: (proxy) => {
-          proxy.on('error', (err) => {
+        cookieDomainRewrite: {
+          '*': 'localhost' // Rewrite all cookie domains to localhost
+        },
+        cookiePathRewrite: {
+          '*': '/' // Rewrite all cookie paths to /
+        },
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
             console.log('[Proxy Error]', err.message);
           });
-          proxy.on('proxyReq', (proxyReq, req) => {
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
             console.log('[Proxy Request]', req.method, req.url, '→', proxyReq.path);
+            // Log cookies being sent
+            const cookieHeader = req.headers.cookie;
+            if (cookieHeader) {
+              console.log('[Proxy Request] Cookies being sent:', cookieHeader);
+            } else {
+              console.log('[Proxy Request] No cookies in request');
+            }
           });
           proxy.on('proxyRes', (proxyRes, req, res) => {
             // Log cookies from backend
             const cookies = proxyRes.headers['set-cookie'];
             if (cookies) {
-              console.log('[Proxy Response] Set-Cookie:', cookies);
+              console.log('[Proxy Response] Set-Cookie from backend:', cookies);
+              // Ensure cookies are properly set for localhost
+              let modifiedCookies;
+              if (Array.isArray(cookies)) {
+                modifiedCookies = cookies.map(cookie => {
+                  // Remove domain restriction, set SameSite=Lax (works better with proxy), remove Secure
+                  let modified = cookie
+                    .replace(/;\s*[Dd]omain=[^;]+/gi, '')
+                    .replace(/;\s*[Ss]ame[Ss]ite=[^;]+/gi, '')
+                    .replace(/;\s*[Ss]ecure/gi, '');
+                  // Add SameSite=Lax if not present
+                  if (!modified.includes('SameSite')) {
+                    modified += '; SameSite=Lax';
+                  }
+                  return modified;
+                });
+              } else {
+                modifiedCookies = cookies
+                  .replace(/;\s*[Dd]omain=[^;]+/gi, '')
+                  .replace(/;\s*[Ss]ame[Ss]ite=[^;]+/gi, '')
+                  .replace(/;\s*[Ss]ecure/gi, '');
+                if (!modifiedCookies.includes('SameSite')) {
+                  modifiedCookies += '; SameSite=Lax';
+                }
+              }
+              proxyRes.headers['set-cookie'] = modifiedCookies;
+              console.log('[Proxy Response] Set-Cookie after rewrite:', modifiedCookies);
+            } else {
+              console.log('[Proxy Response] No Set-Cookie header from backend');
             }
           });
         },
@@ -47,7 +87,7 @@ export default defineConfig({
         },
       },
       '/update-vector-by-product-id': {
-        target: 'http://35.232.61.38:5000', // Server backend
+        target: 'http://35.232.61.38:5000', // Remote backend server
         changeOrigin: true,
         secure: false, // Allow HTTP
         rewrite: (path) => path, // Keep the path as is
@@ -61,7 +101,7 @@ export default defineConfig({
         },
       },
       '/GenerateQr': {
-        target: 'http://35.232.61.38:5000', // Server backend
+        target: 'http://35.232.61.38:5000', // Remote backend server
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path,
@@ -75,7 +115,7 @@ export default defineConfig({
         },
       },
       '/Payment/GenerateQr': {
-        target: 'http://35.232.61.38:5000', // Server backend
+        target: 'http://35.232.61.38:5000', // Remote backend server
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path,
@@ -89,7 +129,7 @@ export default defineConfig({
         },
       },
       '/paymentHub': {
-        target: 'http://35.232.61.38:5000', // Server backend
+        target: 'http://35.232.61.38:5000', // Remote backend server
         ws: true,
         changeOrigin: true,
         secure: false,

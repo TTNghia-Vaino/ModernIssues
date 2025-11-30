@@ -5,7 +5,7 @@ import { getBaseURL } from '../config/api';
  * Converts API format to component format
  */
 
-const FALLBACK_IMAGE_BASE_URL = 'http://localhost:5273';
+const FALLBACK_IMAGE_BASE_URL = 'http://35.232.61.38:5000';
 
 const getCleanBaseUrl = () => {
   const baseUrl = getBaseURL();

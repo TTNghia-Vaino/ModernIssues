@@ -14,15 +14,14 @@ export const getBaseURL = () => {
   // Có thể dùng proxy trong dev hoặc direct URL
   // Để dùng proxy, return ''; Để dùng direct, return server URL
   if (import.meta.env.DEV) {
-    // Development: dùng local backend hoặc proxy
+    // Development: dùng remote backend qua Vite proxy
     // Return empty string để dùng Vite proxy (proxy đã được cấu hình trong vite.config.js)
+    // Proxy sẽ forward requests đến http://35.232.61.38:5000
     return '';
-    // Nếu muốn gọi trực tiếp local backend:
-    // return 'http://localhost:5273';
   }
   
   // Default for production - use remote server
-  return 'http://35.232.61.38:5000';
+  return 'http://35.232.61.38:5000'; // Production server
 };
 
 // API Base URL
@@ -47,7 +46,7 @@ if (import.meta.env.DEV) {
     API_BASE_URL: API_BASE_URL || '(using Vite proxy)',
     API_VERSION: API_VERSION || '(no version)',
     API_URL: API_URL,
-    Backend: API_BASE_URL ? `Direct: ${API_BASE_URL}` : 'Proxy: http://localhost:5273'
+    Backend: API_BASE_URL ? `Direct: ${API_BASE_URL}` : 'Proxy: http://35.232.61.38:5000 (via Vite proxy)'
   });
 }
 
@@ -57,7 +56,22 @@ export const getApiUrl = (endpoint) => {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   // Ensure proper URL construction
   const base = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
-  return `${base}/${cleanEndpoint}`;
+  const fullUrl = `${base}/${cleanEndpoint}`;
+  
+  // Debug logging in development
+  if (import.meta.env.DEV) {
+    console.log('[getApiUrl]', {
+      endpoint,
+      cleanEndpoint,
+      base,
+      API_URL,
+      API_BASE_URL,
+      fullUrl,
+      windowLocation: window.location.href
+    });
+  }
+  
+  return fullUrl;
 };
 
 // Default headers

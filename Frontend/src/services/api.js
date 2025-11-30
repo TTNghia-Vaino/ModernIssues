@@ -47,6 +47,14 @@ export const apiRequest = async (endpoint, options = {}) => {
   // Debug logging in development (after body is stringified)
   if (import.meta.env.DEV) {
     console.log(`[API Request] ${defaultOptions.method || 'GET'} ${url}`);
+    console.log('[API Request] Full options:', {
+      url,
+      method: defaultOptions.method,
+      credentials: defaultOptions.credentials,
+      headers: defaultOptions.headers,
+      hasCookies: document.cookie ? document.cookie.split(';').length : 0,
+      cookies: document.cookie || '(no cookies)'
+    });
     if (defaultOptions.body) {
       try {
         console.log('[API Request Body]', JSON.parse(defaultOptions.body));
@@ -58,6 +66,17 @@ export const apiRequest = async (endpoint, options = {}) => {
 
   try {
     const response = await fetch(url, defaultOptions);
+    
+    // Debug: Log response headers in development
+    if (import.meta.env.DEV) {
+      console.log('[API Response]', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        headers: Object.fromEntries(response.headers.entries()),
+        cookies: document.cookie || '(no cookies)'
+      });
+    }
     
     // Handle non-JSON responses
     const contentType = response.headers.get('content-type');
@@ -169,7 +188,7 @@ export const apiRequest = async (endpoint, options = {}) => {
           : 'Lỗi CORS: Backend server chưa cấu hình CORS.';
         throw new Error(errorMsg);
       }
-      throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng và đảm bảo backend server đang chạy tại http://35.232.61.38:5000.');
+      throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng và đảm bảo backend server đang chạy.');
     }
     throw error;
   }
