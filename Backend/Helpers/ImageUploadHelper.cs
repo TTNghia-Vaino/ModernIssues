@@ -45,6 +45,14 @@ namespace ModernIssues.Helpers
                 await file.CopyToAsync(stream);
             }
 
+            // Verify file was saved
+            if (!File.Exists(filePath))
+            {
+                throw new IOException($"File was not saved successfully: {filePath}");
+            }
+
+            Console.WriteLine($"[ImageUploadHelper] File saved successfully: {filePath}, Size: {new FileInfo(filePath).Length} bytes");
+
             return fileName;
         }
 

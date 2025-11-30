@@ -175,19 +175,33 @@ namespace ModernIssues.Controllers
                     }
 
                     // Upload ảnh thứ hai
+                    Console.WriteLine($"[ProductController.CreateProduct] Starting upload Image 2, FileName: {productData.ImageFile2?.FileName}, Length: {productData.ImageFile2?.Length}");
                     var fileName2 = await ImageUploadHelper.UploadImageAsync(productData.ImageFile2, uploadPath);
                     if (!string.IsNullOrEmpty(fileName2))
                     {
                         imageUrl2ToUse = fileName2;
-                        Console.WriteLine($"[ProductController.CreateProduct] Image 2 uploaded: {fileName2}");
+                        var filePath2 = Path.Combine(uploadsDir, fileName2);
+                        var fileExists2 = System.IO.File.Exists(filePath2);
+                        Console.WriteLine($"[ProductController.CreateProduct] Image 2 uploaded: {fileName2}, FullPath: {filePath2}, FileExists: {fileExists2}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[ProductController.CreateProduct] Image 2 upload returned null or empty");
                     }
 
                     // Upload ảnh thứ ba
+                    Console.WriteLine($"[ProductController.CreateProduct] Starting upload Image 3, FileName: {productData.ImageFile3?.FileName}, Length: {productData.ImageFile3?.Length}");
                     var fileName3 = await ImageUploadHelper.UploadImageAsync(productData.ImageFile3, uploadPath);
                     if (!string.IsNullOrEmpty(fileName3))
                     {
                         imageUrl3ToUse = fileName3;
-                        Console.WriteLine($"[ProductController.CreateProduct] Image 3 uploaded: {fileName3}");
+                        var filePath3 = Path.Combine(uploadsDir, fileName3);
+                        var fileExists3 = System.IO.File.Exists(filePath3);
+                        Console.WriteLine($"[ProductController.CreateProduct] Image 3 uploaded: {fileName3}, FullPath: {filePath3}, FileExists: {fileExists3}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[ProductController.CreateProduct] Image 3 upload returned null or empty");
                     }
                 }
                 catch (ArgumentException ex)
@@ -461,22 +475,36 @@ namespace ModernIssues.Controllers
                     // Upload ảnh thứ hai nếu có
                     if (productData.ImageFile2 != null && productData.ImageFile2.Length > 0)
                     {
+                        Console.WriteLine($"[ProductController.UpdateProduct] Starting upload Image 2, FileName: {productData.ImageFile2.FileName}, Length: {productData.ImageFile2.Length}");
                         var fileName2 = await ImageUploadHelper.UploadImageAsync(productData.ImageFile2, uploadPath);
                         if (!string.IsNullOrEmpty(fileName2))
                         {
                             imageUrl2ToUse = fileName2;
-                            Console.WriteLine($"[ProductController.UpdateProduct] New image 2 uploaded: {fileName2}");
+                            var filePath2 = Path.Combine(uploadsDir, fileName2);
+                            var fileExists2 = System.IO.File.Exists(filePath2);
+                            Console.WriteLine($"[ProductController.UpdateProduct] New image 2 uploaded: {fileName2}, FullPath: {filePath2}, FileExists: {fileExists2}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[ProductController.UpdateProduct] Image 2 upload returned null or empty");
                         }
                     }
 
                     // Upload ảnh thứ ba nếu có
                     if (productData.ImageFile3 != null && productData.ImageFile3.Length > 0)
                     {
+                        Console.WriteLine($"[ProductController.UpdateProduct] Starting upload Image 3, FileName: {productData.ImageFile3.FileName}, Length: {productData.ImageFile3.Length}");
                         var fileName3 = await ImageUploadHelper.UploadImageAsync(productData.ImageFile3, uploadPath);
                         if (!string.IsNullOrEmpty(fileName3))
                         {
                             imageUrl3ToUse = fileName3;
-                            Console.WriteLine($"[ProductController.UpdateProduct] New image 3 uploaded: {fileName3}");
+                            var filePath3 = Path.Combine(uploadsDir, fileName3);
+                            var fileExists3 = System.IO.File.Exists(filePath3);
+                            Console.WriteLine($"[ProductController.UpdateProduct] New image 3 uploaded: {fileName3}, FullPath: {filePath3}, FileExists: {fileExists3}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[ProductController.UpdateProduct] Image 3 upload returned null or empty");
                         }
                     }
                 }
