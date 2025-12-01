@@ -3,11 +3,13 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using ModernIssues.Models.Entities;
 using ModernIssues.Models.Configurations;
 using ModernIssues.Models.DTOs;
 using ModernIssues.Hubs;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
@@ -21,17 +23,23 @@ namespace ModernIssues.Services
         private readonly HooksConfig _hooksConfig;
         private readonly IMemoryCache _cache;
         private readonly IHubContext<PaymentHub> _hubContext;
+        private readonly IEmailService _emailService;
+        private readonly ILogger<HooksService> _logger;
 
         public HooksService(
             WebDbContext context, 
             IOptions<HooksConfig> hooksConfig, 
             IMemoryCache cache,
-            IHubContext<PaymentHub> hubContext)
+            IHubContext<PaymentHub> hubContext,
+            IEmailService emailService,
+            ILogger<HooksService> logger)
         {
             _context = context;
             _hooksConfig = hooksConfig.Value;
             _cache = cache;
             _hubContext = hubContext;
+            _emailService = emailService;
+            _logger = logger;
         }
 
         public async Task AddTransactionAsync(BankTransaction transaction)
@@ -186,6 +194,22 @@ namespace ModernIssues.Services
                 {
                     Console.WriteLine($"[SignalR] Inner exception: {ex.InnerException.Message}");
                 }
+            }
+
+            // 11. Gửi email thông tin đơn hàng cho người dùng (fire-and-forget, không block)
+            if (result.OrderUpdated && result.OrderId.HasValue)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await SendOrderConfirmationEmailAsync(result.OrderId.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"[HooksService] Error sending order confirmation email for order {result.OrderId}: {ex.Message}");
+                    }
+                });
             }
 
             return result;
@@ -375,6 +399,278 @@ namespace ModernIssues.Services
                 Console.WriteLine($"[ProcessStockAndSerials] Error processing stock and serials for order {orderId}: {ex.Message}");
                 throw; // Re-throw để caller có thể xử lý
             }
+        }
+
+        /// <summary>
+        /// Gửi email xác nhận đơn hàng cho người dùng sau khi thanh toán thành công
+        /// </summary>
+        private async Task SendOrderConfirmationEmailAsync(int orderId)
+        {
+            try
+            {
+                // Lấy thông tin đơn hàng đầy đủ
+                var orderInfo = await GetOrderInfoForEmailAsync(orderId);
+                
+                if (orderInfo == null)
+                {
+                    _logger.LogWarning($"[SendOrderConfirmationEmail] Order {orderId} not found or incomplete");
+                    return;
+                }
+
+                // Kiểm tra email có hợp lệ không
+                if (string.IsNullOrWhiteSpace(orderInfo.UserEmail))
+                {
+                    _logger.LogWarning($"[SendOrderConfirmationEmail] User email is empty for order {orderId}");
+                    return;
+                }
+
+                // Tạo nội dung email
+                var emailSubject = $"Xác nhận đơn hàng #{orderId} - Modern Issues";
+                var emailBody = GenerateOrderConfirmationEmailHtml(orderInfo);
+
+                // Gửi email
+                await _emailService.SendEmailAsync(orderInfo.UserEmail, emailSubject, emailBody);
+                
+                _logger.LogInformation($"[SendOrderConfirmationEmail] ✅ Order confirmation email sent successfully to {orderInfo.UserEmail} for order {orderId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"[SendOrderConfirmationEmail] ❌ Error sending order confirmation email for order {orderId}: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Lấy thông tin đơn hàng đầy đủ để gửi email
+        /// </summary>
+        private async Task<OrderEmailInfo?> GetOrderInfoForEmailAsync(int orderId)
+        {
+            try
+            {
+                var order = await _context.orders
+                    .Include(o => o.user)
+                    .Include(o => o.order_details)
+                        .ThenInclude(od => od.product)
+                    .Where(o => o.order_id == orderId)
+                    .FirstOrDefaultAsync();
+
+                if (order == null || order.user == null)
+                {
+                    return null;
+                }
+
+                var orderDetails = order.order_details?.Select(od => new OrderDetailEmailInfo
+                {
+                    ProductName = od.product_name,
+                    Quantity = od.quantity,
+                    Price = od.price_at_purchase,
+                    ImageUrl = od.image_url
+                }).ToList() ?? new List<OrderDetailEmailInfo>();
+
+                var paymentMethod = order.types switch
+                {
+                    "COD" => "Thanh toán khi nhận hàng",
+                    "Transfer" => "Chuyển khoản",
+                    "ATM" => "Thẻ ATM",
+                    _ => order.types ?? "Chưa xác định"
+                };
+
+                return new OrderEmailInfo
+                {
+                    OrderId = order.order_id,
+                    OrderDate = order.order_date ?? DateTime.UtcNow,
+                    TotalAmount = order.total_amount ?? 0,
+                    PaymentMethod = paymentMethod,
+                    Status = order.status ?? "pending",
+                    UserName = order.user.username ?? "Khách hàng",
+                    UserEmail = order.user.email ?? "",
+                    UserPhone = order.user.phone ?? "",
+                    UserAddress = order.user.address ?? "",
+                    OrderDetails = orderDetails
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"[GetOrderInfoForEmail] Error getting order info for order {orderId}: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Tạo HTML template cho email xác nhận đơn hàng
+        /// </summary>
+        private string GenerateOrderConfirmationEmailHtml(OrderEmailInfo orderInfo)
+        {
+            var orderDetailsHtml = string.Join("", orderInfo.OrderDetails.Select((od, index) => $@"
+                <tr>
+                    <td style='padding: 12px; border-bottom: 1px solid #eee; text-align: center;'>{index + 1}</td>
+                    <td style='padding: 12px; border-bottom: 1px solid #eee;'>{od.ProductName}</td>
+                    <td style='padding: 12px; border-bottom: 1px solid #eee; text-align: center;'>{od.Quantity}</td>
+                    <td style='padding: 12px; border-bottom: 1px solid #eee; text-align: right;'>{od.Price:N0} ₫</td>
+                    <td style='padding: 12px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;'>{od.Quantity * od.Price:N0} ₫</td>
+                </tr>
+            "));
+
+            var orderDateDisplay = orderInfo.OrderDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+            
+            return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Xác nhận đơn hàng</title>
+</head>
+<body style='margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;'>
+    <table width='100%' cellpadding='0' cellspacing='0' style='background-color: #f4f4f4; padding: 20px;'>
+        <tr>
+            <td align='center'>
+                <table width='600' cellpadding='0' cellspacing='0' style='background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
+                    <!-- Header -->
+                    <tr>
+                        <td style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;'>
+                            <h1 style='color: #ffffff; margin: 0; font-size: 28px;'>Cảm ơn bạn đã đặt hàng!</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style='padding: 30px;'>
+                            <p style='color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;'>
+                                Xin chào <strong>{orderInfo.UserName}</strong>,
+                            </p>
+                            <p style='color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;'>
+                                Cảm ơn bạn đã đặt hàng tại <strong>Modern Issues</strong>! Đơn hàng của bạn đã được xác nhận và chúng tôi đang chuẩn bị để gửi đến bạn.
+                            </p>
+                            
+                            <!-- Order Info -->
+                            <div style='background-color: #f8f9fa; border-radius: 6px; padding: 20px; margin: 20px 0;'>
+                                <h2 style='color: #333333; font-size: 20px; margin: 0 0 15px 0; border-bottom: 2px solid #667eea; padding-bottom: 10px;'>
+                                    Thông tin đơn hàng
+                                </h2>
+                                <table width='100%' cellpadding='0' cellspacing='0'>
+                                    <tr>
+                                        <td style='padding: 8px 0; color: #666666; width: 150px;'>Mã đơn hàng:</td>
+                                        <td style='padding: 8px 0; color: #333333; font-weight: bold;'>#{orderInfo.OrderId}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px 0; color: #666666;'>Ngày đặt hàng:</td>
+                                        <td style='padding: 8px 0; color: #333333;'>{orderDateDisplay}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px 0; color: #666666;'>Phương thức thanh toán:</td>
+                                        <td style='padding: 8px 0; color: #333333;'>{orderInfo.PaymentMethod}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px 0; color: #666666;'>Trạng thái:</td>
+                                        <td style='padding: 8px 0; color: #28a745; font-weight: bold;'>Đã thanh toán</td>
+                                    </tr>
+                                </table>
+                            </div>
+                            
+                            <!-- Order Details -->
+                            <div style='margin: 20px 0;'>
+                                <h2 style='color: #333333; font-size: 20px; margin: 0 0 15px 0; border-bottom: 2px solid #667eea; padding-bottom: 10px;'>
+                                    Chi tiết đơn hàng
+                                </h2>
+                                <table width='100%' cellpadding='0' cellspacing='0' style='border-collapse: collapse;'>
+                                    <thead>
+                                        <tr style='background-color: #f8f9fa;'>
+                                            <th style='padding: 12px; text-align: center; border-bottom: 2px solid #ddd; color: #333333;'>STT</th>
+                                            <th style='padding: 12px; text-align: left; border-bottom: 2px solid #ddd; color: #333333;'>Sản phẩm</th>
+                                            <th style='padding: 12px; text-align: center; border-bottom: 2px solid #ddd; color: #333333;'>SL</th>
+                                            <th style='padding: 12px; text-align: right; border-bottom: 2px solid #ddd; color: #333333;'>Đơn giá</th>
+                                            <th style='padding: 12px; text-align: right; border-bottom: 2px solid #ddd; color: #333333;'>Thành tiền</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {orderDetailsHtml}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan='4' style='padding: 15px; text-align: right; font-weight: bold; color: #333333; border-top: 2px solid #667eea;'>
+                                                Tổng cộng:
+                                            </td>
+                                            <td style='padding: 15px; text-align: right; font-weight: bold; font-size: 18px; color: #667eea; border-top: 2px solid #667eea;'>
+                                                {orderInfo.TotalAmount:N0} ₫
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            
+                            <!-- Delivery Info -->
+                            <div style='background-color: #f8f9fa; border-radius: 6px; padding: 20px; margin: 20px 0;'>
+                                <h2 style='color: #333333; font-size: 20px; margin: 0 0 15px 0; border-bottom: 2px solid #667eea; padding-bottom: 10px;'>
+                                    Thông tin giao hàng
+                                </h2>
+                                <table width='100%' cellpadding='0' cellspacing='0'>
+                                    <tr>
+                                        <td style='padding: 8px 0; color: #666666; width: 150px;'>Người nhận:</td>
+                                        <td style='padding: 8px 0; color: #333333;'>{orderInfo.UserName}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px 0; color: #666666;'>Số điện thoại:</td>
+                                        <td style='padding: 8px 0; color: #333333;'>{orderInfo.UserPhone}</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 8px 0; color: #666666;'>Địa chỉ:</td>
+                                        <td style='padding: 8px 0; color: #333333;'>{orderInfo.UserAddress}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                            
+                            <p style='color: #666666; font-size: 14px; line-height: 1.6; margin: 20px 0 0 0;'>
+                                Chúng tôi sẽ thông báo cho bạn ngay khi đơn hàng được gửi đi. Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style='background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #eee;'>
+                            <p style='color: #666666; font-size: 12px; margin: 0 0 10px 0;'>
+                                <strong>Modern Issues</strong>
+                            </p>
+                            <p style='color: #999999; font-size: 11px; margin: 0;'>
+                                Email này được gửi tự động, vui lòng không trả lời.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>";
+        }
+
+        /// <summary>
+        /// DTO để chứa thông tin đơn hàng cho email
+        /// </summary>
+        private class OrderEmailInfo
+        {
+            public int OrderId { get; set; }
+            public DateTime OrderDate { get; set; }
+            public decimal TotalAmount { get; set; }
+            public string PaymentMethod { get; set; } = string.Empty;
+            public string Status { get; set; } = string.Empty;
+            public string UserName { get; set; } = string.Empty;
+            public string UserEmail { get; set; } = string.Empty;
+            public string UserPhone { get; set; } = string.Empty;
+            public string UserAddress { get; set; } = string.Empty;
+            public List<OrderDetailEmailInfo> OrderDetails { get; set; } = new List<OrderDetailEmailInfo>();
+        }
+
+        /// <summary>
+        /// DTO để chứa thông tin chi tiết sản phẩm trong đơn hàng
+        /// </summary>
+        private class OrderDetailEmailInfo
+        {
+            public string ProductName { get; set; } = string.Empty;
+            public int Quantity { get; set; }
+            public decimal Price { get; set; }
+            public string? ImageUrl { get; set; }
         }
     }
 }
