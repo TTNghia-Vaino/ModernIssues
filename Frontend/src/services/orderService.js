@@ -137,7 +137,7 @@ export const createOrder = async (orderData) => {
 };
 
 /**
- * Update order status
+ * Update order status (Admin only)
  * Endpoint: PUT /v1/Order/Status/{orderId}
  * Response format: { success: boolean, message: string, data: object|string, errors: string[] }
  * @param {string|number} orderId - Order ID
@@ -150,6 +150,38 @@ export const updateOrderStatus = async (orderId, status) => {
     return handleResponse(response);
   } catch (error) {
     console.error('[OrderService] Error updating order status:', error);
+    throw error;
+  }
+};
+
+/**
+ * Cancel order by user (Customer endpoint)
+ * Endpoint: PUT /v1/Order/Cancel/{orderId}
+ * Response codes:
+ * - 200: Hủy thành công
+ * - 400: Không thể hủy (đã thanh toán, đã hủy, hoặc trạng thái không hợp lệ)
+ * - 401: Chưa đăng nhập
+ * - 403: Không có quyền (không phải đơn hàng của bạn)
+ * - 404: Không tìm thấy đơn hàng
+ * 
+ * Quyền:
+ * - Customer: chỉ hủy đơn hàng của chính họ
+ * - Admin: có thể hủy bất kỳ đơn hàng nào (khuyến nghị dùng UpdateOrderStatus)
+ * 
+ * Điều kiện hủy:
+ * - Chỉ hủy được khi trạng thái là "pending"
+ * - Không hủy được nếu đã hủy ("cancelled")
+ * - Không hủy được nếu đã thanh toán ("paid")
+ * 
+ * @param {string|number} orderId - Order ID
+ * @returns {Promise} - Updated order data
+ */
+export const cancelMyOrder = async (orderId) => {
+  try {
+    const response = await apiPut(`Order/Cancel/${orderId}`, {});
+    return handleResponse(response);
+  } catch (error) {
+    console.error('[OrderService] Error cancelling order:', error);
     throw error;
   }
 };
