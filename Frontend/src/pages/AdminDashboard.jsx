@@ -221,7 +221,7 @@ const AdminDashboard = () => {
     };
   }, [chartData, reportType]);
 
-  // Create/update secondary pie chart
+  // Create/update secondary pie chart - Auto render when data is available
   useEffect(() => {
     if (!secondaryChartRef.current) {
       return;
@@ -238,14 +238,20 @@ const AdminDashboard = () => {
       return;
     }
     
-    // Destroy existing chart
-    if (secondaryChartInstanceRef.current) {
-      secondaryChartInstanceRef.current.destroy();
-      secondaryChartInstanceRef.current = null;
-    }
-    
-    // Create new donut chart with animation
-    secondaryChartInstanceRef.current = new ChartJS(secondaryChartRef.current, {
+    // Small delay to ensure DOM is ready and data is set
+    const timer = setTimeout(() => {
+      if (!secondaryChartRef.current) {
+        return;
+      }
+      
+      // Destroy existing chart
+      if (secondaryChartInstanceRef.current) {
+        secondaryChartInstanceRef.current.destroy();
+        secondaryChartInstanceRef.current = null;
+      }
+      
+      // Create new donut chart with animation
+      secondaryChartInstanceRef.current = new ChartJS(secondaryChartRef.current, {
       type: 'doughnut',
       data: {
         labels: data.map(item => item.name),
@@ -301,9 +307,11 @@ const AdminDashboard = () => {
         }
       }
     });
+    }, 200); // Small delay to ensure DOM is ready and data is set
     
     // Cleanup on unmount
     return () => {
+      clearTimeout(timer);
       if (secondaryChartInstanceRef.current) {
         secondaryChartInstanceRef.current.destroy();
         secondaryChartInstanceRef.current = null;
@@ -451,18 +459,28 @@ const AdminDashboard = () => {
     };
   }, [startDate, endDate, isInTokenGracePeriod, loadAllReportsForAllPeriods]); // Load when date changes, not when period/reportType changes
 
-  // Load secondary charts data and best selling products
+  // Load secondary charts data and best selling products - Auto load on mount
   useEffect(() => {
+    let cancelled = false;
+    let mounted = true;
+    
     const loadSecondaryData = async () => {
+      // Wait for token grace period if needed
+      if (isInTokenGracePeriod) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        if (cancelled || !mounted) return;
+      }
+      
       try {
+        if (!mounted) return;
         setSecondaryLoading(true);
         
         const params = { period: secondaryPeriod };
         if (secondaryStartDate) params.startDate = secondaryStartDate;
         if (secondaryEndDate) params.endDate = secondaryEndDate;
         
-        // Load payment method report, order status report, and best selling products in parallel
-        const [paymentResult, statusResult, bestSellingResult] = await Promise.all([
+        // Load payment method report, order status report in parallel
+        const [paymentResult, statusResult] = await Promise.all([
           getPaymentMethodReport(params).catch(err => {
             console.warn('[AdminDashboard] Error loading payment method report:', err);
             return [];
@@ -470,87 +488,179 @@ const AdminDashboard = () => {
           getOrderStatusReport(params).catch(err => {
             console.warn('[AdminDashboard] Error loading order status report:', err);
             return [];
-          }),
-          getBestSellingProducts({ limit: 5, ...params }).catch(err => {
-            console.warn('[AdminDashboard] Error loading best selling products:', err);
-            return [];
           })
         ]);
         
-        // Transform payment data
+        // Load best selling products using API
+        let bestSellingResult = [];
+        try {
+          bestSellingResult = await getBestSellingProducts({ limit: 5, ...params });
+          
+          if (import.meta.env.DEV) {
+            console.log('[AdminDashboard] Best selling products from API:', bestSellingResult);
+          }
+          
+          // If API returns empty or invalid data, try to get from orders
+          if (!Array.isArray(bestSellingResult) || bestSellingResult.length === 0) {
+            if (import.meta.env.DEV) {
+              console.warn('[AdminDashboard] getBestSellingProducts returned empty, will show empty list');
+            }
+            bestSellingResult = [];
+          }
+        } catch (err) {
+          console.warn('[AdminDashboard] Error loading best selling products:', err);
+          bestSellingResult = [];
+        }
+        
+        // Transform payment data - Group by payment method to avoid duplicates
         if (Array.isArray(paymentResult) && paymentResult.length > 0) {
-          const transformed = paymentResult.map(item => {
+          // Group by payment method and sum the values
+          const grouped = new Map();
+          
+          paymentResult.forEach(item => {
             const paymentMethod = item.paymentMethod || '';
-            const getColor = (method) => {
-              switch (method) {
-                case 'COD': return '#3b82f6';
-                case 'VNPay': return '#10b981';
-                case 'Momo': return '#f59e0b';
-                case 'TRANSFER': return '#8b5cf6';
-                default: return '#6b7280';
-              }
-            };
+            const displayName = item.paymentMethodDisplay || item.paymentMethod || 'N/A';
+            const value = item.orderCount || item.count || 0;
             
-            return {
-              name: item.paymentMethodDisplay || item.paymentMethod || 'N/A',
-              value: item.orderCount || item.count || 0,
-              color: getColor(paymentMethod)
-            };
+            if (grouped.has(paymentMethod)) {
+              // If already exists, add to the value
+              const existing = grouped.get(paymentMethod);
+              existing.value += value;
+            } else {
+              // Create new entry
+              const getColor = (method) => {
+                switch (method) {
+                  case 'COD': return '#3b82f6';
+                  case 'VNPay': return '#10b981';
+                  case 'Momo': return '#f59e0b';
+                  case 'TRANSFER': return '#8b5cf6';
+                  default: return '#6b7280';
+                }
+              };
+              
+              grouped.set(paymentMethod, {
+                name: displayName,
+                value: value,
+                color: getColor(paymentMethod)
+              });
+            }
           });
+          
+          // Convert Map to array
+          const transformed = Array.from(grouped.values());
           setPaymentData(transformed);
         } else {
           setPaymentData([]);
         }
         
-        // Transform status data
+        // Transform status data - Group by status to avoid duplicates
         if (Array.isArray(statusResult) && statusResult.length > 0) {
-          const transformed = statusResult.map(item => {
+          // Group by status and sum the values
+          const grouped = new Map();
+          
+          statusResult.forEach(item => {
             const status = item.status || '';
-            const getColor = (statusValue) => {
-              switch (statusValue) {
-                case 'delivered': return '#10b981'; // Green
-                case 'shipped': return '#3b82f6'; // Blue
-                case 'processing': return '#6366f1'; // Indigo
-                case 'pending': return '#f59e0b'; // Orange
-                case 'cancelled': return '#ef4444'; // Red
-                case 'returned': return '#f97316'; // Orange-red
-                default: return '#6b7280'; // Gray
-              }
-            };
+            const displayName = item.statusDisplay || item.status || 'N/A';
+            const value = item.orderCount || item.count || 0;
             
-            return {
-              name: item.statusDisplay || item.status || 'N/A',
-              value: item.orderCount || item.count || 0,
-              color: getColor(status)
-            };
+            if (grouped.has(status)) {
+              // If already exists, add to the value
+              const existing = grouped.get(status);
+              existing.value += value;
+            } else {
+              // Create new entry
+              const getColor = (statusValue) => {
+                switch (statusValue) {
+                  case 'delivered': return '#10b981'; // Green
+                  case 'shipped': return '#3b82f6'; // Blue
+                  case 'processing': return '#6366f1'; // Indigo
+                  case 'pending': return '#f59e0b'; // Orange
+                  case 'cancelled': return '#ef4444'; // Red
+                  case 'returned': return '#f97316'; // Orange-red
+                  default: return '#6b7280'; // Gray
+                }
+              };
+              
+              grouped.set(status, {
+                name: displayName,
+                value: value,
+                color: getColor(status)
+              });
+            }
           });
+          
+          // Convert Map to array
+          const transformed = Array.from(grouped.values());
           setStatusData(transformed);
         } else {
           setStatusData([]);
         }
         
-        // Transform best selling products
+        // Transform best selling products from getAllListProducts
+        if (import.meta.env.DEV) {
+          console.log('[AdminDashboard] Best selling result:', bestSellingResult);
+        }
+        
         if (Array.isArray(bestSellingResult) && bestSellingResult.length > 0) {
-          const transformed = bestSellingResult.map(item => ({
-            id: item.productId || item.id,
-            name: item.productName || item.name || 'N/A',
-            sales: item.quantitySold || item.sales || 0,
-            revenue: item.totalRevenue || item.revenue || 0
-          }));
+          const transformed = bestSellingResult
+            .map(item => {
+              // API response structure: { productId, productName, imageUrl, totalSold }
+              const id = item.productId || item.id || null;
+              const name = item.productName || item.name || 'N/A';
+              // API uses 'totalSold' field
+              const sales = item.totalSold || item.quantitySold || item.sales || 
+                          item.totalQuantitySold || item.quantity || item.orderCount || item.count || 0;
+              // Revenue calculation: if no revenue field, use price * sales (if price available)
+              const revenue = item.totalRevenue || item.revenue || item.totalSales || 
+                            item.salesAmount || (item.price ? (item.price * sales) : 0);
+              
+              if (import.meta.env.DEV && !id) {
+                console.warn('[AdminDashboard] Best selling item missing ID:', item);
+              }
+              
+              return {
+                id: id || `temp-${Math.random()}`,
+                name: name,
+                sales: Number(sales) || 0,
+                revenue: Number(revenue) || 0
+              };
+            })
+            .filter(item => {
+              // Only show products with actual sales > 0
+              return item.name !== 'N/A' && item.sales > 0;
+            });
+          
+          if (import.meta.env.DEV) {
+            console.log('[AdminDashboard] Transformed best selling products:', transformed);
+          }
+          
           setBestSellingProducts(transformed);
         } else {
+          if (import.meta.env.DEV) {
+            console.warn('[AdminDashboard] Best selling result is empty or not an array:', bestSellingResult);
+          }
           setBestSellingProducts([]);
         }
         
       } catch (error) {
-        console.error('[AdminDashboard] Error loading secondary data:', error);
+        if (mounted) {
+          console.error('[AdminDashboard] Error loading secondary data:', error);
+        }
       } finally {
-        setSecondaryLoading(false);
+        if (mounted && !cancelled) {
+          setSecondaryLoading(false);
+        }
       }
     };
     
+    // Load immediately on mount
     loadSecondaryData();
-  }, [secondaryPeriod, secondaryStartDate, secondaryEndDate]);
+    
+    return () => {
+      cancelled = true;
+      mounted = false;
+    };
+  }, [secondaryPeriod, secondaryStartDate, secondaryEndDate, isInTokenGracePeriod]);
 
 
 
