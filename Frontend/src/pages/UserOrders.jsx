@@ -170,19 +170,21 @@ const UserOrders = () => {
     try {
       setLoading(true);
       
-      // Update order status to cancelled
-      await orderService.updateOrderStatus(orderId, 'cancelled');
+      // Cancel order using user endpoint
+      const result = await orderService.cancelMyOrder(orderId);
+      console.log('[UserOrders] Cancel order result:', result);
       
       // Remove payment cache if exists
       paymentCacheService.removePaymentCache(orderId);
       
-      // Update local state
-      setOrders(orders.map(order => {
-        const currentOrderId = order.orderId || order.id;
-        return currentOrderId === orderId 
-          ? { ...order, status: 'cancelled' }
-          : order;
-      }));
+      // Reload orders from API to get updated status
+      // Don't set loading here as it's already set above
+      const ordersData = await orderService.getOrders();
+      if (ordersData && Array.isArray(ordersData)) {
+        setOrders(ordersData);
+      } else if (ordersData && Array.isArray(ordersData.data)) {
+        setOrders(ordersData.data);
+      }
       
       showSuccess(`Đã hủy đơn hàng #${String(orderId).padStart(6, '0')} thành công!`);
       setCancelDialogOpen(false);
@@ -191,7 +193,23 @@ const UserOrders = () => {
       console.error('[UserOrders] Error cancelling order:', error);
       // Revert on error
       setOrders(originalOrders);
-      showError('Không thể hủy đơn hàng: ' + (error.message || 'Lỗi không xác định'));
+      
+      // Handle specific error codes
+      let errorMessage = 'Không thể hủy đơn hàng: ';
+      
+      if (error.status === 400) {
+        errorMessage = 'Không thể hủy đơn hàng này. Đơn hàng đã được thanh toán hoặc đã bị hủy trước đó.';
+      } else if (error.status === 401) {
+        errorMessage = 'Bạn cần đăng nhập để hủy đơn hàng.';
+      } else if (error.status === 403) {
+        errorMessage = 'Bạn không có quyền hủy đơn hàng này. Chỉ có thể hủy đơn hàng của chính bạn.';
+      } else if (error.status === 404) {
+        errorMessage = 'Không tìm thấy đơn hàng.';
+      } else {
+        errorMessage += error.message || 'Lỗi không xác định';
+      }
+      
+      showError(errorMessage);
     } finally {
       setLoading(false);
     }
