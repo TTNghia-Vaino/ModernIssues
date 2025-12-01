@@ -5,6 +5,7 @@ import HeroBanner from './components/HeroBanner';
 import ProductCategories from './components/ProductCategories';
 import ProductShowcase from './components/ProductShowcase';
 import BestSellingLaptops from './components/BestSellingLaptops';
+import LatestProducts from './components/LatestProducts';
 import MiniPCShowcase from './components/MiniPCShowcase';
 import PoliciesAndServices from './components/PoliciesAndServices';
 import PromotionsAndTips from './components/PromotionsAndTips';
@@ -59,6 +60,7 @@ function HomePage() {
       <HeroBanner />
       <ProductCategories />
       <ProductShowcase />
+      <LatestProducts />
       <BestSellingLaptops />
       <MiniPCShowcase />
       <PromotionsAndTips />

@@ -104,17 +104,25 @@ function ProductCard({
     // Fallback: Check _original data to determine promotion (for cases where transform might have missed it)
     if (!originalPrice && product._original) {
       const origPrice = product._original.price; // Original price from API
-      const promoPrice = product._original.onPrice; // Promotion price from API
-      if (origPrice && promoPrice && origPrice > promoPrice && promoPrice > 0) {
+      const onPrices = product._original.onPrices || product._original.onPrice || 0; // onPrices from API
+      const promoPrice = Array.isArray(onPrices) && onPrices.length > 0 
+        ? onPrices[0] 
+        : (typeof onPrices === 'number' ? onPrices : 0);
+      if (origPrice && promoPrice > 0 && origPrice > promoPrice) {
         return { currentPrice: promoPrice, originalPrice: origPrice };
       }
     }
 
-    // Fallback: Check onPrice directly (for untransformed data)
-    // If onPrice exists and is less than price, then onPrice is the sale price
-    // Note: This might not work correctly if product.price was already transformed
-    if (!originalPrice && product.onPrice && product.price && product.onPrice < product.price && product.onPrice > 0) {
-      return { currentPrice: product.onPrice, originalPrice: product.price };
+    // Fallback: Check onPrices/onPrice directly (for untransformed data)
+    // API format: price = giá gốc, onPrices = giá khuyến mãi (0 = không có, > 0 = có)
+    if (!originalPrice) {
+      const onPrices = product.onPrices || product.onPrice || 0;
+      const promoPrice = Array.isArray(onPrices) && onPrices.length > 0 
+        ? onPrices[0] 
+        : (typeof onPrices === 'number' ? onPrices : 0);
+      if (promoPrice > 0 && product.price && product.price > promoPrice) {
+        return { currentPrice: promoPrice, originalPrice: product.price };
+      }
     }
 
     // No promotion found
@@ -212,8 +220,8 @@ function ProductCard({
           {title}
         </h3>
 
-        {/* Brand (optional) */}
-        {product.brand && variant === 'laptop' && (
+        {/* Brand (optional) - hiển thị cho tất cả variants */}
+        {product.brand && (
           <div className="mb-2 flex-shrink-0">
             <span className="text-xs bg-blue-50 text-green-600 px-2 py-1 rounded font-semibold">
               {product.brand}

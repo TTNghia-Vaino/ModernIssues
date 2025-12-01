@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import * as authService from '../services/authService';
 import * as productService from '../services/productService';
 import * as userService from '../services/userService';
+import * as paymentExpiryService from '../services/paymentExpiryService';
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = 'modernissues_auth_v1';
@@ -108,6 +109,9 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     setIsLoading(true);
     try {
+      // Hủy tất cả đơn hàng đang chờ thanh toán trước khi đăng xuất
+      await paymentExpiryService.cancelAllPendingOrders();
+      
       await authService.logout();
     } catch (err) {
       console.error('Logout error:', err);
@@ -266,6 +270,12 @@ export const AuthProvider = ({ children }) => {
           timeSinceLogin,
           url: event?.detail?.url
         });
+        
+        // Hủy tất cả đơn hàng đang chờ thanh toán khi session hết hạn
+        paymentExpiryService.cancelAllPendingOrders().catch(err => {
+          console.error('[AuthContext] Error cancelling pending orders on session expiry:', err);
+        });
+        
         setUser(null);
         // Redirect to home page when session expires
         setTimeout(() => {

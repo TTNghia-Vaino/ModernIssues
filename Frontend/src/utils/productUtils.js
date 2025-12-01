@@ -178,14 +178,19 @@ export const transformProduct = (apiProduct) => {
   // If isDisabled is true, product is inactive
   const status = apiProduct.status || (isDisabled ? 'inactive' : 'active');
   
-  // Logic đơn giản: price từ API = giá gốc, onPrices = giá khuyến mãi (nếu có)
+  // Logic theo API mới: price = giá gốc, onPrices = giá khuyến mãi
+  // onPrices = 0 → không có khuyến mãi
+  // onPrices > 0 → có khuyến mãi (giá sau khi giảm)
   const originalPriceValue = apiProduct.price || 0;  // Giá gốc
-  const promotionPriceValue = apiProduct.onPrice || 
-    (Array.isArray(apiProduct.onPrices) && apiProduct.onPrices.length > 0 ? apiProduct.onPrices[0] : null) ||
-    (typeof apiProduct.onPrices === 'number' ? apiProduct.onPrices : null);  // Giá khuyến mãi
+  const onPricesValue = apiProduct.onPrices || apiProduct.onPrice || 0;  // Giá khuyến mãi (có thể là number hoặc array)
   
-  // Có khuyến mãi khi có promotionPrice và nó nhỏ hơn giá gốc
-  const hasPromotion = promotionPriceValue && promotionPriceValue > 0 && originalPriceValue > promotionPriceValue;
+  // Xử lý onPrices: nếu là array thì lấy phần tử đầu, nếu là number thì dùng trực tiếp
+  const promotionPriceValue = Array.isArray(onPricesValue) && onPricesValue.length > 0 
+    ? onPricesValue[0] 
+    : (typeof onPricesValue === 'number' ? onPricesValue : 0);
+  
+  // Có khuyến mãi khi onPrices > 0 và nhỏ hơn giá gốc
+  const hasPromotion = promotionPriceValue > 0 && originalPriceValue > promotionPriceValue;
   
   // Giá hiện tại = giá khuyến mãi nếu có, nếu không thì = giá gốc
   const currentPriceValue = hasPromotion ? promotionPriceValue : originalPriceValue;
