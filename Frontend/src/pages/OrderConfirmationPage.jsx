@@ -157,6 +157,157 @@ const OrderConfirmationPage = () => {
     );
   }
 
+  // Check if order is cancelled
+  const isCancelled = (orderData.status || '').toLowerCase() === 'cancelled' || 
+                      (orderData.status || '').toLowerCase() === 'canceled';
+
+  // Render cancelled order UI
+  if (isCancelled) {
+    return (
+      <div className="order-confirmation-container cancelled-order-container">
+        <div className="container">
+          {/* Cancelled Order Header */}
+          <div className="cancelled-header">
+            <div className="logo-section">
+              <div className="logo">TechZone</div>
+            </div>
+            
+            <div className="cancelled-status-section">
+              <div className="cancelled-icon-large">
+                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M15 9L9 15M9 9L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div className="cancelled-content">
+                <h1 className="cancelled-title">Đơn hàng đã bị hủy</h1>
+                <p className="cancelled-message">
+                  Đơn hàng <strong>#{String(orderData.orderId || orderData.id || '').padStart(6, '0')}</strong> đã bị hủy.
+                </p>
+                <p className="cancelled-submessage">
+                  Nếu bạn có thắc mắc về việc hủy đơn hàng, vui lòng liên hệ với chúng tôi qua email hoặc hotline.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Cancelled Order Details */}
+          <div className="cancelled-content-wrapper">
+            <div className="cancelled-details-grid">
+              {/* Left: Order Info */}
+              <div className="cancelled-details-left">
+                <div className="cancelled-info-section">
+                  <h3>Thông tin đơn hàng</h3>
+                  <div className="cancelled-info-item">
+                    <span className="label">Mã đơn hàng:</span>
+                    <span className="value">#{String(orderData.orderId || orderData.id || '').padStart(6, '0')}</span>
+                  </div>
+                  {orderData.orderDate && (
+                    <div className="cancelled-info-item">
+                      <span className="label">Ngày đặt:</span>
+                      <span className="value">
+                        {new Date(orderData.orderDate).toLocaleDateString('vi-VN', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                  )}
+                  <div className="cancelled-info-item">
+                    <span className="label">Trạng thái:</span>
+                    <span className="value cancelled-badge">Đã hủy</span>
+                  </div>
+                </div>
+
+                <div className="cancelled-info-section">
+                  <h3>Thông tin khách hàng</h3>
+                  <div className="cancelled-info-item">
+                    <span className="label">Họ tên:</span>
+                    <span className="value">{orderData.fullName || orderData.customerName || 'N/A'}</span>
+                  </div>
+                  <div className="cancelled-info-item">
+                    <span className="label">Email:</span>
+                    <span className="value">{orderData.email || orderData.customerEmail || 'N/A'}</span>
+                  </div>
+                  <div className="cancelled-info-item">
+                    <span className="label">Số điện thoại:</span>
+                    <span className="value">{orderData.phone || orderData.customerPhone || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Order Items */}
+              <div className="cancelled-details-right">
+                <div className="cancelled-order-summary">
+                  <h3>Chi tiết đơn hàng</h3>
+                  
+                  <div className="cancelled-order-items">
+                    {orderData.items && orderData.items.length > 0 ? (
+                      orderData.items.map((item, index) => (
+                        <div key={index} className="cancelled-order-item">
+                          <div className="cancelled-item-image">
+                            {item.image || item.imageUrl ? (
+                              <img 
+                                src={item.image || item.imageUrl} 
+                                alt={item.name || item.productName} 
+                                onError={(e) => {
+                                  e.target.src = 'https://via.placeholder.com/80?text=No+Image';
+                                }}
+                              />
+                            ) : (
+                              <div className="cancelled-item-placeholder"></div>
+                            )}
+                          </div>
+                          <div className="cancelled-item-info">
+                            <div className="cancelled-item-name">{item.name || item.productName || 'Sản phẩm'}</div>
+                            <div className="cancelled-item-meta">
+                              <span>Số lượng: {item.quantity || 1}</span>
+                              <span className="cancelled-item-price">
+                                {formatPrice(typeof item.price === 'number' ? item.price : (item.price || 0))}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="no-items">Không có sản phẩm trong đơn hàng</div>
+                    )}
+                  </div>
+
+                  <div className="cancelled-order-totals">
+                    <div className="cancelled-total-row">
+                      <span>Tổng tiền:</span>
+                      <span className="cancelled-total-amount">
+                        {formatPrice(typeof orderData.totalPrice === 'number' ? orderData.totalPrice : 0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action buttons for cancelled order */}
+          <div className="cancelled-actions">
+            <Link to="/products" className="cancelled-btn primary-btn">
+              Tiếp tục mua sắm
+            </Link>
+            <Link to="/orders" className="cancelled-btn secondary-btn">
+              Xem đơn hàng khác
+            </Link>
+            <Link to="/contact" className="cancelled-btn outline-btn">
+              Liên hệ hỗ trợ
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal order confirmation UI
   return (
     <div className="order-confirmation-container">
       <div className="container">
@@ -313,10 +464,22 @@ const OrderConfirmationPage = () => {
           <Link to="/products" className="action-btn continue-shopping">
             Tiếp tục mua hàng
           </Link>
-          <button onClick={handlePrint} className="action-btn print-btn">
-            <span className="print-icon">🖨️</span>
-            In
-          </button>
+          {!isCancelled && (
+            <button onClick={handlePrint} className="action-btn print-btn">
+              <span className="print-icon">🖨️</span>
+              In
+            </button>
+          )}
+          <Link to="/orders" className="action-btn" style={{ 
+            background: isCancelled ? '#dc2626' : '#0a804a',
+            color: 'white',
+            textDecoration: 'none',
+            padding: '12px 24px',
+            borderRadius: '6px',
+            fontWeight: '500'
+          }}>
+            {isCancelled ? 'Quay lại danh sách đơn hàng' : 'Xem đơn hàng của tôi'}
+          </Link>
         </div>
       </div>
     </div>
