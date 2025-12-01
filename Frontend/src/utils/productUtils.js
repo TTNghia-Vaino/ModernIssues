@@ -89,6 +89,58 @@ const normalizeImageCollection = (collection) => {
 };
 
 /**
+ * Normalize brand name - fix common typos
+ * @param {string} brand - Brand name from API
+ * @returns {string} - Normalized brand name
+ */
+const normalizeBrandName = (brand) => {
+  if (!brand || typeof brand !== 'string') {
+    return brand || '';
+  }
+  
+  const brandLower = brand.toLowerCase().trim();
+  
+  // Fix common typos
+  const brandMap = {
+    'kingstom': 'Kingston',
+    'kingston': 'Kingston',
+    'samsung': 'Samsung',
+    'intel': 'Intel',
+    'amd': 'AMD',
+    'nvidia': 'NVIDIA',
+    'lenovo': 'Lenovo',
+    'asus': 'ASUS',
+    'acer': 'Acer',
+    'hp': 'HP',
+    'dell': 'Dell',
+    'msi': 'MSI',
+    'gigabyte': 'Gigabyte',
+    'corsair': 'Corsair',
+    'crucial': 'Crucial',
+    'western digital': 'Western Digital',
+    'seagate': 'Seagate',
+    'toshiba': 'Toshiba'
+  };
+  
+  // Check exact match first
+  if (brandMap[brandLower]) {
+    return brandMap[brandLower];
+  }
+  
+  // Check partial match (contains)
+  for (const [key, value] of Object.entries(brandMap)) {
+    if (brandLower.includes(key) || key.includes(brandLower)) {
+      return value;
+    }
+  }
+  
+  // If no match, capitalize first letter of each word
+  return brand.split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+/**
  * Transform API product format to component format
  * API format: { productId, productName, imageUrl, categoryName, ... }
  * Component format: { id, name, image, category, ... }
@@ -251,7 +303,7 @@ export const transformProduct = (apiProduct) => {
     description: apiProduct.description,
     stock: apiProduct.stock,
     warrantyPeriod: apiProduct.warrantyPeriod,
-    brand: apiProduct.brand,
+    brand: normalizeBrandName(apiProduct.brand), // Normalize brand name to fix typos
     specifications: apiProduct.specifications || apiProduct.specs || '',
     specs: apiProduct.specs, // Keep for backward compatibility
     badge: apiProduct.badge,

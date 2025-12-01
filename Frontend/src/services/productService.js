@@ -721,11 +721,38 @@ export const getBestSellingProducts = async (params = {}) => {
     
     const data = handleResponse(response);
     
-    // Extract data array if nested
-    if (data && typeof data === 'object' && Array.isArray(data.data)) {
-      return data.data;
+    if (import.meta.env.DEV) {
+      console.log('[ProductService.getBestSellingProducts] Raw data after handleResponse:', data);
+      console.log('[ProductService.getBestSellingProducts] Data type:', typeof data);
+      console.log('[ProductService.getBestSellingProducts] Is array:', Array.isArray(data));
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        console.log('[ProductService.getBestSellingProducts] Data keys:', Object.keys(data));
+      }
+    }
+    
+    // Extract data array if nested - try multiple possible structures
+    if (data && typeof data === 'object') {
+      if (Array.isArray(data.data)) {
+        return data.data;
+      } else if (Array.isArray(data.items)) {
+        return data.items;
+      } else if (Array.isArray(data.products)) {
+        return data.products;
+      } else if (Array.isArray(data.results)) {
+        return data.results;
+      } else if (Array.isArray(data)) {
+        return data;
+      }
     } else if (Array.isArray(data)) {
       return data;
+    }
+    
+    // If data is an object but not an array and doesn't have nested array, return empty
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      if (import.meta.env.DEV) {
+        console.warn('[ProductService.getBestSellingProducts] Data is object but no array found, returning empty array');
+      }
+      return [];
     }
     
     return data || [];

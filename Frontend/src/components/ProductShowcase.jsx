@@ -9,67 +9,77 @@ import banner22Img from '../assets/banner_22.webp';
 
 function ProductShowcase() {
   const navigate = useNavigate();
-  // Category icons section
+  // Category icons section with search keywords
   const categoryIcons = [
     {
       id: 1,
       name: "Tự build PC",
       image: "/images/categories/build-pc.png",
-      link: "/build-pc"
+      link: "/build-pc",
+      searchKeyword: "tự build"
     },
     {
       id: 2,
       name: "PC - Máy bộ",
       image: "/images/categories/pc-desktop.png",
-      link: "/pc-desktop"
+      link: "/pc-desktop",
+      searchKeyword: "PC"
     },
     {
       id: 3,
       name: "Màn hình",
       image: "/images/categories/monitor.png",
-      link: "/monitor"
+      link: "/monitor",
+      searchKeyword: "màn hình"
     },
     {
       id: 4,
       name: "Laptop",
       image: "/images/categories/laptop.png",
-      link: "/laptop"
+      link: "/laptop",
+      searchKeyword: "laptop"
     },
     {
       id: 5,
       name: "Chuột - Phím\nTai nghe",
       image: "/images/categories/accessories.png",
-      link: "/accessories"
+      link: "/accessories",
+      searchKeyword: "chuột bàn phím tai nghe"
     },
     {
       id: 6,
       name: "Ổ cứng SSD\nGắn trong",
       image: "/images/categories/ssd-internal.png",
-      link: "/ssd-internal"
+      link: "/ssd-internal",
+      searchKeyword: "SSD"
     },
     {
       id: 7,
       name: "Ổ cứng SSD\nDi động",
       image: "/images/categories/ssd-external.png",
-      link: "/ssd-external"
+      link: "/ssd-external",
+      searchKeyword: "SSD di động"
     },
     {
       id: 8,
       name: "Thẻ nhớ",
       image: "/images/categories/memory-card.png",
-      link: "/memory-card"
+      link: "/memory-card",
+      searchKeyword: "thẻ nhớ"
     },
     {
       id: 9,
       name: "RAM",
       image: "/images/categories/ram.png",
-      link: "/ram"
+      link: "/ram",
+      searchKeyword: "RAM"
     },
     {
       id: 10,
       name: "NAS",
       image: "/images/categories/nas.png",
-      link: "/nas"
+      link: "/nas",
+      searchKeyword: "NAS"
     }
   ];
 
@@ -134,7 +144,15 @@ function ProductShowcase() {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  // Navigate to products page with search keyword
+                  if (category.searchKeyword) {
+                    const searchParams = new URLSearchParams({ q: category.searchKeyword });
+                    navigate(`/products?${searchParams.toString()}`);
+                  } else if (category.link) {
+                    navigate(category.link);
+                  }
                 }}
+                style={{ cursor: 'pointer' }}
               >
                 <div className="category-icon-image">
                   <img src={category.image} alt={category.name} />
