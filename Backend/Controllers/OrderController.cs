@@ -1388,6 +1388,145 @@ namespace ModernIssues.Controllers
             }
         }
 
+        // ============================================
+        // CANCEL ORDER: PUT api/v1/Order/Cancel/{orderId} (Customer - Cancel own order)
+        // ============================================
+        /// <summary>
+        /// Hủy đơn hàng. Customer chỉ có thể hủy đơn hàng của chính họ và chỉ khi đơn hàng ở trạng thái "pending".
+        /// </summary>
+        /// <param name="orderId">ID của đơn hàng cần hủy.</param>
+        /// <response code="200">Hủy đơn hàng thành công.</response>
+        /// <response code="400">Không thể hủy đơn hàng (đã thanh toán, đã hủy, hoặc trạng thái không hợp lệ).</response>
+        /// <response code="401">Chưa đăng nhập.</response>
+        /// <response code="403">Không có quyền hủy đơn hàng này (không phải đơn hàng của bạn).</response>
+        /// <response code="404">Không tìm thấy đơn hàng.</response>
+        [HttpPut("Cancel/{orderId}")]
+        [ProducesResponseType(typeof(ApiResponse<OrderDto>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        public async Task<IActionResult> CancelOrder(int orderId)
+        {
+            // Kiểm tra đăng nhập
+            if (!AuthHelper.IsLoggedIn(HttpContext))
+            {
+                return Unauthorized(ApiResponse<object>.ErrorResponse("Bạn cần đăng nhập để thực hiện thao tác này."));
+            }
+
+            try
+            {
+                // Lấy userId từ session
+                var userId = AuthHelper.GetCurrentUserId(HttpContext);
+                if (!userId.HasValue)
+                {
+                    return Unauthorized(ApiResponse<object>.ErrorResponse("Không thể xác định người dùng hiện tại."));
+                }
+
+                // Tìm đơn hàng
+                var order = await _context.orders
+                    .FirstOrDefaultAsync(o => o.order_id == orderId);
+
+                if (order == null)
+                {
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy đơn hàng với ID: {orderId}."));
+                }
+
+                // Kiểm tra quyền: Customer chỉ có thể hủy đơn hàng của chính họ
+                // Admin có thể hủy bất kỳ đơn hàng nào (nhưng nên dùng endpoint UpdateOrderStatus)
+                var isAdmin = AuthHelper.IsAdmin(HttpContext);
+                if (!isAdmin && order.user_id != userId.Value)
+                {
+                    return StatusCode(403, ApiResponse<object>.ErrorResponse("Bạn chỉ có thể hủy đơn hàng của chính mình."));
+                }
+
+                // Kiểm tra trạng thái: Chỉ cho phép hủy đơn hàng ở trạng thái "pending"
+                var currentStatus = order.status?.ToLower() ?? "";
+                
+                if (currentStatus == "cancelled")
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse("Đơn hàng này đã được hủy trước đó."));
+                }
+
+                if (currentStatus == "paid")
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse(
+                        "Không thể hủy đơn hàng đã thanh toán. Vui lòng liên hệ admin để được hỗ trợ."));
+                }
+
+                if (currentStatus != "pending")
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResponse(
+                        $"Không thể hủy đơn hàng ở trạng thái '{order.status}'. Chỉ có thể hủy đơn hàng đang chờ xử lý."));
+                }
+
+                // Cập nhật trạng thái thành "cancelled"
+                order.status = "cancelled";
+                order.updated_at = DateTime.UtcNow;
+                order.updated_by = userId.Value;
+
+                await _context.SaveChangesAsync();
+
+                // Lấy lại thông tin đơn hàng với đầy đủ thông tin
+                var cancelledOrder = await (from o in _context.orders
+                                         join u in _context.users on o.user_id equals u.user_id into userGroup
+                                         from u in userGroup.DefaultIfEmpty()
+                                         where o.order_id == orderId
+                                         select new OrderDto
+                                         {
+                                             OrderId = o.order_id,
+                                             UserId = o.user_id,
+                                             Username = u != null ? u.username : null,
+                                             OrderDate = o.order_date,
+                                             Status = o.status,
+                                             TotalAmount = o.total_amount,
+                                             Types = o.types,
+                                             TypesDisplay = o.types == "COD" ? "Thanh toán khi nhận hàng" :
+                                                           o.types == "Transfer" ? "Chuyển khoản" :
+                                                           o.types == "ATM" ? "Thẻ ATM" : o.types ?? "COD",
+                                             CreatedAt = o.created_at,
+                                             UpdatedAt = o.updated_at,
+                                             CreatedBy = o.created_by,
+                                             UpdatedBy = o.updated_by,
+                                             OrderDetails = _context.order_details
+                                                 .Where(od => od.order_id == o.order_id)
+                                                 .Join(_context.products,
+                                                     od => od.product_id,
+                                                     p => p.product_id,
+                                                     (od, p) => new OrderDetailDto
+                                                     {
+                                                         OrderId = od.order_id,
+                                                         ProductId = od.product_id,
+                                                         ProductName = p.product_name ?? "",
+                                                         Quantity = od.quantity,
+                                                         PriceAtPurchase = od.price_at_purchase,
+                                                         ImageUrl = p.image_url,
+                                                         CreatedAt = od.created_at,
+                                                         UpdatedAt = od.updated_at,
+                                                         CreatedBy = od.created_by,
+                                                         UpdatedBy = od.updated_by
+                                                     })
+                                                 .ToList()
+                                         })
+                                         .FirstOrDefaultAsync();
+
+                if (cancelledOrder == null)
+                {
+                    return NotFound(ApiResponse<object>.ErrorResponse($"Không tìm thấy đơn hàng với ID: {orderId}."));
+                }
+
+                return Ok(ApiResponse<OrderDto>.SuccessResponse(cancelledOrder, 
+                    "Hủy đơn hàng thành công. Đơn hàng đã được chuyển sang trạng thái 'Đã hủy'."));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRITICAL ERROR] CancelOrder: {ex.Message}");
+                return StatusCode(500, ApiResponse<object>.ErrorResponse(
+                    "Lỗi hệ thống khi hủy đơn hàng.",
+                    new List<string> { ex.Message }));
+            }
+        }
+
         /// <summary>
         /// Xử lý trừ stock và bán serial cho đơn hàng khi thanh toán thành công (COD)
         /// </summary>
