@@ -426,12 +426,14 @@ function ProductDetail() {
             <h1 className="product-title">{product.name}</h1>
             
             <div className="product-meta">
-              <div className="meta-item">
-                <span className="label">Thương hiệu:</span>
-                <Link to={`/products?brand=${product.brand || 'Kingston'}`} className="brand-link">
-                  {product.brand || 'Kingston'}
-                </Link>
-              </div>
+              {product.brand && (
+                <div className="meta-item">
+                  <span className="label">Thương hiệu:</span>
+                  <Link to={`/products?brand=${encodeURIComponent(product.brand)}`} className="brand-link">
+                    {product.brand}
+                  </Link>
+                </div>
+              )}
               <div className="meta-item">
                 <span className="label">SKU:</span>
                 <span className="sku">{product.sku || product.id}</span>
