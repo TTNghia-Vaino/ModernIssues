@@ -38,6 +38,7 @@ const ProductsList = () => {
   const [q, setQ] = useState(initialQ);
   const [brand, setBrand] = useState('');
   const [category, setCategory] = useState(effectiveCategory); // Set category từ URL hoặc subcategory
+  const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [loading, setLoading] = useState(true);
   const [brands, setBrands] = useState([]); // Brands từ API
@@ -153,6 +154,7 @@ const ProductsList = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
+
 
   const loadProductsByPromotion = async (promotionId) => {
     try {
@@ -375,13 +377,14 @@ const ProductsList = () => {
 
   // Search and filter products (chỉ filter client-side nếu không có query từ URL)
   // Nếu có query từ URL, products đã được filter từ API rồi
-  const searchProducts = ({ q = '', brand = '', category = '', maxPrice, hasUrlQuery = false } = {}) => {
-    // Nếu có query từ URL, chỉ filter theo brand, category, maxPrice (API đã filter theo q rồi)
+  const searchProducts = ({ q = '', brand = '', category = '', minPrice, maxPrice, hasUrlQuery = false } = {}) => {
+    // Nếu có query từ URL, chỉ filter theo brand, category, minPrice, maxPrice (API đã filter theo q rồi)
     // Nếu không có query từ URL, filter cả theo q (client-side)
     return products.filter(p => (
       (!hasUrlQuery && (!q || p.name.toLowerCase().includes(q.toLowerCase()))) &&
       (!brand || p.brand === brand) &&
       (!category || p.category === category) &&
+      (minPrice === undefined || minPrice === '' || p.price >= Number(minPrice)) &&
       (maxPrice === undefined || maxPrice === '' || p.price <= Number(maxPrice))
     ));
   };
@@ -405,12 +408,13 @@ const ProductsList = () => {
       maxPrice
     });
     
-    // Nếu có query từ URL, API đã filter rồi, chỉ cần filter theo brand/category/maxPrice nếu có
+    // Nếu có query từ URL, API đã filter rồi, chỉ cần filter theo brand/category/minPrice/maxPrice nếu có
     if (hasUrlQuery) {
-      // API đã filter theo q rồi, chỉ filter theo brand/category/maxPrice
+      // API đã filter theo q rồi, chỉ filter theo brand/category/minPrice/maxPrice
       const filteredByFilters = products.filter(p => (
         (!brand || p.brand === brand) &&
         (!category || p.category === category) &&
+        (minPrice === undefined || minPrice === '' || p.price >= Number(minPrice)) &&
         (maxPrice === undefined || maxPrice === '' || p.price <= Number(maxPrice))
       ));
       console.log('[ProductsList] Filtered by filters (hasUrlQuery):', filteredByFilters.length);
@@ -420,9 +424,10 @@ const ProductsList = () => {
     // Nếu có categoryId từ URL, API đã filter theo categoryId rồi
     // Không nên filter client-side theo category nữa (vì category state là categoryId, không phải category name)
     if (hasUrlCategoryId) {
-      // API đã filter theo categoryId rồi, chỉ filter theo brand/maxPrice nếu có
+      // API đã filter theo categoryId rồi, chỉ filter theo brand/minPrice/maxPrice nếu có
       const filteredByFilters = products.filter(p => (
         (!brand || p.brand === brand) &&
+        (minPrice === undefined || minPrice === '' || p.price >= Number(minPrice)) &&
         (maxPrice === undefined || maxPrice === '' || p.price <= Number(maxPrice))
       ));
       console.log('[ProductsList] Filtered by filters (hasUrlCategoryId):', filteredByFilters.length);
@@ -430,10 +435,10 @@ const ProductsList = () => {
     }
     
     // Không có query từ URL và không có categoryId -> filter client-side theo tất cả criteria
-    const filtered = searchProducts({ q, brand, category, maxPrice, hasUrlQuery: false });
+    const filtered = searchProducts({ q, brand, category, minPrice, maxPrice, hasUrlQuery: false });
     console.log('[ProductsList] Filtered client-side (noUrlQuery):', filtered.length);
     return filtered;
-  }, [products, q, brand, category, maxPrice, search, hasUrlQuery, hasUrlCategoryId]);
+  }, [products, q, brand, category, minPrice, maxPrice, search, hasUrlQuery, hasUrlCategoryId]);
 
   const handleProductClick = (productId) => {
     // Scroll to top immediately before navigation
@@ -482,8 +487,9 @@ const ProductsList = () => {
                 <option value="">Danh mục</option>
                 {categories.map(c=> <option key={c} value={c}>{c}</option>)}
               </select>
-              <input type="number" placeholder="Giá tối đa" value={maxPrice} onChange={e=>setMaxPrice(e.target.value)} />
-              <button onClick={()=>{setQ('');setBrand('');setCategory('');setMaxPrice('');}}>Xóa bộ lọc</button>
+              <input type="number" placeholder="Giá nhỏ nhất" value={minPrice} onChange={e=>setMinPrice(e.target.value)} />
+              <input type="number" placeholder="Giá lớn nhất" value={maxPrice} onChange={e=>setMaxPrice(e.target.value)} />
+              <button onClick={()=>{setQ('');setBrand('');setCategory('');setMinPrice('');setMaxPrice('');}}>Xóa bộ lọc</button>
             </div>
           </aside>
         )}
@@ -509,7 +515,7 @@ const ProductsList = () => {
                   <p style={{fontSize: '18px', marginBottom: '10px'}}>Không tìm thấy sản phẩm nào.</p>
                   {hasUrlQuery && (
                     <p style={{fontSize: '14px', color: '#9ca3af'}}>
-                      Có thể do lỗi Backend API (500). Vui lòng thử lại sau hoặc liên hệ admin.
+                      Không tìm thấy sản phẩm phù hợp với từ khóa "{q}". Vui lòng thử lại với từ khóa khác.
                     </p>
                   )}
                   {!hasUrlQuery && (
